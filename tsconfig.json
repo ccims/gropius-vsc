@@ -1,0 +1,33 @@
+{
+	"compilerOptions": {
+		"module": "Node16",
+		"target": "ES2022",
+		"outDir": "out",
+		"lib": [
+			"ES2022",
+			"DOM" /* Include DOM support for browser-based APIs */
+		],
+		"sourceMap": true,
+		"rootDir": "src",
+		"strict": true, /* Enable all strict type-checking options */
+		"esModuleInterop": true, /* Allow compatibility with CommonJS and ES Modules */
+		"skipLibCheck": true, /* Skip type checking for declaration files for faster builds */
+		"resolveJsonModule": true, /* Support importing JSON files as modules */
+		"noImplicitAny": true, /* Warn on variables with implicit any type */
+		"moduleResolution": "Node16", /* Use Node.js module resolution */
+		"allowSyntheticDefaultImports": true, /* Allow default imports from modules without default exports */
+		"types": ["node", "vscode"], /* Include types for Node.js and VS Code */
+		"jsx": "preserve", /* Needed if you're using JSX in Vue */
+		"paths": {
+			"@/*": ["./src/*"] /* Alias for cleaner imports */
+		}
+	},
+	"include": [
+		"src/**/*.ts",
+		"src/**/*.vue"
+	],
+	"exclude": [
+		"node_modules",
+		".vscode-test"
+	]
+}
