@@ -19,7 +19,24 @@
         "command": "gropius.helloWorld",
         "title": "Hello World"
       }
+    ],
+    "viewsContainers": {
+    "activitybar": [
+      {
+        "id": "gropiusActivityBar",
+        "title": "Gropius",
+        "icon": "resources/icon.png"
+      }
     ]
+  },
+  "views": {
+    "gropiusActivityBar": [
+      {
+        "id": "gropiusSidebar",
+        "name": "Gropius Sidebar"
+      }
+    ]
+  }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",

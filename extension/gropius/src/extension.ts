@@ -1,11 +1,40 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
-import path from 'path';
 import * as vscode from 'vscode';
+import * as path from 'path';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
+
+	vscode.window.registerWebviewViewProvider('gropiusSidebar', {
+		resolveWebviewView(webviewView) {
+		  // Enable scripts in the webview
+		  webviewView.webview.options = { enableScripts: true };
+	  
+		  // Set the HTML content for the sidebar
+		  const webviewUri = webviewView.webview.asWebviewUri(
+			vscode.Uri.file(path.join(context.extensionPath, 'dist', 'webview', 'index.html'))
+		  );
+	  
+		  webviewView.webview.html = `
+			<!DOCTYPE html>
+			<html lang="en">
+			<head>
+			  <meta charset="UTF-8">
+			  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+			  <title>Gropius Sidebar</title>
+			  <script defer="defer" src="${webviewView.webview.asWebviewUri(vscode.Uri.file(path.join(context.extensionPath, 'dist', 'webview', 'js', 'chunk-vendors.js')))}"></script>
+			  <script defer="defer" src="${webviewView.webview.asWebviewUri(vscode.Uri.file(path.join(context.extensionPath, 'dist', 'webview', 'js', 'app.js')))}"></script>
+			</head>
+			<body>
+			  <div id="app"></div>
+			</body>
+			</html>
+		  `;
+		},
+	  });
+
 	let disposable = vscode.commands.registerCommand('gropius.helloWorld', () => {
 	  const panel = vscode.window.createWebviewPanel(
 		'gropius.helloWorld', // Internal identifier of the webview
