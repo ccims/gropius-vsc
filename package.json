@@ -23,7 +23,7 @@
       },
       {
         "command": "extension.openProject",
-        "title": "Open Project"
+        "title": "Open Project, Component, or Issue"
       }
     ],
     "views": {

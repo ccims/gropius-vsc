@@ -3,17 +3,18 @@ import * as path from 'path';
 
 // Tree Item Implementation
 class ProjectItem extends vscode.TreeItem {
-    tooltip: string | undefined;
-    iconPath: vscode.ThemeIcon | undefined;
-
     constructor(
-        public readonly label: string, // Property initialized via constructor parameter
+        public readonly label: string,
         public readonly collapsibleState: vscode.TreeItemCollapsibleState,
-        public readonly command?: vscode.Command
+        public readonly command?: vscode.Command,
+        public readonly parent?: string // Add parent to group components and issues
     ) {
-        super(label, collapsibleState); // Pass the label to the parent class
-        this.tooltip = `Project: ${label}`; // Initialize additional properties
-        this.iconPath = new vscode.ThemeIcon('file-directory'); // Example icon
+        super(label, collapsibleState);
+
+        this.tooltip = parent ? `${parent}: ${this.label}` : this.label;
+        this.iconPath = new vscode.ThemeIcon(
+            collapsibleState === vscode.TreeItemCollapsibleState.None ? 'file' : 'folder'
+        );
     }
 }
 
@@ -22,9 +23,12 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
     private _onDidChangeTreeData: vscode.EventEmitter<ProjectItem | undefined | null | void> = new vscode.EventEmitter<ProjectItem | undefined | null | void>();
     readonly onDidChangeTreeData: vscode.Event<ProjectItem | undefined | null | void> = this._onDidChangeTreeData.event;
 
-    private projects: string[] = ['Project A', 'Project B', 'Project C'];
+    private projects: { [key: string]: { components: string[]; issues: string[] } } = {
+        'Project A': { components: ['Component A', 'Component B', 'Component C'], issues: ['Issue A', 'Issue B', 'Issue C'] },
+        'Project B': { components: ['Component D', 'Component E', 'Component F'], issues: ['Issue D', 'Issue E', 'Issue F'] },
+        'Project C': { components: ['Component G', 'Component H', 'Component I'], issues: ['Issue G', 'Issue H', 'Issue I'] }
+    };
 
-    // Refresh the tree view
     refresh(): void {
         this._onDidChangeTreeData.fire();
     }
@@ -34,26 +38,56 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
     }
 
     getChildren(element?: ProjectItem): Thenable<ProjectItem[]> {
-        if (element) {
-            // Optional: Return child items for a project
-            return Promise.resolve([]);
-        } else {
-            // Top-level items (projects)
+        if (!element) {
+            // Top-level: Return projects
             return Promise.resolve(
-                this.projects.map(
-                    project =>
+                Object.keys(this.projects).map(
+                    project => new ProjectItem(project, vscode.TreeItemCollapsibleState.Collapsed)
+                )
+            );
+        } else if (Object.keys(this.projects).includes(element.label)) {
+            // Project level: Return "Components" and "Issues" groups
+            return Promise.resolve([
+                new ProjectItem('Components', vscode.TreeItemCollapsibleState.Collapsed, undefined, element.label), // Set parent to project name
+                new ProjectItem('Issues', vscode.TreeItemCollapsibleState.Collapsed, undefined, element.label) // Set parent to project name
+            ]);
+        } else if (element.label === 'Components' && element.parent) {
+            // Components group: Return component items
+            const projectComponents = this.projects[element.parent].components;
+            return Promise.resolve(
+                projectComponents.map(
+                    component =>
                         new ProjectItem(
-                            project,
+                            component,
                             vscode.TreeItemCollapsibleState.None,
                             {
                                 command: 'extension.openProject',
-                                title: 'Open Project',
-                                arguments: [project],
+                                title: 'Open Component',
+                                arguments: [component],
+                            }
+                        )
+                )
+            );
+        } else if (element.label === 'Issues' && element.parent) {
+            // Issues group: Return issue items
+            const projectIssues = this.projects[element.parent].issues;
+            return Promise.resolve(
+                projectIssues.map(
+                    issue =>
+                        new ProjectItem(
+                            issue,
+                            vscode.TreeItemCollapsibleState.None,
+                            {
+                                command: 'extension.openProject',
+                                title: 'Open Issue',
+                                arguments: [issue],
                             }
                         )
                 )
             );
         }
+    
+        return Promise.resolve([]);
     }
 }
 
@@ -67,14 +101,14 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('projectsView.refresh', () => projectsProvider.refresh())
     );
 
-    // Command to handle opening a project
+    // Command to open a project, component, or issue
     context.subscriptions.push(
-        vscode.commands.registerCommand('extension.openProject', (project: string) => {
-            vscode.window.showInformationMessage(`Opening project: ${project}`);
+        vscode.commands.registerCommand('extension.openProject', (item: ProjectItem) => {
+            vscode.window.showInformationMessage(`You selected: ${item.label}`);
         })
     );
 
-    // Your existing webview command
+    // Command to show the webview
     context.subscriptions.push(
         vscode.commands.registerCommand('extension.showWebview', () => {
             const panel = vscode.window.createWebviewPanel(
