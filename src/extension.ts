@@ -8,7 +8,8 @@ class ProjectItem extends vscode.TreeItem {
         public readonly label: string,
         public readonly collapsibleState: vscode.TreeItemCollapsibleState,
         public readonly command?: vscode.Command,
-        public readonly parent?: string // Add parent for nested tree items
+        public readonly parent?: string, // Parent project name
+        public readonly contextValue?: string // Context value for tree item
     ) {
         super(label, collapsibleState);
 
@@ -16,6 +17,10 @@ class ProjectItem extends vscode.TreeItem {
         this.iconPath = new vscode.ThemeIcon(
             collapsibleState === vscode.TreeItemCollapsibleState.None ? "file" : "folder"
         );
+
+        if (contextValue) {
+            this.contextValue = contextValue; // Assign contextValue explicitly
+        }
     }
 }
 
@@ -80,49 +85,67 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
         if (!element) {
             // Top-level: Combine static and dynamic projects
             const staticProjectItems = Object.keys(this.staticProjects).map(
-                project => new ProjectItem(project, vscode.TreeItemCollapsibleState.Collapsed, undefined, "static")
+                project => new ProjectItem(project, vscode.TreeItemCollapsibleState.Collapsed, undefined, undefined, "static")
             );
             const dynamicProjectItems = this.dynamicProjects.map(
                 project => new ProjectItem(project.name, vscode.TreeItemCollapsibleState.Collapsed, undefined, project.id)
             );
     
+            console.log("Static Projects:", staticProjectItems); // Debug log
+            console.log("Dynamic Projects:", dynamicProjectItems); // Debug log
+    
             return Promise.resolve([...staticProjectItems, ...dynamicProjectItems]);
-        } else if (element.contextValue === "static") {
-            // Static project: Return "Components" and "Issues" groups
+        }
+    
+        if (element.contextValue === "static") {
+            console.log("Fetching Components and Issues for Static Project:", element.label); // Debug log
             return Promise.resolve([
-                new ProjectItem("Components", vscode.TreeItemCollapsibleState.Collapsed, undefined, element.label),
-                new ProjectItem("Issues", vscode.TreeItemCollapsibleState.Collapsed, undefined, element.label)
+                new ProjectItem("Components", vscode.TreeItemCollapsibleState.Collapsed, undefined, element.label, "staticGroup"),
+                new ProjectItem("Issues", vscode.TreeItemCollapsibleState.Collapsed, undefined, element.label, "staticGroup")
             ]);
-        } else if (element.label === "Components" && element.parent) {
-            // Components group for static projects
+        }
+    
+        if (element.label === "Components" && element.parent && element.parent in this.staticProjects) {
             const projectComponents = this.staticProjects[element.parent]?.components || [];
+            console.log("Static Components for Project:", element.parent, ":", projectComponents); // Debug log
             return Promise.resolve(
                 projectComponents.map((component: string) =>
-                    new ProjectItem(component, vscode.TreeItemCollapsibleState.None)
+                    new ProjectItem(component, vscode.TreeItemCollapsibleState.None, undefined, element.parent)
                 )
             );
-        } else if (element.label === "Issues" && element.parent) {
-            // Issues group for static projects
+        }
+    
+        if (element.label === "Issues" && element.parent && element.parent in this.staticProjects) {
             const projectIssues = this.staticProjects[element.parent]?.issues || [];
+            console.log("Static Issues for Project:", element.parent, ":", projectIssues); // Debug log
             return Promise.resolve(
                 projectIssues.map((issue: string) =>
-                    new ProjectItem(issue, vscode.TreeItemCollapsibleState.None)
+                    new ProjectItem(issue, vscode.TreeItemCollapsibleState.None, undefined, element.parent)
                 )
             );
-        } else {
-            // Dynamic project: Return issues directly
-            const project = this.dynamicProjects.find(proj => proj.name === element.label);
-            if (project) {
+        }
+    
+        const dynamicProject = this.dynamicProjects.find(proj => proj.name === element.label || proj.id === element.parent);
+        if (dynamicProject) {
+            if (element.label === "Components") {
+                return Promise.resolve([]);
+            } else if (element.label === "Issues") {
                 return Promise.resolve(
-                    project.issues.map((issue: { id: string; title: string }) =>
+                    dynamicProject.issues.map((issue: { id: string; title: string }) =>
                         new ProjectItem(issue.title, vscode.TreeItemCollapsibleState.None)
                     )
                 );
+            } else {
+                return Promise.resolve([
+                    new ProjectItem("Components", vscode.TreeItemCollapsibleState.Collapsed, undefined, dynamicProject.id),
+                    new ProjectItem("Issues", vscode.TreeItemCollapsibleState.Collapsed, undefined, dynamicProject.id)
+                ]);
             }
         }
     
+        console.log("Unexpected element in getChildren:", element); // Debug log
         return Promise.resolve([]);
-    }
+    }         
 
     private getErrorMessage(error: unknown): string {
         if (error instanceof Error) {
