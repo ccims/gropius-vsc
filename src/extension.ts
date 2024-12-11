@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import { APIClient } from "./apiClient";
 
 // Tree Item Implementation
 class ProjectItem extends vscode.TreeItem {
@@ -7,13 +8,13 @@ class ProjectItem extends vscode.TreeItem {
         public readonly label: string,
         public readonly collapsibleState: vscode.TreeItemCollapsibleState,
         public readonly command?: vscode.Command,
-        public readonly parent?: string // Add parent to group components and issues
+        public readonly parent?: string // Add parent for nested tree items
     ) {
         super(label, collapsibleState);
 
-        this.tooltip = parent ? `${parent}: ${this.label}` : this.label;
+        this.tooltip = this.parent ? `${this.parent}: ${this.label}` : this.label;
         this.iconPath = new vscode.ThemeIcon(
-            collapsibleState === vscode.TreeItemCollapsibleState.None ? 'file' : 'folder'
+            collapsibleState === vscode.TreeItemCollapsibleState.None ? "file" : "folder"
         );
     }
 }
@@ -23,14 +24,52 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
     private _onDidChangeTreeData: vscode.EventEmitter<ProjectItem | undefined | null | void> = new vscode.EventEmitter<ProjectItem | undefined | null | void>();
     readonly onDidChangeTreeData: vscode.Event<ProjectItem | undefined | null | void> = this._onDidChangeTreeData.event;
 
-    private projects: { [key: string]: { components: string[]; issues: string[] } } = {
-        'Project A': { components: ['Component A', 'Component B', 'Component C'], issues: ['Issue A', 'Issue B', 'Issue C'] },
-        'Project B': { components: ['Component D', 'Component E', 'Component F'], issues: ['Issue D', 'Issue E', 'Issue F'] },
-        'Project C': { components: ['Component G', 'Component H', 'Component I'], issues: ['Issue G', 'Issue H', 'Issue I'] }
+    private staticProjects: { [key: string]: { components: string[]; issues: string[] } } = {
+        "Project A": { components: ["Component A", "Component B", "Component C"], issues: ["Issue A", "Issue B", "Issue C"] },
+        "Project B": { components: ["Component D", "Component E", "Component F"], issues: ["Issue D", "Issue E", "Issue F"] },
+        "Project C": { components: ["Component G", "Component H", "Component I"], issues: ["Issue G", "Issue H", "Issue I"] }
     };
+
+    private dynamicProjects: { id: string; name: string; issues: { id: string; title: string }[] }[] = []; // Store fetched dynamic projects
+    private apiClient: APIClient;
+
+    constructor(apiClient: APIClient) {
+        this.apiClient = apiClient;
+    }
 
     refresh(): void {
         this._onDidChangeTreeData.fire();
+    }
+
+    async fetchDynamicProjects(): Promise<void> {
+        const query = `
+            query {
+                projects {
+                    nodes {
+                        id
+                        name
+                        issues {
+                            nodes {
+                                id
+                                title
+                            }
+                        }
+                    }
+                }
+            }
+        `;
+
+        try {
+            const response = await this.apiClient.executeQuery(query);
+            this.dynamicProjects = response.data.projects.nodes.map((project: any) => ({
+                id: project.id,
+                name: project.name,
+                issues: project.issues.nodes
+            }));
+            this.refresh();
+        } catch (error: unknown) {
+            vscode.window.showErrorMessage(`Failed to fetch dynamic projects: ${this.getErrorMessage(error)}`);
+        }
     }
 
     getTreeItem(element: ProjectItem): vscode.TreeItem {
@@ -39,97 +78,90 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
 
     getChildren(element?: ProjectItem): Thenable<ProjectItem[]> {
         if (!element) {
-            // Top-level: Return projects
-            return Promise.resolve(
-                Object.keys(this.projects).map(
-                    project => new ProjectItem(project, vscode.TreeItemCollapsibleState.Collapsed)
-                )
+            // Top-level: Combine static and dynamic projects
+            const staticProjectItems = Object.keys(this.staticProjects).map(
+                project => new ProjectItem(project, vscode.TreeItemCollapsibleState.Collapsed, undefined, "static")
             );
-        } else if (Object.keys(this.projects).includes(element.label)) {
-            // Project level: Return "Components" and "Issues" groups
+            const dynamicProjectItems = this.dynamicProjects.map(
+                project => new ProjectItem(project.name, vscode.TreeItemCollapsibleState.Collapsed, undefined, project.id)
+            );
+    
+            return Promise.resolve([...staticProjectItems, ...dynamicProjectItems]);
+        } else if (element.contextValue === "static") {
+            // Static project: Return "Components" and "Issues" groups
             return Promise.resolve([
-                new ProjectItem('Components', vscode.TreeItemCollapsibleState.Collapsed, undefined, element.label), // Set parent to project name
-                new ProjectItem('Issues', vscode.TreeItemCollapsibleState.Collapsed, undefined, element.label) // Set parent to project name
+                new ProjectItem("Components", vscode.TreeItemCollapsibleState.Collapsed, undefined, element.label),
+                new ProjectItem("Issues", vscode.TreeItemCollapsibleState.Collapsed, undefined, element.label)
             ]);
-        } else if (element.label === 'Components' && element.parent) {
-            // Components group: Return component items
-            const projectComponents = this.projects[element.parent].components;
+        } else if (element.label === "Components" && element.parent) {
+            // Components group for static projects
+            const projectComponents = this.staticProjects[element.parent]?.components || [];
             return Promise.resolve(
-                projectComponents.map(
-                    component =>
-                        new ProjectItem(
-                            component,
-                            vscode.TreeItemCollapsibleState.None,
-                            {
-                                command: 'extension.openProject',
-                                title: 'Open Component',
-                                arguments: [component],
-                            }
-                        )
+                projectComponents.map((component: string) =>
+                    new ProjectItem(component, vscode.TreeItemCollapsibleState.None)
                 )
             );
-        } else if (element.label === 'Issues' && element.parent) {
-            // Issues group: Return issue items
-            const projectIssues = this.projects[element.parent].issues;
+        } else if (element.label === "Issues" && element.parent) {
+            // Issues group for static projects
+            const projectIssues = this.staticProjects[element.parent]?.issues || [];
             return Promise.resolve(
-                projectIssues.map(
-                    issue =>
-                        new ProjectItem(
-                            issue,
-                            vscode.TreeItemCollapsibleState.None,
-                            {
-                                command: 'extension.openProject',
-                                title: 'Open Issue',
-                                arguments: [issue],
-                            }
-                        )
+                projectIssues.map((issue: string) =>
+                    new ProjectItem(issue, vscode.TreeItemCollapsibleState.None)
                 )
             );
+        } else {
+            // Dynamic project: Return issues directly
+            const project = this.dynamicProjects.find(proj => proj.name === element.label);
+            if (project) {
+                return Promise.resolve(
+                    project.issues.map((issue: { id: string; title: string }) =>
+                        new ProjectItem(issue.title, vscode.TreeItemCollapsibleState.None)
+                    )
+                );
+            }
         }
     
         return Promise.resolve([]);
     }
+
+    private getErrorMessage(error: unknown): string {
+        if (error instanceof Error) {
+            return error.message;
+        }
+        return typeof error === "string" ? error : "An unknown error occurred";
+    }
 }
 
 export function activate(context: vscode.ExtensionContext) {
-    // Register the Tree Data Provider
-    const projectsProvider = new ProjectsProvider();
-    vscode.window.registerTreeDataProvider('projectsView', projectsProvider);
+    // const clientId = "YOUR_CLIENT_ID"; // Replace with your client ID
+    // const clientSecret = "YOUR_CLIENT_SECRET"; // Replace with your client secret
+    // const url = "http://localhost:4200"; // API URL
+    const clientId = "613ea755-c7a0-4713-9cb4-7469f036dba1"; // Replace with your client ID
+    const clientSecret = "fdf858356fa4f39df484fe17849f0e"; // Replace with your client secret
+    const url = "http://localhost:4200"; // API URL
 
-    // Command to refresh the tree view
-    context.subscriptions.push(
-        vscode.commands.registerCommand('projectsView.refresh', () => projectsProvider.refresh())
-    );
+    const apiClient = new APIClient(url, clientId, clientSecret);
+    const projectsProvider = new ProjectsProvider(apiClient);
 
-    // Command to open a project, component, or issue
+    vscode.window.registerTreeDataProvider("projectsView", projectsProvider);
+
     context.subscriptions.push(
-        vscode.commands.registerCommand('extension.openProject', (item: ProjectItem) => {
-            vscode.window.showInformationMessage(`You selected: ${item.label}`);
+        vscode.commands.registerCommand("projectsView.refresh", async () => {
+            await apiClient.authenticate();
+            await projectsProvider.fetchDynamicProjects();
         })
     );
 
-    // Command to show the webview
     context.subscriptions.push(
-        vscode.commands.registerCommand('extension.showWebview', () => {
-            const panel = vscode.window.createWebviewPanel(
-                'myWebview',
-                'My Webview',
-                vscode.ViewColumn.One,
-                {
-                    enableScripts: true,
-                    localResourceRoots: [
-                        vscode.Uri.file(path.join(context.extensionPath, 'out')),
-                    ],
-                }
-            );
-
-            const scriptPath = panel.webview.asWebviewUri(
-                vscode.Uri.file(path.join(context.extensionPath, 'out', 'webview.js'))
-            );
-
-            panel.webview.html = getWebviewContent(scriptPath);
+        vscode.commands.registerCommand("extension.openProject", (item: any) => {
+            vscode.window.showInformationMessage(`Selected: ${item.title || item.name}`);
         })
     );
+
+    // Authenticate and fetch projects initially
+    apiClient.authenticate()
+        .then(() => projectsProvider.fetchDynamicProjects())
+        .catch(error => vscode.window.showErrorMessage(`Initialization failed: ${error.message}`));
 }
 
 // Helper function to generate HTML content for the webview
