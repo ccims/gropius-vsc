@@ -1,4 +1,3 @@
-```markdown
 # How to Run the Application
 
 1. **Apply Credentials**
@@ -85,4 +84,3 @@
    - `<file_path>`: Path to the templates file (e.g., `templates.json`).
    - `<client_id>` and `<client_secret>`: Credentials from the auth client.
    - `[gropius_endpoint]`: Optional. If omitted, defaults to a local or pre-configured endpoint.
-```
