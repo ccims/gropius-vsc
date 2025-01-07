@@ -31,6 +31,10 @@
         {
           "id": "projectsView",
           "name": "Projects"
+        },
+        {
+          "id": "componentDetailsView",
+          "name": "Component Details"
         }
       ]
     }

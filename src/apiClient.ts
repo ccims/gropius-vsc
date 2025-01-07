@@ -53,28 +53,24 @@ export class APIClient {
      * @returns {Promise<any>} - Resolves with the JSON response of the query.
      * @throws {Error} - Throws an error if not authenticated or the query fails.
      */
-    async executeQuery(query: string): Promise<any> {
-        // Ensure the client is authenticated before executing the query
+    async executeQuery(query: string, variables?: Record<string, any>): Promise<any> {
         if (!this.token) {
             throw new Error("Not authenticated. Please call authenticate() first.");
         }
-
-        // Make a POST request to the GraphQL endpoint
+    
         const response = await fetch(`${this.url}/api/graphql`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer ${this.token}` // Include the access token in the Authorization header
+                Authorization: `Bearer ${this.token}`,
             },
-            body: JSON.stringify({ query }) // Send the query in the request body
+            body: JSON.stringify({ query, variables }), // Include variables here
         });
-
-        // Check if the response is not successful
+    
         if (!response.ok) {
             throw new Error(`GraphQL query failed: ${response.statusText}`);
         }
-
-        // Parse and return the JSON response
+    
         return response.json();
     }
 }
