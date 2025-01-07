@@ -1,71 +1,88 @@
-# gropius-vsc README
+```markdown
+# How to Run the Application
 
-This is the README for your extension "gropius-vsc". After writing up a brief description, we recommend including the following sections.
+1. **Apply Credentials**
+   - Open `src/config.ts`.
+   - Enter your **client credentials**, API endpoints, or any other required configuration.
 
-## Features
+2. **Install Dependencies**
+   ```bash
+   npm install
+   ```
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+3. **Build with Webpack**
+   ```bash
+   npm run webpack
+   ```
 
-For example if there is an image subfolder under your extension project workspace:
-
-\!\[feature X\]\(images/feature-x.png\)
-
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
-
-## Requirements
-
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
-
-## Extension Settings
-
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
-
-This extension contributes the following settings:
-
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
-
-## Known Issues
-
-Calling out known issues can help limit users opening duplicate issues against your extension.
-
-## Release Notes
-
-Users appreciate release notes as you update your extension.
-
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
+4. **Launch in VS Code**
+   - Open the project in Visual Studio Code.
+   - Press **F5** to start a new VS Code instance with your extension (or application) loaded.
 
 ---
 
-## Following extension guidelines
+# Starting Gropius
 
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
+1. **Generate the Environment**
+   - Update your system and install required tools:
+     ```bash
+     sudo apt-get update
+     sudo apt-get install dos2unix
+     ```
+   - Convert the script and execute it:
+     ```bash
+     dos2unix generate_env.sh
+     ./generate_env.sh
+     ```
 
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
+2. **Build the Project**
+   - Use Docker Compose to start the Gropius environment:
+     ```bash
+     docker compose up
+     ```
 
-## Working with Markdown
+3. **Log In**
+   - Use the default admin credentials to log in:
+     ```
+     Username: admin
+     Password: admin
+     ```
 
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
+---
 
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
+# Import Templates
 
-## For more information
+1. **Create an Auth Client**
+   - Use **Client Credential flow** as **System-Admin**.
+   - Ensure the following:
+     - The client requires a secret.
+     - The client is marked as valid.
 
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
+2. **Download the Templates**
+   - Obtain a prepared template file, e.g., `templates 1.json`.
 
-**Enjoy!**
+3. **Clone the Templates Importer**
+   - Clone the repository for the template importer:
+     ```bash
+     git clone https://github.com/ccims/template-importer
+     ```
+
+4. **Build and Run the Script**
+   - Install dependencies and build the project:
+     ```bash
+     npm i
+     npm run build
+     ```
+   - Run the importer script with your template file and credentials:
+     ```bash
+     npm start <file_path> <client_id> <client_secret> [gropius_endpoint]
+     ```
+   **Example**:
+   ```bash
+   npm start '.\templates 1.json' ebd7bfaf-7136-4549-b0b3-17a8b16a104b 9755d60ecd5ee8d94f10b293cd8bba
+   ```
+
+   - `<file_path>`: Path to the templates file (e.g., `templates.json`).
+   - `<client_id>` and `<client_secret>`: Credentials from the auth client.
+   - `[gropius_endpoint]`: Optional. If omitted, defaults to a local or pre-configured endpoint.
+```
