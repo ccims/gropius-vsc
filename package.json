@@ -9,21 +9,24 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "extension.showWebview",
-        "title": "Show My Webview"
+        "command": "extension.editComponentDetails",
+        "title": "Edit Component Details"
       },
       {
-        "command": "projectsView.refresh",
-        "title": "Refresh Projects"
+        "command": "extension.editComponentTitle",
+        "title": "Edit Component Title"
       },
       {
-        "command": "extension.openProject",
-        "title": "Open Project, Component, or Issue"
+        "command": "extension.editComponentDescription",
+        "title": "Edit Component Description"
+      },
+      {
+        "command": "extension.saveComponentDetails",
+        "title": "Save Component Details"
       }
     ],
     "views": {
@@ -35,6 +38,22 @@
         {
           "id": "componentDetailsView",
           "name": "Component Details"
+        }
+      ]
+    },
+    "menus": {
+      "view/item/context": [
+        {
+          "command": "extension.editComponentTitle",
+          "when": "viewItem == editTitle"
+        },
+        {
+          "command": "extension.editComponentDescription",
+          "when": "viewItem == editDescription"
+        },
+        {
+          "command": "extension.saveComponentDetails",
+          "when": "viewId == componentDetailsView"
         }
       ]
     }

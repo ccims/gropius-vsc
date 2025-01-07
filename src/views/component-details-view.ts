@@ -1,62 +1,48 @@
-import * as vscode from 'vscode';
+import * as vscode from "vscode";
 
-/**
- * TreeDataProvider for the "COMPONENT DETAILS" section.
- */
 export class ComponentDetailsProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
-    private _onDidChangeTreeData: vscode.EventEmitter<vscode.TreeItem | undefined | null | void> = new vscode.EventEmitter<vscode.TreeItem | undefined | null | void>();
-    readonly onDidChangeTreeData: vscode.Event<vscode.TreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
+    private _onDidChangeTreeData: vscode.EventEmitter<vscode.TreeItem | undefined | null | void> =
+        new vscode.EventEmitter<vscode.TreeItem | undefined | null | void>();
+    readonly onDidChangeTreeData: vscode.Event<vscode.TreeItem | undefined | null | void> =
+        this._onDidChangeTreeData.event;
 
-    private componentDetails: { name: string; description: string } | null = null;
+    private _component: { id: string; name: string; description: string } | null = null;
 
-    /**
-     * Refreshes the TreeView when data changes.
-     */
-    refresh(): void {
+    // Getter for the component property
+    get component(): { id: string; name: string; description: string } | null {
+        return this._component;
+    }
+
+    setComponentDetails(component: { id: string; name: string; description: string }) {
+        this._component = component;
         this._onDidChangeTreeData.fire();
     }
 
-    /**
-     * Sets the component details to display in the TreeView.
-     * @param component - The selected component.
-     */
-    setComponentDetails(component: { name: string; description: string }): void {
-        this.componentDetails = component;
-        this.refresh();
-    }
-
-    /**
-     * Gets the TreeItem for the given element.
-     * @param element - The TreeItem element.
-     */
     getTreeItem(element: vscode.TreeItem): vscode.TreeItem {
         return element;
     }
 
-    /**
-     * Provides the children of the TreeView.
-     * @param element - The parent TreeItem.
-     */
-    getChildren(element?: vscode.TreeItem): vscode.TreeItem[] {
-        if (!this.componentDetails) {
-            return []; // No component selected yet
+    getChildren(element?: vscode.TreeItem): Thenable<vscode.TreeItem[]> {
+        if (!this._component) {
+            return Promise.resolve([]);
         }
 
         if (!element) {
-            // Top-level: Component Name and Description groups
-            return [
-                new vscode.TreeItem(this.componentDetails.name, vscode.TreeItemCollapsibleState.Collapsed),
-                new vscode.TreeItem("Description", vscode.TreeItemCollapsibleState.Collapsed)
-            ];
+            return Promise.resolve([
+                new vscode.TreeItem(this._component.name, vscode.TreeItemCollapsibleState.None),
+                new vscode.TreeItem("Description", vscode.TreeItemCollapsibleState.Collapsed),
+            ]);
         }
 
         if (element.label === "Description") {
-            // Show description as a child
-            return [
-                new vscode.TreeItem(this.componentDetails.description, vscode.TreeItemCollapsibleState.None)
-            ];
+            const descriptionItem = new vscode.TreeItem(
+                this._component.description,
+                vscode.TreeItemCollapsibleState.None
+            );
+            descriptionItem.contextValue = "editDescription"; // Add context for editing
+            return Promise.resolve([descriptionItem]);
         }
 
-        return [];
+        return Promise.resolve([]);
     }
 }
