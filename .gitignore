@@ -3,3 +3,6 @@ dist
 node_modules
 .vscode-test/
 *.vsix
+
+# Ignore configuration file containing sensitive credentials
+src/config.ts
