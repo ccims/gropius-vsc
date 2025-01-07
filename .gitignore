@@ -1,8 +1,15 @@
+# Build output
 out
 dist
+
+# Dependencies
 node_modules
+
+# VS Code testing artifacts
 .vscode-test/
+
+# Packaged extensions
 *.vsix
 
-# Ignore configuration file containing sensitive credentials
+# Sensitive configuration
 src/config.ts
