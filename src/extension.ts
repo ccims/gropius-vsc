@@ -276,18 +276,25 @@ export function activate(context: vscode.ExtensionContext) {
     );
 
     context.subscriptions.push(
-        vscode.commands.registerCommand("extension.editComponentTitle", async (component) => {
-            const newTitle = await vscode.window.showInputBox({
-                prompt: "Enter new component title",
-                value: component.name,
-            });
-
-            if (newTitle) {
-                await projectsProvider.updateComponentDetails(component.id, newTitle, component.description);
-                componentDetailsProvider.setComponentDetails({
-                    ...component,
-                    name: newTitle,
+        vscode.commands.registerCommand("extension.editComponentTitle", async () => {
+            if (componentDetailsProvider.component) {
+                const newTitle = await vscode.window.showInputBox({
+                    prompt: "Edit Component Title",
+                    value: componentDetailsProvider.component.name,
                 });
+
+                if (newTitle) {
+                    await projectsProvider.updateComponentDetails(
+                        componentDetailsProvider.component.id,
+                        newTitle,
+                        componentDetailsProvider.component.description
+                    );
+
+                    componentDetailsProvider.setComponentDetails({
+                        ...componentDetailsProvider.component,
+                        name: newTitle,
+                    });
+                }
             }
         })
     );
