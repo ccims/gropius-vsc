@@ -1,48 +1,35 @@
-import { CLIENT_ID, CLIENT_SECRET, API_URL } from "./config";
 import * as vscode from "vscode";
+import { CLIENT_ID, CLIENT_SECRET, API_URL } from "./config";
 import { APIClient } from "./apiClient";
 import { ComponentDetailsProvider } from "./views/component-details-view";
+import { IssueDetailsProvider } from "./views/issue-details-view";
 
-/**
- * Represents a tree item in the VS Code TreeView.
- * Can represent projects, components, issues, or any other hierarchical data.
- */
 class ProjectItem extends vscode.TreeItem {
     constructor(
         public readonly label: string,
         public readonly collapsibleState: vscode.TreeItemCollapsibleState,
         public readonly command?: vscode.Command,
-        public readonly parent?: string, // Parent project name or identifier.
-        public readonly contextValue?: string, // Context value for conditional actions.
-        public readonly id?: string // Unique identifier for the item.
+        public readonly parent?: string,
+        public readonly contextValue?: string,
+        public readonly id?: string
     ) {
         super(label, collapsibleState);
-
-        // Tooltip for the tree item.
         this.tooltip = this.parent ? `${this.parent}: ${this.label}` : this.label;
-
-        // Determine the icon type based on whether the item is a file or folder.
         this.iconPath = new vscode.ThemeIcon(
             collapsibleState === vscode.TreeItemCollapsibleState.None ? "file" : "folder"
         );
-
         if (contextValue) {
-            this.contextValue = contextValue; // Assign context value if provided.
+            this.contextValue = contextValue;
         }
     }
 }
 
-/**
- * Provides the data for the "Projects" TreeView.
- * Manages the fetching, rendering, and interaction with dynamic projects, components, and issues.
- */
 class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
     private _onDidChangeTreeData: vscode.EventEmitter<ProjectItem | undefined | null | void> =
         new vscode.EventEmitter<ProjectItem | undefined | null | void>();
     readonly onDidChangeTreeData: vscode.Event<ProjectItem | undefined | null | void> =
         this._onDidChangeTreeData.event;
 
-    // Storage for dynamically fetched projects, components, and issues.
     private dynamicProjects: {
         id: string;
         name: string;
@@ -52,17 +39,10 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
 
     constructor(private apiClient: APIClient) {}
 
-    /**
-     * Refreshes the TreeView by firing a change event.
-     */
     refresh(): void {
         this._onDidChangeTreeData.fire();
     }
 
-    /**
-     * Fetches dynamic projects, components, and issues from the API.
-     * Updates the TreeView with the fetched data.
-     */
     async fetchDynamicProjects(): Promise<void> {
         const query = `
             query {
@@ -93,10 +73,16 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
 
         try {
             const response = await this.apiClient.executeQuery(query);
+            if (!response.data || !response.data.projects) {
+                throw new Error("Projects data is missing or in an unexpected format.");
+            }
             this.dynamicProjects = response.data.projects.nodes.map((project: any) => ({
                 id: project.id,
                 name: project.name,
-                issues: project.issues.nodes,
+                issues: project.issues.nodes.map((issue: any) => ({
+                    id: issue.id,
+                    title: issue.title,
+                })),
                 components: project.components.nodes.map((componentNode: any) => ({
                     id: componentNode.component.id,
                     name: componentNode.component.name,
@@ -111,63 +97,10 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
         }
     }
 
-    /**
-     * Updates a component's details (name and description) via an API mutation.
-     * @param componentId The unique identifier of the component.
-     * @param name The new name for the component.
-     * @param description The new description for the component.
-     */
-    async updateComponentDetails(
-        componentId: string,
-        name: string,
-        description: string
-    ): Promise<void> {
-        const mutation = `
-            mutation UpdateComponent($id: ID!, $name: String, $description: String) {
-                updateComponent(input: { id: $id, name: $name, description: $description }) {
-                    component {
-                        id
-                        name
-                        description
-                    }
-                }
-            }
-        `;
-
-        try {
-            const response = await this.apiClient.executeQuery(mutation, {
-                id: componentId,
-                name: name,
-                description: description,
-            });
-
-            vscode.window.showInformationMessage(
-                `Component updated successfully: ${response.data.updateComponent.component.name}`
-            );
-
-            // Refresh the data to reflect the changes.
-            await this.fetchDynamicProjects();
-        } catch (error: unknown) {
-            vscode.window.showErrorMessage(
-                `Failed to update component: ${this.getErrorMessage(error)}`
-            );
-        }
-    }
-
-    /**
-     * Maps a given ProjectItem element to its TreeItem representation.
-     * @param element The ProjectItem to map.
-     * @returns The TreeItem representation.
-     */
     getTreeItem(element: ProjectItem): vscode.TreeItem {
         return element;
     }
 
-    /**
-     * Retrieves the children for a given tree item or the top-level items if no parent is provided.
-     * @param element The parent tree item (optional).
-     * @returns A promise that resolves to an array of child tree items.
-     */
     getChildren(element?: ProjectItem): Thenable<ProjectItem[]> {
         if (!element) {
             const dynamicProjectItems = this.dynamicProjects.map(
@@ -211,8 +144,13 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
                             new ProjectItem(
                                 issue.title,
                                 vscode.TreeItemCollapsibleState.None,
-                                undefined,
-                                dynamicProject.id
+                                {
+                                    command: "extension.editIssueDetails",
+                                    title: "Edit Issue Details",
+                                    arguments: [issue],
+                                },
+                                dynamicProject.id,
+                                "issue"
                             )
                     )
                 );
@@ -237,11 +175,6 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
         return Promise.resolve([]);
     }
 
-    /**
-     * Retrieves a human-readable error message from an error object.
-     * @param error The error object.
-     * @returns A string message describing the error.
-     */
     private getErrorMessage(error: unknown): string {
         if (error instanceof Error) {
             return error.message;
@@ -250,17 +183,15 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
     }
 }
 
-/**
- * Activates the extension and registers commands, providers, and views.
- * @param context The extension context provided by VS Code.
- */
 export function activate(context: vscode.ExtensionContext) {
     const apiClient = new APIClient(API_URL, CLIENT_ID, CLIENT_SECRET);
     const projectsProvider = new ProjectsProvider(apiClient);
     const componentDetailsProvider = new ComponentDetailsProvider();
+    const issueDetailsProvider = new IssueDetailsProvider();
 
     vscode.window.registerTreeDataProvider("projectsView", projectsProvider);
     vscode.window.registerTreeDataProvider("componentDetailsView", componentDetailsProvider);
+    vscode.window.registerTreeDataProvider("issueDetailsView", issueDetailsProvider);
 
     context.subscriptions.push(
         vscode.commands.registerCommand("projectsView.refresh", async () => {
@@ -269,6 +200,7 @@ export function activate(context: vscode.ExtensionContext) {
         })
     );
 
+    // Component commands
     context.subscriptions.push(
         vscode.commands.registerCommand("extension.editComponentDetails", (component) => {
             componentDetailsProvider.setComponentDetails(component);
@@ -284,7 +216,7 @@ export function activate(context: vscode.ExtensionContext) {
                 });
 
                 if (newTitle) {
-                    await projectsProvider.updateComponentDetails(
+                    await apiClient.updateComponentDetails(
                         componentDetailsProvider.component.id,
                         newTitle,
                         componentDetailsProvider.component.description
@@ -308,7 +240,7 @@ export function activate(context: vscode.ExtensionContext) {
                 });
 
                 if (newDescription) {
-                    await projectsProvider.updateComponentDetails(
+                    await apiClient.updateComponentDetails(
                         componentDetailsProvider.component.id,
                         componentDetailsProvider.component.name,
                         newDescription
@@ -317,6 +249,36 @@ export function activate(context: vscode.ExtensionContext) {
                     componentDetailsProvider.setComponentDetails({
                         ...componentDetailsProvider.component,
                         description: newDescription,
+                    });
+                }
+            }
+        })
+    );
+
+    // Issue commands
+    context.subscriptions.push(
+        vscode.commands.registerCommand("extension.editIssueDetails", (issue) => {
+            issueDetailsProvider.setIssueDetails(issue);
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand("extension.editIssueTitle", async () => {
+            if (issueDetailsProvider.issue) {
+                const newTitle = await vscode.window.showInputBox({
+                    prompt: "Edit Issue Title",
+                    value: issueDetailsProvider.issue.title,
+                });
+
+                if (newTitle) {
+                    await apiClient.updateIssueDetails(
+                        issueDetailsProvider.issue.id,
+                        newTitle
+                    );
+
+                    issueDetailsProvider.setIssueDetails({
+                        ...issueDetailsProvider.issue,
+                        title: newTitle,
                     });
                 }
             }

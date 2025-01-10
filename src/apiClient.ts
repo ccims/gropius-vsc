@@ -59,4 +59,57 @@ export class APIClient {
 
         return response.json();
     }
+
+    /**
+     * Updates an issue's title via an API mutation.
+     * @param issueId The unique identifier of the issue.
+     * @param title The new title for the issue.
+     */
+    async updateIssueDetails(issueId: string, title: string): Promise<void> {
+        const mutation = `
+            mutation UpdateIssue($id: ID!, $title: String) {
+                updateIssue(input: { id: $id, title: $title }) {
+                    issue {
+                        id
+                        title
+                    }
+                }
+            }
+        `;
+
+        await this.executeQuery(mutation, {
+            id: issueId,
+            title: title,
+        });
+    }
+
+    /**
+     * Updates a component's details (name and description) via an API mutation.
+     * @param componentId The unique identifier of the component.
+     * @param name The new name for the component.
+     * @param description The new description for the component.
+     */
+    async updateComponentDetails(
+        componentId: string,
+        name: string,
+        description: string
+    ): Promise<void> {
+        const mutation = `
+            mutation UpdateComponent($id: ID!, $name: String, $description: String) {
+                updateComponent(input: { id: $id, name: $name, description: $description }) {
+                    component {
+                        id
+                        name
+                        description
+                    }
+                }
+            }
+        `;
+
+        await this.executeQuery(mutation, {
+            id: componentId,
+            name: name,
+            description: description,
+        });
+    }
 }
