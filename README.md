@@ -11,6 +11,7 @@
 
 3. **Build with Webpack**
    ```bash
+   npm run compile
    npm run webpack
    ```
 
