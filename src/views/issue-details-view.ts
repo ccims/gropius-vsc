@@ -1,4 +1,3 @@
-// issue-details-view.ts
 import * as vscode from "vscode";
 
 export class IssueDetailsProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
@@ -41,7 +40,7 @@ export class IssueDetailsProvider implements vscode.TreeDataProvider<vscode.Tree
         if (!element) {
             const titleItem = new vscode.TreeItem("Title", vscode.TreeItemCollapsibleState.Collapsed);
             titleItem.description = this.truncateText(this._issue.title);
-            titleItem.contextValue = "editIssueTitle"; // Context for right-clicking on issue title
+            titleItem.contextValue = "editTitle";
             return Promise.resolve([titleItem]);
         }
 

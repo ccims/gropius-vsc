@@ -53,15 +53,15 @@
       "view/item/context": [
         {
           "command": "extension.editComponentTitle",
-          "when": "viewItem == editComponentTitle"
+          "when": "viewItem == editTitle"
         },
         {
           "command": "extension.editComponentDescription",
-          "when": "viewItem == editComponentDescription"
+          "when": "viewItem == editDescription"
         },
         {
           "command": "extension.editIssueTitle",
-          "when": "viewItem == editIssueTitle"
+          "when": "viewItem == editTitle"
         }
       ]
     }

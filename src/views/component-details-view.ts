@@ -1,4 +1,3 @@
-// component-details-view.ts
 import * as vscode from "vscode";
 
 export class ComponentDetailsProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
@@ -42,7 +41,7 @@ export class ComponentDetailsProvider implements vscode.TreeDataProvider<vscode.
             // Always-visible items for Title and Description
             const titleItem = new vscode.TreeItem("Title", vscode.TreeItemCollapsibleState.Collapsed);
             titleItem.description = this.truncateText(this._component.name); // Show truncated title
-            titleItem.contextValue = "editComponentTitle"; // Add context for right-click editing
+            titleItem.contextValue = "editTitle"; // Add context for right-click editing
 
             const descriptionItem = new vscode.TreeItem(
                 `Description`,
