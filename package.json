@@ -98,6 +98,7 @@
   "dependencies": {
     "@gropius/graph-editor": "^0.0.3",
     "graphql": "^16.9.0",
-    "node-fetch": "^3.3.2"
+    "node-fetch": "^3.3.2",
+    "reflect-metadata": "^0.2.2"
   }
 }
