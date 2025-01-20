@@ -31,7 +31,11 @@
       {
         "command": "extension.editIssueTitle",
         "title": "Edit Issue Title"
-      }
+      },
+      {
+        "command": "extension.showVueApp",
+        "title": "Show Vue App"
+    }
     ],
     "views": {
       "explorer": [
@@ -73,7 +77,8 @@
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
     "test": "vscode-test",
-    "webpack": "webpack"
+    "webpack": "webpack",
+    "build:vue": "webpack --config webpack.config.js"
   },
   "devDependencies": {
     "@types/inversify": "^2.0.32",
