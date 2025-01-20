@@ -1,102 +1,114 @@
 <template>
-    <div id="graph-editor-id" class="graph-editor"></div>
+    <div class="graph-container" ref="container">
+      <svg :width="width" :height="height">
+        <!-- Links -->
+        <g class="links">
+          <path
+            v-for="link in links"
+            :key="link.id"
+            :d="getLinkPath(link)"
+            stroke="#999"
+            stroke-width="2"
+            fill="none"
+            marker-end="url(#arrowhead)"
+          />
+        </g>
+  
+        <!-- Nodes -->
+        <g class="nodes">
+          <g
+            v-for="node in nodes"
+            :key="node.id"
+            :transform="`translate(${node.x},${node.y})`"
+            class="node"
+          >
+            <!-- Component Rectangle -->
+            <rect
+              :width="nodeWidth"
+              :height="nodeHeight"
+              fill="white"
+              stroke="#333"
+              stroke-width="2"
+              rx="4"
+            />
+            <!-- Component Label -->
+            <text
+              :x="nodeWidth / 2"
+              :y="nodeHeight / 2"
+              text-anchor="middle"
+              alignment-baseline="middle"
+              fill="#333"
+            >
+              {{ node.label }}
+            </text>
+          </g>
+        </g>
+  
+        <!-- Arrow Marker Definition -->
+        <defs>
+          <marker
+            id="arrowhead"
+            viewBox="0 0 10 10"
+            refX="9"
+            refY="5"
+            markerWidth="6"
+            markerHeight="6"
+            orient="auto"
+          >
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#999"/>
+          </marker>
+        </defs>
+      </svg>
+    </div>
   </template>
   
-  <script lang="ts">
-  import { defineComponent, onMounted } from "vue";
-  import "reflect-metadata";  // Needed for the Sprotty model
-  import {
-    Graph,
-    GraphLayout,
-    GraphModelSource,
-    createContainer,
-    CreateRelationContext
-  } from "@gropius/graph-editor";
-  
-  export default defineComponent({
-    name: "GraphEditor",
-  
-    setup() {
-      onMounted(() => {
-        // Define the graph data (components and relations)
-        const graph: Graph = {
-          components: [
-            {
-              id: "component1",
-              name: "Component A",
-              style: { shape: "RECT", fill: { color: "lightblue" } },
-              issueTypes: [],
-              interfaces: [],
-              contextMenu: {},
-            },
-            {
-              id: "component2",
-              name: "Component B",
-              style: { shape: "RECT", fill: { color: "lightgreen" } },
-              issueTypes: [],
-              interfaces: [],
-              contextMenu: {},
-            },
-          ],
-          relations: [
-            {
-              id: "interface1",
-              name: "Interface Link",
-              start: "component1",
-              end: "component2",
-              style: { stroke: { color: "black" }, marker: "ARROW" },
-              contextMenu: {},
-            },
-          ],
-          issueRelations: [{ start: "component1", end: "component2", count: 3 }],
-        };
-  
-        const layout: GraphLayout = {
-          component1: { pos: { x: 100, y: 100 } },
-          component2: { pos: { x: 400, y: 100 } },
-          interface1: { points: [{ x: 200, y: 125 }, { x: 400, y: 125 }] },
-        };
-  
-        // Create a custom ModelSource class
-        class ModelSource extends GraphModelSource {
-          protected handleCreateRelation(context: CreateRelationContext): void {
-            console.log("Relation created:", context);
-          }
-  
-          protected layoutUpdated(partialUpdate: GraphLayout, resultingLayout: GraphLayout): void {
-            console.log("Layout updated:", resultingLayout);
-          }
-  
-          protected handleSelectionChanged(selectedElements: any[]): void {
-            console.log("Selection changed:", selectedElements);
-          }
-  
-          protected navigateToElement(element: string): void {
-            console.log("Navigate to element:", element);
-          }
-        }
-  
-        // Create the Sprotty container and bind the ModelSource
-        const container = createContainer("graph-editor-id");
-        container.bind(ModelSource).toSelf().inSingletonScope();
-  
-        const modelSource = container.get(ModelSource);
-  
-        // Update the graph and layout
-        modelSource.updateGraph({ graph, layout, fitToBounds: true });
-      });
-  
-      return {};
+  <script>
+  export default {
+    name: 'Graph',
+    data() {
+      return {
+        width: 600,
+        height: 400,
+        nodeWidth: 120,
+        nodeHeight: 60,
+        nodes: [
+          { id: 1, label: 'Component A', x: 100, y: 100 },
+          { id: 2, label: 'Component B', x: 400, y: 100 }
+        ],
+        links: [
+          { id: 1, source: 1, target: 2, label: 'Interface' }
+        ]
+      }
     },
-  });
+    methods: {
+      getLinkPath(link) {
+        const source = this.nodes.find(n => n.id === link.source)
+        const target = this.nodes.find(n => n.id === link.target)
+        
+        // Calculate start and end points (from right side of source to left side of target)
+        const startX = source.x + this.nodeWidth
+        const startY = source.y + this.nodeHeight / 2
+        const endX = target.x
+        const endY = target.y + this.nodeHeight / 2
+        
+        return `M ${startX} ${startY} L ${endX} ${endY}`
+      }
+    }
+  }
   </script>
   
   <style scoped>
-  .graph-editor {
-    width: 100%;
-    height: 500px;
-    border: 1px solid #ccc;
-    background-color: #f0f0f0;
+  .graph-container {
+    background-color: #f5f5f5;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+  }
+  
+  .node {
+    cursor: pointer;
+  }
+  
+  .node:hover rect {
+    stroke: #666;
   }
   </style>
-  
