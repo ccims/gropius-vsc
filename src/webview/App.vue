@@ -1,75 +1,102 @@
 <template>
-    <div id="app">
-      <h1>Graph Visualization</h1>
-      <div id="cy" style="width: 600px; height: 400px; border: 1px solid #ccc;"></div>
-    </div>
+    <div id="graph-editor-id" class="graph-editor"></div>
   </template>
   
-  <script>
-  import cytoscape from 'cytoscape';
+  <script lang="ts">
+  import { defineComponent, onMounted } from "vue";
+  import "reflect-metadata";  // Needed for the Sprotty model
+  import {
+    Graph,
+    GraphLayout,
+    GraphModelSource,
+    createContainer,
+    CreateRelationContext
+  } from "@gropius/graph-editor";
   
-  export default {
-    name: 'App',
-    mounted() {
-      this.initializeGraph();
-    },
-    methods: {
-      initializeGraph() {
-        const cy = cytoscape({
-          container: document.getElementById('cy'),
-          elements: [
-            // Nodes
-            { data: { id: 'a', label: 'Component A' } },
-            { data: { id: 'b', label: 'Component B' } },
-            // Edge
-            { data: { id: 'ab', source: 'a', target: 'b', label: 'Connection' } },
-          ],
-          style: [
+  export default defineComponent({
+    name: "GraphEditor",
+  
+    setup() {
+      onMounted(() => {
+        // Define the graph data (components and relations)
+        const graph: Graph = {
+          components: [
             {
-              selector: 'node',
-              style: {
-                'background-color': '#0074D9',
-                label: 'data(label)',
-                color: '#fff',
-                'text-valign': 'center',
-                'text-halign': 'center',
-              },
+              id: "component1",
+              name: "Component A",
+              style: { shape: "RECT", fill: { color: "lightblue" } },
+              issueTypes: [],
+              interfaces: [],
+              contextMenu: {},
             },
             {
-              selector: 'edge',
-              style: {
-                'width': 2,
-                'line-color': '#0074D9',
-                'target-arrow-color': '#0074D9',
-                'target-arrow-shape': 'triangle',
-                label: 'data(label)',
-                color: '#000',
-                'font-size': '10px',
-                'text-background-opacity': 1,
-                'text-background-color': '#fff',
-                'text-background-padding': '2px',
-              },
+              id: "component2",
+              name: "Component B",
+              style: { shape: "RECT", fill: { color: "lightgreen" } },
+              issueTypes: [],
+              interfaces: [],
+              contextMenu: {},
             },
           ],
-          layout: {
-            name: 'grid',
-          },
-        });
-      },
+          relations: [
+            {
+              id: "interface1",
+              name: "Interface Link",
+              start: "component1",
+              end: "component2",
+              style: { stroke: { color: "black" }, marker: "ARROW" },
+              contextMenu: {},
+            },
+          ],
+          issueRelations: [{ start: "component1", end: "component2", count: 3 }],
+        };
+  
+        const layout: GraphLayout = {
+          component1: { pos: { x: 100, y: 100 } },
+          component2: { pos: { x: 400, y: 100 } },
+          interface1: { points: [{ x: 200, y: 125 }, { x: 400, y: 125 }] },
+        };
+  
+        // Create a custom ModelSource class
+        class ModelSource extends GraphModelSource {
+          protected handleCreateRelation(context: CreateRelationContext): void {
+            console.log("Relation created:", context);
+          }
+  
+          protected layoutUpdated(partialUpdate: GraphLayout, resultingLayout: GraphLayout): void {
+            console.log("Layout updated:", resultingLayout);
+          }
+  
+          protected handleSelectionChanged(selectedElements: any[]): void {
+            console.log("Selection changed:", selectedElements);
+          }
+  
+          protected navigateToElement(element: string): void {
+            console.log("Navigate to element:", element);
+          }
+        }
+  
+        // Create the Sprotty container and bind the ModelSource
+        const container = createContainer("graph-editor-id");
+        container.bind(ModelSource).toSelf().inSingletonScope();
+  
+        const modelSource = container.get(ModelSource);
+  
+        // Update the graph and layout
+        modelSource.updateGraph({ graph, layout, fitToBounds: true });
+      });
+  
+      return {};
     },
-  };
+  });
   </script>
   
-  <style>
-  #app {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    font-family: Arial, sans-serif;
-  }
-  
-  h1 {
-    color: #333;
+  <style scoped>
+  .graph-editor {
+    width: 100%;
+    height: 500px;
+    border: 1px solid #ccc;
+    background-color: #f0f0f0;
   }
   </style>
   
