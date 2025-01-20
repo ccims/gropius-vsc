@@ -96,6 +96,7 @@
     "webpack-cli": "^5.1.4"
   },
   "dependencies": {
+    "@gropius/graph-editor": "^0.0.3",
     "graphql": "^16.9.0",
     "node-fetch": "^3.3.2"
   }
