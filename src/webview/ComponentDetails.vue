@@ -1,17 +1,27 @@
 <template>
   <div id="app">
-    <h1>Component Details</h1>
-    <div v-if="component">
-      <p><strong>Title:</strong></p>
-      <input v-model="editableTitle" @input="markEdited" />
-
-      <p><strong>Description:</strong></p>
-      <textarea v-model="editableDescription" @input="markEdited"></textarea>
-
-      <button @click="saveChanges" :disabled="!isEdited">Save</button>
-    </div>
-    <div v-else>
-      <p>No component selected.</p>
+    <div class="component-details-card">
+      <h1 class="component-title">{{ editableTitle }}</h1>
+      <p class="component-description">{{ editableDescription }}</p>
+      <div class="editor-section">
+        <label for="title" class="label">Title:</label>
+        <input
+          id="title"
+          class="input-field"
+          v-model="editableTitle"
+          @input="markEdited"
+        />
+        <label for="description" class="label">Description:</label>
+        <textarea
+          id="description"
+          class="textarea-field"
+          v-model="editableDescription"
+          @input="markEdited"
+        ></textarea>
+        <button class="save-button" @click="saveChanges" :disabled="!isEdited">
+          Save
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -62,37 +72,75 @@ export default {
 };
 </script>
 
-<style>
+<style scoped>
 #app {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
   font-family: Arial, sans-serif;
+  background-color: #1e1e1e;
+  color: white;
+  padding: 20px;
 }
 
-input,
-textarea {
-  margin: 10px 0;
-  width: 100%;
-  padding: 8px;
+.component-details-card {
+  background-color: #2b2b2b;
+  border-radius: 10px;
+  padding: 20px;
+  width: 600px;
+  margin: 0 auto;
+}
+
+.component-title {
+  font-size: 24px;
+  margin-bottom: 10px;
+}
+
+.component-description {
+  font-size: 16px;
+  margin-bottom: 20px;
+}
+
+.editor-section {
+  margin-top: 20px;
+}
+
+.label {
+  display: block;
+  font-weight: bold;
+  margin: 10px 0 5px;
+}
+
+.input-field,
+.textarea-field {
+  width: calc(100% - 20px); /* Adjusted to add padding around */
+  padding: 10px;
   font-size: 14px;
+  background-color: #3c3c3c;
+  color: white;
+  border: 1px solid #4a4a4a;
+  border-radius: 5px;
 }
 
-button {
-  padding: 10px 20px;
-  background-color: #0074d9;
+.textarea-field {
+  height: 100px;
+  resize: none;
+}
+
+.save-button {
+  background-color: #007acc;
   color: white;
   border: none;
+  border-radius: 5px;
+  padding: 10px 20px;
+  font-size: 14px;
+  margin-top: 10px;
   cursor: pointer;
-  font-size: 16px;
 }
 
-button:disabled {
-  background-color: #ccc;
+.save-button:disabled {
+  background-color: #555555;
   cursor: not-allowed;
 }
 
 h1 {
-  color: #333;
+  color: #fff;
 }
 </style>
