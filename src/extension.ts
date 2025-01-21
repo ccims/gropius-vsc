@@ -90,7 +90,7 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
                 })),
             }));
             this.refresh();
-        } catch (error: unknown) {
+        } catch (error) {
             vscode.window.showErrorMessage(
                 `Failed to fetch dynamic projects: ${this.getErrorMessage(error)}`
             );
@@ -112,6 +112,7 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
                         project.id
                     )
             );
+
             return Promise.resolve(dynamicProjectItems);
         }
 
@@ -200,88 +201,76 @@ export function activate(context: vscode.ExtensionContext) {
         })
     );
 
-    // Component commands
     context.subscriptions.push(
         vscode.commands.registerCommand("extension.editComponentDetails", (component) => {
-            componentDetailsProvider.setComponentDetails(component);
-        })
-    );
-
-    context.subscriptions.push(
-        vscode.commands.registerCommand("extension.editComponentTitle", async () => {
-            if (componentDetailsProvider.component) {
-                const newTitle = await vscode.window.showInputBox({
-                    prompt: "Edit Component Title",
-                    value: componentDetailsProvider.component.name,
-                });
-
-                if (newTitle) {
-                    await apiClient.updateComponentDetails(
-                        componentDetailsProvider.component.id,
-                        newTitle,
-                        componentDetailsProvider.component.description
-                    );
-
-                    componentDetailsProvider.setComponentDetails({
-                        ...componentDetailsProvider.component,
-                        name: newTitle,
-                    });
-                }
+            if (!component) {
+                vscode.window.showErrorMessage("No component data found to open.");
+                return;
             }
-        })
-    );
 
-    context.subscriptions.push(
-        vscode.commands.registerCommand("extension.editComponentDescription", async () => {
-            if (componentDetailsProvider.component) {
-                const newDescription = await vscode.window.showInputBox({
-                    prompt: "Edit Component Description",
-                    value: componentDetailsProvider.component.description,
-                });
-
-                if (newDescription) {
-                    await apiClient.updateComponentDetails(
-                        componentDetailsProvider.component.id,
-                        componentDetailsProvider.component.name,
-                        newDescription
-                    );
-
-                    componentDetailsProvider.setComponentDetails({
-                        ...componentDetailsProvider.component,
-                        description: newDescription,
-                    });
+            const panel = vscode.window.createWebviewPanel(
+                "componentDetails",
+                "Component Details",
+                vscode.ViewColumn.One,
+                {
+                    enableScripts: true,
+                    localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, "out", "webview")],
                 }
-            }
-        })
-    );
+            );
 
-    // Issue commands
-    context.subscriptions.push(
-        vscode.commands.registerCommand("extension.editIssueDetails", (issue) => {
-            issueDetailsProvider.setIssueDetails(issue);
-        })
-    );
+            const webviewPath = vscode.Uri.joinPath(
+                context.extensionUri,
+                "out",
+                "webview",
+                "componentDetails.js"
+            );
 
-    context.subscriptions.push(
-        vscode.commands.registerCommand("extension.editIssueTitle", async () => {
-            if (issueDetailsProvider.issue) {
-                const newTitle = await vscode.window.showInputBox({
-                    prompt: "Edit Issue Title",
-                    value: issueDetailsProvider.issue.title,
-                });
-
-                if (newTitle) {
-                    await apiClient.updateIssueDetails(
-                        issueDetailsProvider.issue.id,
-                        newTitle
-                    );
-
-                    issueDetailsProvider.setIssueDetails({
-                        ...issueDetailsProvider.issue,
-                        title: newTitle,
+            panel.webview.html = `
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Component Details</title>
+            </head>
+            <body>
+                <div id="app"></div>
+                <script>
+                    const vscode = acquireVsCodeApi();
+                    const componentData = ${JSON.stringify(component)};
+                    window.addEventListener("DOMContentLoaded", () => {
+                        vscode.postMessage(componentData);
                     });
+                </script>
+                <script src="${panel.webview.asWebviewUri(webviewPath)}"></script>
+            </body>
+            </html>`;
+            
+            panel.webview.onDidReceiveMessage(async (message) => {
+                if (message.command === "vueAppReady") {
+                    panel.webview.postMessage(component);
+                } else if (message.command === "updateComponent") {
+                    const updatedComponent = message.data;
+
+                    try {
+                        await apiClient.updateComponentDetails(
+                            updatedComponent.id,
+                            updatedComponent.name,
+                            updatedComponent.description
+                        );
+
+                        vscode.window.showInformationMessage(
+                            `Component updated successfully: ${updatedComponent.name}`
+                        );
+                    } catch (error) {
+                        vscode.window.showErrorMessage(
+                            error instanceof Error
+                                ? `Failed to update component: ${error.message}`
+                                : "An unknown error occurred during update."
+                        );
+                    }
                 }
-            }
+            });
         })
     );
 
@@ -289,44 +278,10 @@ export function activate(context: vscode.ExtensionContext) {
         .authenticate()
         .then(() => projectsProvider.fetchDynamicProjects())
         .catch((error) =>
-            vscode.window.showErrorMessage(`Initialization failed: ${error.message}`)
+            vscode.window.showErrorMessage(
+                `Initialization failed: ${
+                    error instanceof Error ? error.message : "Unknown error"
+                }`
+            )
         );
-
-    // New functionality: Command to show the Vue app in a webview
-    context.subscriptions.push(
-        vscode.commands.registerCommand("extension.showVueApp", () => {
-            const panel = vscode.window.createWebviewPanel(
-                "vueApp", // Identifier
-                "Vue App", // Title
-                vscode.ViewColumn.One, // Editor column to show the webview in
-                {
-                    enableScripts: true, // Allow JavaScript execution
-                }
-            );
-
-            // Path to the bundled webview.js file
-            const webviewPath = vscode.Uri.joinPath(
-                context.extensionUri,
-                "out",
-                "webview",
-                "webview.js"
-            );
-
-            // HTML content for the webview
-            panel.webview.html = `
-                <!DOCTYPE html>
-                <html lang="en">
-                <head>
-                    <meta charset="UTF-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>Vue App</title>
-                </head>
-                <body>
-                    <div id="app"></div>
-                    <script src="${panel.webview.asWebviewUri(webviewPath)}"></script>
-                </body>
-                </html>
-            `;
-        })
-    );
 }
