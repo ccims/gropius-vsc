@@ -17,24 +17,8 @@
         "title": "Edit Component Details"
       },
       {
-        "command": "extension.editComponentTitle",
-        "title": "Edit Component Title"
-      },
-      {
-        "command": "extension.editComponentDescription",
-        "title": "Edit Component Description"
-      },
-      {
-        "command": "extension.editIssueDetails",
-        "title": "Edit Issue Details"
-      },
-      {
-        "command": "extension.editIssueTitle",
-        "title": "Edit Issue Title"
-      },
-      {
-        "command": "extension.showVueApp",
-        "title": "Show Vue App"
+        "command": "projectsView.refresh",
+        "title": "Refresh Projects Explorer"
       }
     ],
     "views": {
@@ -42,30 +26,6 @@
         {
           "id": "projectsView",
           "name": "Projects"
-        },
-        {
-          "id": "componentDetailsView",
-          "name": "Component Details"
-        },
-        {
-          "id": "issueDetailsView",
-          "name": "Issue Details"
-        }
-      ]
-    },
-    "menus": {
-      "view/item/context": [
-        {
-          "command": "extension.editComponentTitle",
-          "when": "viewItem == editComponentTitle"
-        },
-        {
-          "command": "extension.editComponentDescription",
-          "when": "viewItem == editComponentDescription"
-        },
-        {
-          "command": "extension.editIssueTitle",
-          "when": "viewItem == editIssueTitle"
         }
       ]
     }

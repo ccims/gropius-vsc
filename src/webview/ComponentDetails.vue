@@ -28,25 +28,13 @@ export default {
     };
   },
   mounted() {
-    // Notify VS Code that the app is ready
     vscode.postMessage({ command: "vueAppReady" });
 
-    // Listen for messages from VS Code
     window.addEventListener("message", (event) => {
-      console.log("Raw event data received:", event);
-
       if (event.data) {
-        console.log("Processed component data:", event.data);
         this.component = event.data;
         this.editableTitle = event.data.name || "";
         this.editableDescription = event.data.description || "";
-        console.log("Vue component updated with:", {
-          component: this.component,
-          editableTitle: this.editableTitle,
-          editableDescription: this.editableDescription,
-        });
-      } else {
-        console.warn("No data received in message.");
       }
     });
   },
@@ -63,7 +51,6 @@ export default {
         description: this.editableDescription,
       };
 
-      console.log("Sending updated component data to VS Code:", updatedComponent);
       vscode.postMessage({
         command: "updateComponent",
         data: updatedComponent,

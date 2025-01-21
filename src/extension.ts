@@ -137,7 +137,6 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
                     )
                 );
             } else if (element.label === "Issues") {
-                // Do not assign a command to issue items
                 return Promise.resolve(
                     dynamicProject.issues.map(
                         (issue) =>
@@ -250,7 +249,6 @@ export function activate(context: vscode.ExtensionContext) {
                             updatedComponent.description
                         );
 
-                        // Refresh the Explorer
                         await projectsProvider.fetchDynamicProjects();
 
                         vscode.window.showInformationMessage(
