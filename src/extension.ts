@@ -1,8 +1,6 @@
 import * as vscode from "vscode";
 import { CLIENT_ID, CLIENT_SECRET, API_URL } from "./config";
 import { APIClient } from "./apiClient";
-import { ComponentDetailsProvider } from "./views/component-details-view";
-import { IssueDetailsProvider } from "./views/issue-details-view";
 
 class ProjectItem extends vscode.TreeItem {
     constructor(
@@ -139,17 +137,14 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
                     )
                 );
             } else if (element.label === "Issues") {
+                // Do not assign a command to issue items
                 return Promise.resolve(
                     dynamicProject.issues.map(
                         (issue) =>
                             new ProjectItem(
                                 issue.title,
                                 vscode.TreeItemCollapsibleState.None,
-                                {
-                                    command: "extension.editIssueDetails",
-                                    title: "Edit Issue Details",
-                                    arguments: [issue],
-                                },
+                                undefined, // No command for issues
                                 dynamicProject.id,
                                 "issue"
                             )
@@ -187,12 +182,8 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
 export function activate(context: vscode.ExtensionContext) {
     const apiClient = new APIClient(API_URL, CLIENT_ID, CLIENT_SECRET);
     const projectsProvider = new ProjectsProvider(apiClient);
-    const componentDetailsProvider = new ComponentDetailsProvider();
-    const issueDetailsProvider = new IssueDetailsProvider();
 
     vscode.window.registerTreeDataProvider("projectsView", projectsProvider);
-    vscode.window.registerTreeDataProvider("componentDetailsView", componentDetailsProvider);
-    vscode.window.registerTreeDataProvider("issueDetailsView", issueDetailsProvider);
 
     context.subscriptions.push(
         vscode.commands.registerCommand("projectsView.refresh", async () => {
@@ -245,7 +236,7 @@ export function activate(context: vscode.ExtensionContext) {
                 <script src="${panel.webview.asWebviewUri(webviewPath)}"></script>
             </body>
             </html>`;
-            
+
             panel.webview.onDidReceiveMessage(async (message) => {
                 if (message.command === "vueAppReady") {
                     panel.webview.postMessage(component);
@@ -258,6 +249,9 @@ export function activate(context: vscode.ExtensionContext) {
                             updatedComponent.name,
                             updatedComponent.description
                         );
+
+                        // Refresh the Explorer
+                        await projectsProvider.fetchDynamicProjects();
 
                         vscode.window.showInformationMessage(
                             `Component updated successfully: ${updatedComponent.name}`
