@@ -1,6 +1,31 @@
+<!-- Graph.vue -->
 <template>
     <div class="graph-container" ref="container">
       <svg :width="width" :height="height">
+        <!-- Background Pattern -->
+        <defs>
+          <pattern 
+            id="dotPattern" 
+            width="20" 
+            height="20" 
+            patternUnits="userSpaceOnUse"
+          >
+            <circle 
+              cx="2" 
+              cy="2" 
+              r="1" 
+              fill="#ccc"
+            />
+          </pattern>
+        </defs>
+        
+        <!-- Background Rectangle with Pattern -->
+        <rect
+          width="100%"
+          height="100%"
+          fill="url(#dotPattern)"
+        />
+  
         <!-- Links -->
         <g class="links">
           <path
@@ -99,7 +124,7 @@
   
   <style scoped>
   .graph-container {
-    background-color: #f5f5f5;
+    background-color: #ffffff;
     border: 1px solid #ddd;
     border-radius: 4px;
   }
