@@ -31,7 +31,7 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
     private dynamicProjects: {
         id: string;
         name: string;
-        components: { id: string; name: string; description: string }[];
+        components: { id: string; name: string; description: string; issues: { id: string; title: string }[] }[];
         issues: { id: string; title: string }[];
     }[] = [];
 
@@ -43,7 +43,7 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
 
     async fetchDynamicProjects(): Promise<void> {
         const query = `
-            query {
+            query MyQuery {
                 projects {
                     nodes {
                         id
@@ -61,6 +61,12 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
                                     id
                                     name
                                     description
+                                    issues {
+                                        nodes {
+                                            id
+                                            title
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -85,6 +91,10 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
                     id: componentNode.component.id,
                     name: componentNode.component.name,
                     description: componentNode.component.description,
+                    issues: componentNode.component.issues.nodes.map((issue: any) => ({
+                        id: issue.id,
+                        title: issue.title,
+                    })),
                 })),
             }));
             this.refresh();
