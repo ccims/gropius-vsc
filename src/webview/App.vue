@@ -1,7 +1,11 @@
 <template>
-    <div class="graph-editor h-full">
-      <div :id="editorId" class="sprotty h-full" />
-    </div>
+  <div class="h-100 position-relative">
+      <div :id="editorId" class="sprotty" />
+
+      <div class="position-absolute top-0 right-0 h-100 w-100 pa-3 pointer-events-none">
+          <slot />
+      </div>
+  </div>
   </template>
   
   <script setup lang="ts">

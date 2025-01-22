@@ -213,44 +213,6 @@ export function activate(context: vscode.ExtensionContext) {
         })
     );
 
-    // New functionality: Command to show the Vue app in a webview
-    context.subscriptions.push(
-        vscode.commands.registerCommand("extension.showVueApp", () => {
-            const panel = vscode.window.createWebviewPanel(
-                "vueApp", // Identifier
-                "Vue App", // Title
-                vscode.ViewColumn.One, // Editor column to show the webview in
-                {
-                    enableScripts: true, // Allow JavaScript execution
-                }
-            );
-
-            // Path to the bundled webview.js file
-            const webviewPath = vscode.Uri.joinPath(
-                context.extensionUri,
-                "out",
-                "webview",
-                "webview.js"
-            );
-
-            // HTML content for the webview
-            panel.webview.html = `
-                <!DOCTYPE html>
-                <html lang="en">
-                <head>
-                    <meta charset="UTF-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>Vue App</title>
-                </head>
-                <body>
-                    <div id="app"></div>
-                    <script src="${panel.webview.asWebviewUri(webviewPath)}"></script>
-                </body>
-                </html>
-            `;
-        })
-    );
-
     context.subscriptions.push(
         vscode.commands.registerCommand("extension.editComponentDetails", (component) => {
             if (!component) {
@@ -323,6 +285,39 @@ export function activate(context: vscode.ExtensionContext) {
                     }
                 }
             });
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand("extension.showGraph", () => {
+            const panel = vscode.window.createWebviewPanel(
+                "graphEditor",
+                "Graph Editor",
+                vscode.ViewColumn.One,
+                {
+                    enableScripts: true,
+                    localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'out', 'webview')]
+                }
+            );
+    
+            const scriptUri = panel.webview.asWebviewUri(
+                vscode.Uri.joinPath(context.extensionUri, 'out', 'webview', 'graphEditor.js')
+            );
+    
+            panel.webview.html = `
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Graph Editor</title>
+                </head>
+                <body>
+                    <div id="app"></div>
+                    <script src="${scriptUri}"></script>
+                </body>
+                </html>
+            `;
         })
     );
 

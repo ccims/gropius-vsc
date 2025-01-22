@@ -21,9 +21,9 @@
         "title": "Refresh Projects Explorer"
       },
       {
-        "command": "extension.showVueApp",
-        "title": "Show Vue App"
-    }
+        "command": "extension.showGraph",
+        "title": "Show Graph Editor"
+      }
     ],
     "views": {
       "explorer": [

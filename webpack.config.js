@@ -7,6 +7,7 @@ module.exports = {
     entry: {
         graph: './src/webview/main.ts', // Original Vue app
         componentDetails: './src/webview/component-details.ts', // New Vue app
+        graphEditor: './src/webview/graph-editor.ts'
     },
     output: {
         path: path.resolve(__dirname, 'out/webview'),
