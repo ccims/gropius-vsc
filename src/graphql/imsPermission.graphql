@@ -1,0 +1,79 @@
+query getIMSPermissionList($orderBy: [IMSPermissionOrder!]!, $count: Int!, $skip: Int!, $ims: ID!) {
+    node(id: $ims) {
+        ... on IMS {
+            permissions(orderBy: $orderBy, first: $count, skip: $skip) {
+                nodes {
+                    ...DefaultIMSPermissionInfo
+                }
+                totalCount
+            }
+        }
+    }
+}
+
+query getFilteredIMSPermissionList($query: String!, $count: Int!, $ims: ID!) {
+    searchIMSPermissions(query: $query, first: $count, filter: { nodesWithPermission: { any: { id: { eq: $ims } } } }) {
+        ...DefaultIMSPermissionInfo
+    }
+}
+
+fragment DefaultIMSPermissionInfo on IMSPermission {
+    id
+    name
+    description
+    entries
+    allUsers
+    users {
+        totalCount
+    }
+}
+
+query searchIMSPermissions($ims: ID!, $query: String!, $count: Int!) {
+    searchIMSPermissions(query: $query, first: $count, filter: { nodesWithPermission: { any: { id: { eq: $ims } } } }) {
+        ...DefaultIMSPermissionInfo
+    }
+}
+
+query firstIMSPermissions($ims: ID!, $count: Int!) {
+    node(id: $ims) {
+        ... on IMS {
+            permissions(first: $count, orderBy: [{ field: NAME }]) {
+                nodes {
+                    ...DefaultIMSPermissionInfo
+                }
+            }
+        }
+    }
+}
+
+mutation addIMSPermissionToIMS($ims: ID!, $imsPermission: ID!) {
+    updateIMS(input: {
+        id: $ims
+        addedPermissions: [$imsPermission]
+    }) {
+        __typename
+    }
+}
+
+mutation removeIMSPermissionFromIMS($ims: ID!, $imsPermission: ID!) {
+    updateIMS(input: {
+        id: $ims
+        removedPermissions: [$imsPermission]
+    }) {
+        __typename
+    }
+}
+
+mutation updateIMSPermission($input: UpdateIMSPermissionInput!) {
+    updateIMSPermission(input: $input) {
+        __typename
+    }
+}
+
+mutation createIMSPermission($input: CreateIMSPermissionInput!) {
+    createIMSPermission(input: $input) {
+        imsPermission {
+            id
+        }
+    }
+}

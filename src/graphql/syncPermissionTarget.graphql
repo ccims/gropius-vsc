@@ -1,0 +1,24 @@
+fragment DefaultSyncPermissionTargetInfo on SyncPermissionTarget {
+    __typename
+    id
+    name
+    description
+    isSyncSelfAllowed
+    isSyncOthersAllowed
+}
+
+query getSyncPermissionTarget($id: ID!) {
+    node(id: $id) {
+        ...on SyncPermissionTarget {
+            ...DefaultSyncPermissionTargetInfo
+        }
+    }
+}
+
+mutation updateSyncPermissions($input: UpdateSyncPermissionsInput!) {
+    updateSyncPermissions(input: $input) {
+        syncPermissionTarget {
+            __typename
+        }
+    }
+}

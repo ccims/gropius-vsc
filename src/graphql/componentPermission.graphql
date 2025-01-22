@@ -1,0 +1,79 @@
+query getComponentPermissionList($orderBy: [ComponentPermissionOrder!]!, $count: Int!, $skip: Int!, $component: ID!) {
+    node(id: $component) {
+        ... on Component {
+            permissions(orderBy: $orderBy, first: $count, skip: $skip) {
+                nodes {
+                    ...DefaultComponentPermissionInfo
+                }
+                totalCount
+            }
+        }
+    }
+}
+
+query getFilteredComponentPermissionList($query: String!, $count: Int!, $component: ID!) {
+    searchComponentPermissions(query: $query, first: $count, filter: { nodesWithPermission: { any: { id: { eq: $component } } } }) {
+        ...DefaultComponentPermissionInfo
+    }
+}
+
+fragment DefaultComponentPermissionInfo on ComponentPermission {
+    id
+    name
+    description
+    entries
+    allUsers
+    users {
+        totalCount
+    }
+}
+
+query searchComponentPermissions($component: ID!, $query: String!, $count: Int!) {
+    searchComponentPermissions(query: $query, first: $count, filter: { nodesWithPermission: { any: { id: { eq: $component } } } }) {
+        ...DefaultComponentPermissionInfo
+    }
+}
+
+query firstComponentPermissions($component: ID!, $count: Int!) {
+    node(id: $component) {
+        ... on Component {
+            permissions(first: $count, orderBy: [{ field: NAME }]) {
+                nodes {
+                    ...DefaultComponentPermissionInfo
+                }
+            }
+        }
+    }
+}
+
+mutation addComponentPermissionToComponent($component: ID!, $componentPermission: ID!) {
+    updateComponent(input: {
+        id: $component
+        addedPermissions: [$componentPermission]
+    }) {
+        __typename
+    }
+}
+
+mutation removeComponentPermissionFromComponent($component: ID!, $componentPermission: ID!) {
+    updateComponent(input: {
+        id: $component
+        removedPermissions: [$componentPermission]
+    }) {
+        __typename
+    }
+}
+
+mutation updateComponentPermission($input: UpdateComponentPermissionInput!) {
+    updateComponentPermission(input: $input) {
+        __typename
+    }
+}
+
+mutation createComponentPermission($input: CreateComponentPermissionInput!) {
+    createComponentPermission(input: $input) {
+        componentPermission {
+            id
+        }
+    }
+}

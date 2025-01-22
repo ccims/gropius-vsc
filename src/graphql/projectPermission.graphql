@@ -1,0 +1,79 @@
+query getProjectPermissionList($orderBy: [ProjectPermissionOrder!]!, $count: Int!, $skip: Int!, $project: ID!) {
+    node(id: $project) {
+        ... on Project {
+            permissions(orderBy: $orderBy, first: $count, skip: $skip) {
+                nodes {
+                    ...DefaultProjectPermissionInfo
+                }
+                totalCount
+            }
+        }
+    }
+}
+
+query getFilteredProjectPermissionList($query: String!, $count: Int!, $project: ID!) {
+    searchProjectPermissions(query: $query, first: $count, filter: { nodesWithPermission: { any: { id: { eq: $project } } } }) {
+        ...DefaultProjectPermissionInfo
+    }
+}
+
+fragment DefaultProjectPermissionInfo on ProjectPermission {
+    id
+    name
+    description
+    entries
+    allUsers
+    users {
+        totalCount
+    }
+}
+
+query searchProjectPermissions($project: ID!, $query: String!, $count: Int!) {
+    searchProjectPermissions(query: $query, first: $count, filter: { nodesWithPermission: { any: { id: { eq: $project } } } }) {
+        ...DefaultProjectPermissionInfo
+    }
+}
+
+query firstProjectPermissions($project: ID!, $count: Int!) {
+    node(id: $project) {
+        ... on Project {
+            permissions(first: $count, orderBy: [{ field: NAME }]) {
+                nodes {
+                    ...DefaultProjectPermissionInfo
+                }
+            }
+        }
+    }
+}
+
+mutation addProjectPermissionToProject($project: ID!, $projectPermission: ID!) {
+    updateProject(input: {
+        id: $project
+        addedPermissions: [$projectPermission]
+    }) {
+        __typename
+    }
+}
+
+mutation removeProjectPermissionFromProject($project: ID!, $projectPermission: ID!) {
+    updateProject(input: {
+        id: $project
+        removedPermissions: [$projectPermission]
+    }) {
+        __typename
+    }
+}
+
+mutation updateProjectPermission($input: UpdateProjectPermissionInput!) {
+    updateProjectPermission(input: $input) {
+        __typename
+    }
+}
+
+mutation createProjectPermission($input: CreateProjectPermissionInput!) {
+    createProjectPermission(input: $input) {
+        projectPermission {
+            id
+        }
+    }
+}

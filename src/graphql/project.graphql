@@ -1,0 +1,90 @@
+query getProjectList($orderBy: [ProjectOrder!]!, $count: Int!, $skip: Int!) {
+    projects(orderBy: $orderBy, first: $count, skip: $skip) {
+        nodes {
+            id
+            name
+            description
+            ...OpenIssueCount
+        }
+        totalCount
+    }
+}
+
+query getFilteredProjectList($query: String!, $count: Int!) {
+    searchProjects(query: $query, first: $count) {
+        id
+        name
+        description
+        ...OpenIssueCount
+    }
+}
+
+query searchProjects($query: String!, $count: Int!, $filter: ProjectFilterInput) {
+    searchProjects(query: $query, first: $count, filter: $filter) {
+        ...DefaultTrackableInfo
+    }
+}
+
+query firstProjects($count: Int!, $filter: ProjectFilterInput) {
+    projects(first: $count, filter: $filter) {
+        nodes {
+            ...DefaultTrackableInfo
+        }
+    }
+}
+
+query getProject($id: ID!) {
+    node(id: $id) {
+        id
+        ... on Project {
+            __typename
+            name
+            description
+            ...OpenIssueCount
+            createIssues: hasPermission(permission: CREATE_ISSUES)
+            manageLabels: hasPermission(permission: MANAGE_LABELS)
+            manageComponents: hasPermission(permission: MANAGE_COMPONENTS)
+            manageIssues: hasPermission(permission: MANAGE_ISSUES)
+            manageIMS: hasPermission(permission: MANAGE_IMS)
+            manageViews: hasPermission(permission: MANAGE_VIEWS)
+            admin: hasPermission(permission: ADMIN)
+        }
+    }
+}
+
+query getProjectGeneralDetails($id: ID!) {
+    node(id: $id) {
+        id
+        ...on Project {
+            name
+            description
+            repositoryURL
+            defaultView {
+                id
+            }
+            admin: hasPermission(permission: ADMIN)
+        }
+    }
+}
+
+mutation createProject($input: CreateProjectInput!) {
+    createProject(input: $input) {
+        project {
+            id
+        }
+    }
+}
+
+mutation updateProject($input: UpdateProjectInput!) {
+    updateProject(input: $input) {
+        project {
+            id
+        }
+    }
+}
+
+mutation deleteProject($id: ID!) {
+    deleteProject(input: { id: $id }) {
+        __typename
+    }
+}

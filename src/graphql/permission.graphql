@@ -1,0 +1,18 @@
+query getPermissionUserList($orderBy: [GropiusUserOrder!]!, $count: Int!, $skip: Int!, $permission: ID!) {
+    node(id: $permission) {
+        ... on BasePermission {
+            users(orderBy: $orderBy, first: $count, skip: $skip) {
+                nodes {
+                    ...DefaultUserInfo
+                }
+                totalCount
+            }
+        }
+    }
+}
+
+query getFilteredPermissionUserList($query: String!, $count: Int!, $permission: ID!) {
+    searchGropiusUsers(query: $query, first: $count, filter: { permissions: { any: { id: { eq: $permission } } } }) {
+        ...DefaultUserInfo
+    }
+}

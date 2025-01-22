@@ -1,0 +1,93 @@
+query searchAffectedByIssues($query: String!, $count: Int!, $trackable: ID!, $sublistCount: Int) {
+    searchAffectedByIssues(query: $query, first: $count, filter: { relatedTo: $trackable }) {
+        ...DefaultAffectedByIssueInfo
+        ... on Component {
+            versions(first: $sublistCount) {
+                nodes {
+                    id
+                    version
+                }
+            }
+        }
+        ... on InterfaceSpecification {
+            versions(first: $sublistCount) {
+                nodes {
+                    id
+                    version
+                    interfaceDefinitions(
+                        first: $sublistCount
+                        filter: { visibleInterface: {}, componentVersion: { component: { id: { eq: $trackable } } } }
+                    ) {
+                        nodes {
+                            visibleInterface {
+                                id
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        ... on InterfaceSpecificationVersion {
+            interfaceDefinitions(
+                first: $sublistCount
+                filter: { visibleInterface: {}, componentVersion: { component: { id: { eq: $trackable } } } }
+            ) {
+                nodes {
+                    visibleInterface {
+                        id
+                    }
+                }
+            }
+        }
+    }
+}
+
+fragment DefaultAffectedByIssueInfo on AffectedByIssue {
+    id
+    ... on Named {
+        name
+        description
+    }
+    ... on ComponentVersion {
+        version
+        component {
+            name
+            description
+        }
+    }
+    ... on InterfaceSpecificationVersion {
+        version
+        interfaceSpecification {
+            name
+            description
+        }
+    }
+    ... on Interface {
+        interfaceDefinition {
+            interfaceSpecificationVersion {
+                version
+                interfaceSpecification {
+                    name
+                    description
+                }
+            }
+        }
+    }
+    __typename
+}
+
+mutation addAffectedEntityToIssue($issue: ID!, $affectedEntity: ID!) {
+    addAffectedEntityToIssue(input: { issue: $issue, affectedEntity: $affectedEntity }) {
+        addedAffectedEntityEvent {
+            ...AddedAffectedEntityEventTimelineInfo
+        }
+    }
+}
+
+mutation removeAffectedEntityFromIssue($issue: ID!, $affectedEntity: ID!) {
+    removeAffectedEntityFromIssue(input: { issue: $issue, affectedEntity: $affectedEntity }) {
+        removedAffectedEntityEvent {
+            ...RemovedAffectedEntityEventTimelineInfo
+        }
+    }
+}
