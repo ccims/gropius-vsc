@@ -226,7 +226,10 @@ export function activate(context: vscode.ExtensionContext) {
                 vscode.ViewColumn.One,
                 {
                     enableScripts: true,
-                    localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, "out", "webview")],
+                    localResourceRoots: [
+                        vscode.Uri.joinPath(context.extensionUri, "out", "webview"),
+                        vscode.Uri.joinPath(context.extensionUri, "resources", "icons"),
+                    ],
                 }
             );
 
@@ -236,6 +239,12 @@ export function activate(context: vscode.ExtensionContext) {
                 "webview",
                 "componentDetails.js"
             );
+
+            const iconPath = panel.webview
+                .asWebviewUri(
+                    vscode.Uri.joinPath(context.extensionUri, "resources", "icons", "bug-green.png")
+                )
+                .toString();
 
             panel.webview.html = `
             <!DOCTYPE html>
@@ -250,8 +259,9 @@ export function activate(context: vscode.ExtensionContext) {
                 <script>
                     const vscode = acquireVsCodeApi();
                     const componentData = ${JSON.stringify(component)};
+                    const iconPath = "${iconPath}";
                     window.addEventListener("DOMContentLoaded", () => {
-                        vscode.postMessage(componentData);
+                        vscode.postMessage({ component: componentData, iconPath });
                     });
                 </script>
                 <script src="${panel.webview.asWebviewUri(webviewPath)}"></script>
@@ -260,7 +270,7 @@ export function activate(context: vscode.ExtensionContext) {
 
             panel.webview.onDidReceiveMessage(async (message) => {
                 if (message.command === "vueAppReady") {
-                    panel.webview.postMessage(component);
+                    panel.webview.postMessage({ component, iconPath });
                 } else if (message.command === "updateComponent") {
                     const updatedComponent = message.data;
 
