@@ -23,7 +23,7 @@
       {
         "command": "extension.showVueApp",
         "title": "Show Vue App"
-      }
+    }
     ],
     "views": {
       "explorer": [
@@ -68,27 +68,13 @@
   },
   "dependencies": {
     "@gropius/graph-editor": "^0.0.3",
-    "@types/jwt-decode": "^2.2.1",
-    "@vueuse/core": "^12.5.0",
-    "async-mutex": "^0.5.0",
-    "axios": "^1.7.9",
     "cytoscape": "^3.31.0",
-    "graphql": "^16.10.0",
-    "graphql-request": "^3.7.0",
-    "graphql-tag": "^2.12.6",
+    "graphql": "^16.9.0",
     "inversify": "^6.2.1",
-    "jwt-decode": "^4.0.0",
-    "mitt": "^3.0.1",
-    "mitts": "^0.3.1",
     "node-fetch": "^3.3.2",
-    "pinia": "^2.3.1",
     "reflect-metadata": "^0.2.2",
-    "remark": "^15.0.1",
     "sprotty": "^1.4.0",
     "sprotty-protocol": "^1.4.0",
-    "strip-markdown": "^6.0.0",
-    "uuid": "^11.0.5",
-    "vue-router": "^4.5.0",
-    "vuex": "^4.1.0"
+    "uuid": "^11.0.5"
   }
 }
