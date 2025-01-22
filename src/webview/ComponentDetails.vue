@@ -31,8 +31,7 @@
         <h2>Issues</h2>
         <ul class="issues-list">
           <li v-for="issue in component.issues" :key="issue.id" class="issue-item">
-            <img :src="iconPaths[issue.type?.name || 'Misc']" alt="Issue Icon" class="issue-icon" />
-            <p class="issue-title">{{ issue.title }}</p>
+            <p class="issue-title">{{ issue.type?.name || 'Unknown Type' }}: {{ issue.title }}</p>
           </li>
         </ul>
       </div>
@@ -52,7 +51,6 @@ export default {
       editableTitle: "",
       editableDescription: "",
       isEdited: false,
-      iconPaths: {}, // Declare iconPaths explicitly
     };
   },
   mounted() {
@@ -60,11 +58,9 @@ export default {
 
     window.addEventListener("message", (event) => {
       if (event.data) {
-        console.log("Received Data:", event.data);
-        this.component = event.data.component;
-        this.iconPaths = event.data.iconPaths; // Assign icon paths here
-        this.editableTitle = this.component.name || "";
-        this.editableDescription = this.component.description || "";
+        this.component = event.data;
+        this.editableTitle = event.data.name || "";
+        this.editableDescription = event.data.description || "";
       }
     });
   },
@@ -186,8 +182,6 @@ export default {
 }
 
 .issue-item {
-  display: flex;
-  align-items: center;
   background-color: #3c3c3c;
   border: 1px solid #4a4a4a;
   border-radius: 5px;
@@ -198,12 +192,6 @@ export default {
 
 .issue-item:hover {
   background-color: #505050;
-}
-
-.issue-icon {
-  width: 20px;
-  height: 20px;
-  margin-right: 10px;
 }
 
 .issue-title {

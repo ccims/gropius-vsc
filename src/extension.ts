@@ -264,10 +264,7 @@ export function activate(context: vscode.ExtensionContext) {
                 vscode.ViewColumn.One,
                 {
                     enableScripts: true,
-                    localResourceRoots: [
-                        vscode.Uri.joinPath(context.extensionUri, "out", "webview"),
-                        vscode.Uri.joinPath(context.extensionUri, "resources", "icons"),
-                    ],
+                    localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, "out", "webview")],
                 }
             );
 
@@ -277,35 +274,6 @@ export function activate(context: vscode.ExtensionContext) {
                 "webview",
                 "componentDetails.js"
             );
-
-            const iconPaths = {
-                Bug: panel.webview
-                    .asWebviewUri(
-                        vscode.Uri.joinPath(context.extensionUri, "resources", "icons", "bug-green.png")
-                    )
-                    .toString(),
-                Feature: panel.webview
-                    .asWebviewUri(
-                        vscode.Uri.joinPath(context.extensionUri, "resources", "icons", "magnifier-green.png")
-                    )
-                    .toString(),
-                Task: panel.webview
-                    .asWebviewUri(
-                        vscode.Uri.joinPath(context.extensionUri, "resources", "icons", "exclamation-green.png")
-                    )
-                    .toString(),
-                Misc: panel.webview
-                    .asWebviewUri(
-                        vscode.Uri.joinPath(context.extensionUri, "resources", "icons", "exclamation-green.png")
-                    )
-                    .toString(),
-                // Add more types as needed:
-                Custom: panel.webview
-                    .asWebviewUri(
-                        vscode.Uri.joinPath(context.extensionUri, "resources", "icons", "custom.png")
-                    )
-                    .toString(),
-            };
 
             panel.webview.html = `
             <!DOCTYPE html>
@@ -320,9 +288,8 @@ export function activate(context: vscode.ExtensionContext) {
                 <script>
                     const vscode = acquireVsCodeApi();
                     const componentData = ${JSON.stringify(component)};
-                    const iconPaths = ${JSON.stringify(iconPaths)};
                     window.addEventListener("DOMContentLoaded", () => {
-                        vscode.postMessage({ component: componentData, iconPaths });
+                        vscode.postMessage(componentData);
                     });
                 </script>
                 <script src="${panel.webview.asWebviewUri(webviewPath)}"></script>
@@ -331,7 +298,7 @@ export function activate(context: vscode.ExtensionContext) {
 
             panel.webview.onDidReceiveMessage(async (message) => {
                 if (message.command === "vueAppReady") {
-                    panel.webview.postMessage({ component, iconPaths });
+                    panel.webview.postMessage(component);
                 } else if (message.command === "updateComponent") {
                     const updatedComponent = message.data;
 
