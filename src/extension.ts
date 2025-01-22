@@ -31,7 +31,7 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
     private dynamicProjects: {
         id: string;
         name: string;
-        components: { id: string; name: string; description: string; issues: { id: string; title: string }[] }[];
+        components: { id: string; name: string; description: string; version: number; issues: { id: string; title: string }[] }[];
         issues: { id: string; title: string }[];
     }[] = [];
 
@@ -57,6 +57,7 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
                         components {
                             nodes {
                                 id
+                                version
                                 component {
                                     id
                                     name
@@ -91,6 +92,7 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
                     id: componentNode.component.id,
                     name: componentNode.component.name,
                     description: componentNode.component.description,
+                    version: componentNode.version,
                     issues: componentNode.component.issues.nodes.map((issue: any) => ({
                         id: issue.id,
                         title: issue.title,
@@ -129,12 +131,12 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
         );
 
         if (dynamicProject) {
-            if (element.label === "Components") {
+            if (element.label === "Component Versions") {
                 return Promise.resolve(
                     dynamicProject.components.map(
                         (component) =>
                             new ProjectItem(
-                                component.name,
+                                `v${component.version} ${component.name}`,
                                 vscode.TreeItemCollapsibleState.None,
                                 {
                                     command: "extension.editComponentDetails",
@@ -162,7 +164,7 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
             } else {
                 return Promise.resolve([
                     new ProjectItem(
-                        "Components",
+                        "Component Versions",
                         vscode.TreeItemCollapsibleState.Collapsed,
                         undefined,
                         dynamicProject.id
