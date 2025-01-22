@@ -1,0 +1,17 @@
+query getNamedNode($id: ID!) {
+    node(id: $id) {
+        id
+        ... on Named {
+            name
+        }
+    }
+}
+
+query getVersionedNode($id: ID!) {
+    node(id: $id) {
+        id
+        ... on Versioned {
+            version
+        }
+    }
+}

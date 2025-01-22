@@ -1,0 +1,102 @@
+query getInterfaceSpecificationVersionList(
+    $orderBy: [InterfaceSpecificationVersionOrder!]!
+    $count: Int!
+    $skip: Int!
+    $interfaceSpecification: ID!
+) {
+    node(id: $interfaceSpecification) {
+        ... on InterfaceSpecification {
+            versions(orderBy: $orderBy, first: $count, skip: $skip) {
+                nodes {
+                    id
+                    version
+                    tags
+                }
+                totalCount
+            }
+        }
+    }
+}
+
+query getFilteredInterfaceSpecificationVersionList($query: String!, $count: Int!, $interfaceSpecification: ID!) {
+    searchInterfaceSpecificationVersions(
+        query: $query
+        first: $count
+        filter: { interfaceSpecification: { id: { eq: $interfaceSpecification } } }
+    ) {
+        id
+        version
+        tags
+    }
+}
+
+query getInterfaceSpecificationVersionGeneralDetails($id: ID!) {
+    node(id: $id) {
+        id
+        ... on InterfaceSpecificationVersion {
+            version
+            tags
+            templatedFields {
+                name
+                value
+            }
+            template {
+                templateFieldSpecifications {
+                    name
+                    value
+                }
+            }
+        }
+    }
+}
+
+fragment DefaultInterfaceSpecificationVersionInfo on InterfaceSpecificationVersion {
+    id
+    interfaceSpecification {
+        name
+        description
+    }
+    version
+    __typename
+}
+
+query searchInterfaceSpecificationVersions($query: String!, $count: Int!, $interfaceSpecification: ID!) {
+    searchInterfaceSpecificationVersions(query: $query, first: $count, filter: { interfaceSpecification: { id: { eq: $interfaceSpecification } } }) {
+        ...DefaultInterfaceSpecificationVersionInfo
+    }
+}
+
+query firstInterfaceSpecificationVersions($interfaceSpecification: ID!, $count: Int!) {
+    node(id: $interfaceSpecification) {
+        id
+        ... on InterfaceSpecification {
+            versions(first: $count) {
+                nodes {
+                    ...DefaultInterfaceSpecificationVersionInfo
+                }
+            }
+        }
+    }
+}
+
+mutation createInterfaceSpecificationVersion($input: CreateInterfaceSpecificationVersionInput!) {
+    createInterfaceSpecificationVersion(input: $input) {
+        interfaceSpecificationVersion {
+            id
+        }
+    }
+}
+
+mutation updateInterfaceSpecificationVersion($input: UpdateInterfaceSpecificationVersionInput!) {
+    updateInterfaceSpecificationVersion(input: $input) {
+        interfaceSpecificationVersion {
+            id
+        }
+    }
+}
+
+mutation deleteInterfaceSpecificationVersion($id: ID!) {
+    deleteInterfaceSpecificationVersion(input: { id: $id }) {
+        __typename
+    }
+}

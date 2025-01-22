@@ -1,0 +1,69 @@
+fragment DefaultInterfaceDefinitionInfo on InterfaceDefinition {
+    id
+    visibleSelfDefined
+    invisibleSelfDefined
+    visibleDerivedBy {
+        totalCount
+    }
+    invisibleDerivedBy {
+        totalCount
+    }
+}
+
+query getInterfaceDefinitionList(
+    $orderBy: [InterfaceDefinitionOrder!]!
+    $count: Int!
+    $skip: Int!
+    $componentVersion: ID!
+) {
+    node(id: $componentVersion) {
+        ... on ComponentVersion {
+            interfaceDefinitions(orderBy: $orderBy, first: $count, skip: $skip) {
+                nodes {
+                    ...DefaultInterfaceDefinitionInfo
+                    interfaceSpecificationVersion {
+                        id
+                        version
+                        interfaceSpecification {
+                            id
+                            name
+                            description
+                        }
+                    }
+                }
+                totalCount
+            }
+        }
+    }
+}
+
+query getFilteredInterfaceDefinitionList($query: String!, $count: Int!, $componentVersion: ID!) {
+    searchInterfaceSpecifications(query: $query, first: $count, filter: { versions: { any: { interfaceDefinitions: { any: { componentVersion: { id: { eq: $componentVersion } } } } } } }) {
+        id
+        name
+        description
+        versions(filter: { interfaceDefinitions: { any: { componentVersion: { id: { eq: $componentVersion } } } } }, first: $count) {
+            nodes {
+                id
+                version
+                interfaceDefinitions(filter: { componentVersion: { id: { eq: $componentVersion } } }) {
+                    nodes {
+                        ...DefaultInterfaceDefinitionInfo
+                    }
+                }
+            }
+        }
+    }
+}
+
+mutation addInterfaceSpecificationVersionToComponentVersion($input: AddInterfaceSpecificationVersionToComponentVersionInput!) {
+    addInterfaceSpecificationVersionToComponentVersion(input: $input) {
+        __typename
+    }
+}
+
+mutation removeInterfaceSpecificationVersionFromComponentVersion($input: RemoveInterfaceSpecificationVersionFromComponentVersionInput!) {
+    removeInterfaceSpecificationVersionFromComponentVersion(input: $input) {
+        __typename
+    }
+}

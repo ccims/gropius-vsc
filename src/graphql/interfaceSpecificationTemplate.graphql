@@ -1,0 +1,60 @@
+fragment DefaultInterfaceSpecificationTemplateInfo on InterfaceSpecificationTemplate {
+    id
+    name
+    description
+    templateFieldSpecifications {
+        name
+        value
+    }
+}
+
+fragment DefaultInterfaceSpecificationVersionTemplateInfo on InterfaceSpecificationVersionTemplate {
+    id
+    name
+    description
+    templateFieldSpecifications {
+        name
+        value
+    }
+}
+
+query searchInterfaceSpecificationTemplates($query: String!, $count: Int!) {
+    searchInterfaceSpecificationTemplates(query: $query, first: $count, filter: { isDeprecated: { eq: false } }) {
+        ...DefaultInterfaceSpecificationTemplateInfo
+    }
+}
+
+query firstInterfaceSpecificationTemplates($count: Int!) {
+    interfaceSpecificationTemplates(
+        first: $count
+        orderBy: [{ field: NAME }]
+        filter: { isDeprecated: { eq: false } }
+    ) {
+        nodes {
+            ...DefaultInterfaceSpecificationTemplateInfo
+        }
+    }
+}
+
+query getInterfaceSpecificationTemplate($id: ID!) {
+    node(id: $id) {
+        ... on InterfaceSpecificationTemplate {
+            ...DefaultInterfaceSpecificationTemplateInfo
+            interfaceSpecificationVersionTemplate {
+                ...DefaultInterfaceSpecificationVersionTemplateInfo
+            }
+        }
+    }
+}
+
+query getInterfaceSpecificationVersionTemplate($interfaceSpecification: ID!) {
+    node(id: $interfaceSpecification) {
+        ... on InterfaceSpecification {
+            template {
+                interfaceSpecificationVersionTemplate {
+                    ...DefaultInterfaceSpecificationVersionTemplateInfo
+                }
+            }
+        }
+    }
+}

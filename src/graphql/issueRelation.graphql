@@ -1,0 +1,15 @@
+mutation removeIssueRelation($id: ID!) {
+    removeIssueRelation(input: { issueRelation: $id }) {
+        removedOutgoingRelationEvent {
+            ...RemovedOutgoingRelationEventTimelineInfo
+        }
+    }
+}
+
+mutation createIssueRelation($issue: ID!, $relatedIssue: ID!) {
+    createIssueRelation(input: { issue: $issue, relatedIssue: $relatedIssue }) {
+        issueRelation {
+            ...IssueRelationTimelineInfo
+        }
+    }
+}

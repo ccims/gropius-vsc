@@ -1,0 +1,32 @@
+fragment DefaultIssuePriorityInfo on IssuePriority {
+    id
+    name
+    description
+    value
+}
+
+query searchIssuePriorities($template: ID!, $query: String!, $count: Int!) {
+    searchIssuePriorities(query: $query, first: $count, filter: { partOf: { any: { id: { eq: $template } } } }) {
+        ...DefaultIssuePriorityInfo
+    }
+}
+
+query firstIssuePriorities($template: ID!, $count: Int!) {
+    node(id: $template) {
+        ... on IssueTemplate {
+            issuePriorities(first: $count, orderBy: [{ field: VALUE }, { field: NAME }]) {
+                nodes {
+                    ...DefaultIssuePriorityInfo
+                }
+            }
+        }
+    }
+}
+
+mutation changeIssuePriority($issue: ID!, $priority: ID!) {
+    changeIssuePriority(input: { issue: $issue, priority: $priority }) {
+        priorityChangedEvent {
+            ...PriorityChangedEventTimelineInfo
+        }
+    }
+}
