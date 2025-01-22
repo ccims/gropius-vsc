@@ -1,9 +1,11 @@
 <template>
   <div id="app">
     <div class="component-details-card">
+      <!-- Component Title and Description -->
       <h1 class="component-title">{{ editableTitle }}</h1>
       <p class="component-description">{{ editableDescription }}</p>
 
+      <!-- Editor Section -->
       <div class="editor-section">
         <label for="title" class="label">Title:</label>
         <input
@@ -24,12 +26,13 @@
         </button>
       </div>
 
+      <!-- Issues Section -->
       <div v-if="component && component.issues && component.issues.length > 0" class="issues-section">
         <h2>Issues</h2>
         <ul class="issues-list">
           <li v-for="issue in component.issues" :key="issue.id" class="issue-item">
-            <img :src="iconPath" alt="Issue Icon" class="issue-icon" />
-            <p class="issue-title">{{ issue.type?.name || "Unknown Type" }}: {{ issue.title }}</p>
+            <img :src="iconPaths[issue.type?.name || 'Misc']" alt="Issue Icon" class="issue-icon" />
+            <p class="issue-title">{{ issue.title }}</p>
           </li>
         </ul>
       </div>
@@ -49,7 +52,7 @@ export default {
       editableTitle: "",
       editableDescription: "",
       isEdited: false,
-      iconPath: null,
+      iconPaths: {}, // Declare iconPaths explicitly
     };
   },
   mounted() {
@@ -57,11 +60,11 @@ export default {
 
     window.addEventListener("message", (event) => {
       if (event.data) {
+        console.log("Received Data:", event.data);
         this.component = event.data.component;
-        this.iconPath = event.data.iconPath;
-        this.editableTitle = this.component.name || "Unknown Title";
-        this.editableDescription =
-          this.component.description || "No Description Available";
+        this.iconPaths = event.data.iconPaths; // Assign icon paths here
+        this.editableTitle = this.component.name || "";
+        this.editableDescription = this.component.description || "";
       }
     });
   },
@@ -98,6 +101,7 @@ export default {
   padding: 20px;
 }
 
+/* Card for Component Details */
 .component-details-card {
   background-color: #2b2b2b;
   border-radius: 10px;
@@ -107,6 +111,7 @@ export default {
   box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.3);
 }
 
+/* Component Title and Description */
 .component-title {
   font-size: 24px;
   font-weight: bold;
@@ -120,6 +125,7 @@ export default {
   color: #cccccc;
 }
 
+/* Editor Section */
 .editor-section {
   margin-top: 20px;
 }
@@ -147,6 +153,7 @@ export default {
   resize: none;
 }
 
+/* Save Button */
 .save-button {
   background-color: #007acc;
   color: white;
@@ -168,6 +175,7 @@ export default {
   cursor: not-allowed;
 }
 
+/* Issues Section */
 .issues-section {
   margin-top: 30px;
 }
@@ -203,6 +211,7 @@ export default {
   color: #ffffff;
 }
 
+/* No Issues Found */
 .no-issues {
   margin-top: 20px;
   font-size: 14px;
