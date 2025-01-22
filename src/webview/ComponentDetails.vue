@@ -31,7 +31,7 @@
         <h2>Issues</h2>
         <ul class="issues-list">
           <li v-for="issue in component.issues" :key="issue.id" class="issue-item">
-            <p class="issue-title">{{ issue.title }}</p>
+            <p class="issue-title">{{ issue.type?.name || 'Unknown Type' }}: {{ issue.title }}</p>
           </li>
         </ul>
       </div>
@@ -135,7 +135,7 @@ export default {
 
 .input-field,
 .textarea-field {
-  width: calc(100% - 20px); /* Adjusted to add padding around */
+  width: calc(100% - 20px);
   padding: 10px;
   font-size: 14px;
   background-color: #3c3c3c;

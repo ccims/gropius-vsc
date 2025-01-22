@@ -31,7 +31,13 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
     private dynamicProjects: {
         id: string;
         name: string;
-        components: { id: string; name: string; description: string; version: number; issues: { id: string; title: string }[] }[];
+        components: {
+            id: string;
+            name: string;
+            description: string;
+            version: number;
+            issues: { id: string; title: string; type: { name: string } }[];
+        }[];
         issues: { id: string; title: string }[];
     }[] = [];
 
@@ -66,6 +72,9 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
                                         nodes {
                                             id
                                             title
+                                            type {
+                                                name
+                                            }
                                         }
                                     }
                                 }
@@ -96,6 +105,7 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
                     issues: componentNode.component.issues.nodes.map((issue: any) => ({
                         id: issue.id,
                         title: issue.title,
+                        type: issue.type,
                     })),
                 })),
             }));
@@ -155,7 +165,7 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
                             new ProjectItem(
                                 issue.title,
                                 vscode.TreeItemCollapsibleState.None,
-                                undefined, // No command for issues
+                                undefined,
                                 dynamicProject.id,
                                 "issue"
                             )
