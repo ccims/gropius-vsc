@@ -1,140 +1,130 @@
-<!-- Graph.vue -->
 <template>
+  <div class="graph-editor h-full">
+    <div :id="editorId" class="sprotty h-full" />
+  </div>
+</template>
 
-    <div class="graph-container" ref="container">
-      <svg :width="width" :height="height">
-        <!-- Background Pattern -->
-        <defs>
-          <pattern 
-            id="dotPattern" 
-            width="20" 
-            height="20" 
-            patternUnits="userSpaceOnUse"
-          >
-            <circle 
-              cx="2" 
-              cy="2" 
-              r="1" 
-              fill="#ccc"
-            />
-          </pattern>
-        </defs>
-        
-        <!-- Background Rectangle with Pattern -->
-        <rect
-          width="100%"
-          height="100%"
-          fill="url(#dotPattern)"
-        />
-  
-        <!-- Links -->
-        <g class="links">
-          <path
-            v-for="link in links"
-            :key="link.id"
-            :d="getLinkPath(link)"
-            stroke="#999"
-            stroke-width="2"
-            fill="none"
-            marker-end="url(#arrowhead)"
-          />
-        </g>
-  
-        <!-- Nodes -->
-        <g class="nodes">
-          <g
-            v-for="node in nodes"
-            :key="node.id"
-            :transform="`translate(${node.x},${node.y})`"
-            class="node"
-          >
-            <!-- Component Rectangle -->
-            <rect
-              :width="nodeWidth"
-              :height="nodeHeight"
-              fill="white"
-              stroke="#333"
-              stroke-width="2"
-              rx="4"
-            />
-            <!-- Component Label -->
-            <text
-              :x="nodeWidth / 2"
-              :y="nodeHeight / 2"
-              text-anchor="middle"
-              alignment-baseline="middle"
-              fill="#333"
-            >
-              {{ node.label }}
-            </text>
-          </g>
-        </g>
-  
-        <!-- Arrow Marker Definition -->
-        <defs>
-          <marker
-            id="arrowhead"
-            viewBox="0 0 10 10"
-            refX="9"
-            refY="5"
-            markerWidth="6"
-            markerHeight="6"
-            orient="auto"
-          >
-            <path d="M 0 0 L 10 5 L 0 10 z" fill="#999"/>
-          </marker>
-        </defs>
-      </svg>
-    </div>
-  </template>
-  
-  <script>
-  export default {
-    name: 'Graph',
-    data() {
-      return {
-        width: 600,
-        height: 400,
-        nodeWidth: 120,
-        nodeHeight: 60,
-        nodes: [
-          { id: 1, label: 'Component A', x: 100, y: 100 },
-          { id: 2, label: 'Component B', x: 400, y: 100 }
-        ],
-        links: [
-          { id: 1, source: 1, target: 2, label: 'Interface' }
-        ]
-      }
-    },
-    methods: {
-      getLinkPath(link) {
-        const source = this.nodes.find(n => n.id === link.source)
-        const target = this.nodes.find(n => n.id === link.target)
-        
-        // Calculate start and end points (from right side of source to left side of target)
-        const startX = source.x + this.nodeWidth
-        const startY = source.y + this.nodeHeight / 2
-        const endX = target.x
-        const endY = target.y + this.nodeHeight / 2
-        
-        return `M ${startX} ${startY} L ${endX} ${endY}`
-      }
-    }
+<script setup lang="ts">
+import "reflect-metadata";
+import {
+  Graph,
+  GraphLayout,
+  GraphModelSource,
+  SelectedElement,
+  createContainer,
+  CreateRelationContext
+} from "@gropius/graph-editor";
+import { TYPES } from "sprotty";
+import { onMounted, ref } from "vue";
+import { v4 as uuidv4 } from "uuid";
+
+// Create unique ID for the editor instance
+const editorId = ref(`graph-editor-${uuidv4()}`);
+const modelSource = ref<GraphModelSource>();
+
+// Custom model source to handle graph events
+class CustomModelSource extends GraphModelSource {
+  protected override handleCreateRelation(context: CreateRelationContext): void {
+      console.log('Relation created:', context);
   }
-  </script>
-  
-  <style scoped>
-  .graph-container {
-    background-color: #ffffff;
-    border: 1px solid #ddd;
-    border-radius: 4px;
+
+  protected override layoutUpdated(partialUpdate: GraphLayout, resultingLayout: GraphLayout): void {
+      console.log('Layout updated:', resultingLayout);
   }
-  
-  .node {
-    cursor: pointer;
+
+  protected override handleSelectionChanged(selectedElements: SelectedElement<any>[]): void {
+      console.log('Selection changed:', selectedElements);
   }
-  
-  .node:hover rect {
-    stroke: #666;
+
+  protected override navigateToElement(element: string): void {
+      console.log('Navigate to:', element);
   }
-  </style>
+}
+
+// Initialize the graph after component is mounted
+onMounted(() => {
+  console.log('Component mounted, initializing graph...');
+  const container = createContainer(editorId.value);
+  container.bind(CustomModelSource).toSelf().inSingletonScope();
+  container.bind(TYPES.ModelSource).toService(CustomModelSource);
+  modelSource.value = container.get<CustomModelSource>(CustomModelSource);
+
+  // Define our initial graph structure
+  const initialGraph: Graph = {
+      components: [
+          {
+              id: 'comp1',
+              name: 'Component 1',
+              version: '1.0',
+              style: {
+                  shape: 'RECT',
+                  stroke: { color: '#2563eb' },
+                  fill: { color: '#dbeafe' }
+              },
+              interfaces: [],
+              contextMenu: {},
+              issueTypes: []
+          },
+          {
+              id: 'comp2',
+              name: 'Component 2',
+              version: '1.0',
+              style: {
+                  shape: 'RECT',
+                  stroke: { color: '#16a34a' },
+                  fill: { color: '#dcfce7' }
+              },
+              interfaces: [],
+              contextMenu: {},
+              issueTypes: []
+          }
+      ],
+      relations: [
+          {
+              id: 'rel1',
+              name: 'Connects',
+              start: 'comp1',
+              end: 'comp2',
+              style: {
+                  stroke: { color: '#6b7280' },
+                  marker: 'ARROW'
+              },
+              contextMenu: {}
+          }
+      ],
+      issueRelations: []
+  };
+
+  const initialLayout: GraphLayout = {
+      comp1: { pos: { x: 100, y: 100 } },
+      comp2: { pos: { x: 300, y: 100 } }
+  };
+
+  // Update the graph with initial data
+  modelSource.value?.updateGraph({
+      graph: initialGraph,
+      layout: initialLayout,
+      fitToBounds: true
+  });
+});
+</script>
+
+<style scoped>
+.graph-editor {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  min-height: 400px;  /* Added to ensure visibility */
+}
+
+:deep(.sprotty svg) {
+  width: 100%;
+  height: 100%;
+  --diagram-grid: #f3f4f6;
+  --background-overlay-color: rgba(0, 0, 0, 0.05);
+  --shape-stroke-color: #374151;
+  --version-chip-background: #ffffff;
+  --version-chip-color: #374151;
+  --selected-shape-stroke-color: #3b82f6;
+  --selected-shape-fill-color: rgba(59, 130, 246, 0.1);
+}
+</style>

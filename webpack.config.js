@@ -1,50 +1,71 @@
+// webpack.config.js - I'll mark new or modified parts with comments
+
 const path = require('path');
 const { VueLoaderPlugin } = require('vue-loader');
 const webpack = require('webpack');
 
 module.exports = {
-    mode: 'development', // Change to 'production' for production builds
+    mode: 'development',
     entry: {
-        graph: './src/webview/main.ts', // Original Vue app
-        componentDetails: './src/webview/component-details.ts', // New Vue app
+        graph: './src/webview/main.ts',
+        componentDetails: './src/webview/component-details.ts',
         graphEditor: './src/webview/graph-editor.ts'
     },
     output: {
         path: path.resolve(__dirname, 'out/webview'),
-        filename: '[name].js', // Use [name] to create unique filenames like graph.js and componentDetails.js
+        filename: '[name].js',
     },
     resolve: {
-        extensions: ['.ts', '.js', '.vue'], // Extensions to resolve
+        extensions: ['.ts', '.js', '.vue'],
         alias: {
-            vue$: 'vue/dist/vue.esm-bundler.js', // Use the ES module build of Vue
+            vue$: 'vue/dist/vue.esm-bundler.js',
+            // NEW: Add this alias for easier imports
+            '@': path.resolve(__dirname, 'src'),
         },
     },
     module: {
         rules: [
             {
                 test: /\.vue$/,
-                loader: 'vue-loader', // Handle .vue files
+                loader: 'vue-loader',
+                // NEW: Add options for Vue loader
+                options: {
+                    enableTsInTemplate: true,
+                }
             },
             {
                 test: /\.ts$/,
-                loader: 'ts-loader', // Handle TypeScript files
+                loader: 'ts-loader',
+                // MODIFIED: Fix the regex and add important options
                 options: {
-                    appendTsSuffixTo: [/\\.vue$/], // Treat .vue files as TypeScript
+                    appendTsSuffixTo: [/\.vue$/], // Fixed the regex
+                    transpileOnly: true,
+                    configFile: path.resolve(__dirname, 'tsconfig.json'),
                 },
+                exclude: /node_modules/,
             },
             {
                 test: /\.css$/,
-                use: ['style-loader', 'css-loader'], // Handle CSS files
+                use: ['style-loader', 'css-loader'],
             },
         ],
     },
     plugins: [
-        new VueLoaderPlugin(), // Enable Vue loader plugin
+        new VueLoaderPlugin(),
         new webpack.DefinePlugin({
-            __VUE_OPTIONS_API__: true, // Enable Vue Options API
-            __VUE_PROD_DEVTOOLS__: false, // Disable Vue DevTools in production
-            __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: false, // Explicitly disable hydration mismatch details
+            __VUE_OPTIONS_API__: true,
+            __VUE_PROD_DEVTOOLS__: false,
+            __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: false,
+            // NEW: Add this for better development experience
+            'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
         }),
     ],
-    devtool: 'source-map', // Enable source maps for debugging
+    devtool: 'source-map',
+    // NEW: Add better build output configuration
+    stats: {
+        modules: false,
+        children: false,
+        chunks: false,
+        assets: false,
+    },
 };
