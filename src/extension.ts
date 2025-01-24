@@ -204,158 +204,49 @@ export function activate(context: vscode.ExtensionContext) {
     const apiClient = new APIClient(API_URL, CLIENT_ID, CLIENT_SECRET);
     const projectsProvider = new ProjectsProvider(apiClient);
 
-    // Add this function inside activate()
     async function fetchProjectGraphData(projectId: string) {
         const query = `query getProjectGraph($project: ID!) {
-    node(id: $project) {
-        ... on Project {
-            ...GraphInfo
-            relationLayouts {
+            node(id: $project) {
+                ... on Project {
+                    ...GraphInfo
+                    relationLayouts {
+                        nodes {
+                            relation {
+                                id
+                            }
+                            points {
+                                x
+                                y
+                            }
+                        }
+                    }
+                    relationPartnerLayouts {
+                        nodes {
+                            relationPartner {
+                                id
+                            }
+                            pos {
+                                x
+                                y
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        fragment GraphInfo on Project {
+            components {
                 nodes {
-                    relation {
-                        id
-                    }
-                    points {
-                        x
-                        y
-                    }
+                    ...GraphComponentVersionInfo
                 }
             }
-            relationPartnerLayouts {
-                nodes {
-                    relationPartner {
-                        id
-                    }
-                    pos {
-                        x
-                        y
-                    }
-                }
-            }
-        }
-    }
-}
-    fragment GraphInfo on Project {
-    components {
-        nodes {
-            ...GraphComponentVersionInfo
-        }
-    }
-    manageComponents: hasPermission(permission: MANAGE_COMPONENTS)
-    defaultView {
-        id
-    }
-}
-
-fragment GraphComponentVersionInfo on ComponentVersion {
-    version
-    ...GraphRelationPartnerInfo
-    interfaceDefinitions {
-        nodes {
-            visibleInterface {
-                ...GraphRelationPartnerInfo
-            }
-            interfaceSpecificationVersion {
-                id
-                version
-                interfaceSpecification {
-                    id
-                    name
-                    template {
-                        ...GraphRelationPartnerTemplateInfo
-                    }
-                }
-            }
-        }
-    }
-    component {
-        id
-        name
-        template {
-            ...GraphRelationPartnerTemplateInfo
-        }
-    }
-    relateFromComponent: hasPermission(permission: RELATE_FROM_COMPONENT)
-}
-
-fragment GraphAggregatedIssueInfo on AggregatedIssue {
-    id
-    type {
-        id
-        name
-        iconPath
-    }
-    count
-    isOpen
-    outgoingRelations(filter: { end: { relationPartner: { partOfProject: $project } } }) {
-        nodes {
-            end {
-                id
-                relationPartner {
-                    id
-                }
-            }
-            type {
-                name
+            manageComponents: hasPermission(permission: MANAGE_COMPONENTS)
+            defaultView {
                 id
             }
-        }
-    }
-}
-
-fragment GraphRelationPartnerInfo on RelationPartner {
-    id
-    __typename
-    outgoingRelations(filter: { end: { partOfProject: $project } }) {
-        nodes {
-            id
-            template {
-                ...GraphRelationTemplateInfo
-            }
-            end {
-                id
-            }
-        }
-    }
-    aggregatedIssues {
-        nodes {
-            ...GraphAggregatedIssueInfo
-        }
-    }
-}
-
-fragment FillStyleInfo on FillStyle {
-    color
-}
-
-fragment StrokeStyleInfo on StrokeStyle {
-    color
-    dash
-}
-
-fragment GraphRelationPartnerTemplateInfo on RelationPartnerTemplate {
-    id
-    name
-    fill {
-        ...FillStyleInfo
-    }
-    stroke {
-        ...StrokeStyleInfo
-    }
-    shapeType
-    shapeRadius
-}
-
-fragment GraphRelationTemplateInfo on RelationTemplate {
-    name
-    stroke {
-        ...StrokeStyleInfo
-    }
-    markerType
-}
-
-    `;
-
+        }`;
+    
         try {
             const response = await apiClient.executeQuery(query, {
                 project: projectId
@@ -365,6 +256,59 @@ fragment GraphRelationTemplateInfo on RelationTemplate {
             throw new Error(`Failed to fetch project graph: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
+    
+    context.subscriptions.push(
+        vscode.commands.registerCommand("extension.showGraph", async () => {
+            const panel = vscode.window.createWebviewPanel(
+                "graphEditor",
+                "Graph Editor",
+                vscode.ViewColumn.One,
+                {
+                    enableScripts: true,
+                    localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'out', 'webview')]
+                }
+            );
+    
+            const scriptUri = panel.webview.asWebviewUri(
+                vscode.Uri.joinPath(context.extensionUri, 'out', 'webview', 'graphEditor.js')
+            );
+    
+            panel.webview.html = `
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Graph Editor</title>
+                </head>
+                <body>
+                    <div id="app"></div>
+                    <script src="${scriptUri}"></script>
+                </body>
+                </html>
+            `;
+    
+            panel.webview.onDidReceiveMessage(async (message) => {
+                switch (message.type) {
+                    case 'ready':
+                        try {
+                            // For testing, use a hardcoded project ID initially
+                            const projectId = "3a24498b-5134-4c27-a15c-a1b03514b81d"; // Replace with a real project ID
+                            const projectData = await fetchProjectGraphData(projectId);
+                            
+                            // Send the project data to the webview
+                            panel.webview.postMessage({
+                                type: 'projectData',
+                                data: projectData
+                            });
+                        } catch (error) {
+                            vscode.window.showErrorMessage(`Failed to load project data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                        }
+                        break;
+                }
+            });
+        })
+    );
 
     vscode.window.registerTreeDataProvider("projectsView", projectsProvider);
 
@@ -450,58 +394,7 @@ fragment GraphRelationTemplateInfo on RelationTemplate {
         })
     );
 
-    context.subscriptions.push(
-        vscode.commands.registerCommand("extension.showGraph", async () => {
-            const panel = vscode.window.createWebviewPanel(
-                "graphEditor",
-                "Graph Editor",
-                vscode.ViewColumn.One,
-                {
-                    enableScripts: true,
-                    localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'out', 'webview')]
-                }
-            );
 
-            const scriptUri = panel.webview.asWebviewUri(
-                vscode.Uri.joinPath(context.extensionUri, 'out', 'webview', 'graphEditor.js')
-            );
-
-            panel.webview.html = `
-                <!DOCTYPE html>
-                <html lang="en">
-                <head>
-                    <meta charset="UTF-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>Graph Editor</title>
-                </head>
-                <body>
-                    <div id="app"></div>
-                    <script src="${scriptUri}"></script>
-                </body>
-                </html>
-            `;
-
-            panel.webview.onDidReceiveMessage(async (message) => {
-                switch (message.type) {
-                    case 'ready':
-                        try {
-                            // Hardcoded project ID for initial testing
-                            const projectId = "YOUR_TEST_PROJECT_ID"; // Replace this with a real ID
-                            const projectData = await fetchProjectGraphData(projectId);
-                            
-                            // Send the project data to the webview
-                            panel.webview.postMessage({
-                                type: 'projectData',
-                                data: projectData
-                            });
-                        } catch (error) {
-                            vscode.window.showErrorMessage(`Failed to load project data: ${error instanceof Error ? error.message : 'Unknown error'}`);
-                        }
-                        break;
-                }
-            });
-        })
-    );
 
     apiClient
         .authenticate()
