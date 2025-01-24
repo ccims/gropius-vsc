@@ -12,7 +12,8 @@ import {
   GraphModelSource,
   SelectedElement,
   createContainer,
-  CreateRelationContext
+  CreateRelationContext,
+  LayoutEngine
 } from "@gropius/graph-editor";
 import { TYPES } from "sprotty";
 import { PropType, onMounted, shallowRef, ref, computed } from "vue";
@@ -51,6 +52,16 @@ class CustomModelSource extends GraphModelSource {
   protected override navigateToElement(element: string): void {
     console.log('Navigate to:', element);
   }
+}
+
+async function autolayout(graph: Graph): Promise<GraphLayout> {
+    const layoutEngine = new LayoutEngine(graph);
+    const coordinates = await layoutEngine.layout();
+    const resultingLayout: GraphLayout = {};
+    coordinates.forEach((pos, id) => {
+        resultingLayout[id] = { pos };
+    });
+    return resultingLayout;
 }
 
 function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout } {
@@ -187,19 +198,24 @@ function handleMessage(event: MessageEvent) {
 }
 
 // Update graph with new data
-function updateGraph(data: any = null) {
-  if (!modelSource.value) {
-    console.warn('ModelSource not initialized');
-    return;
-  }
+async function updateGraph(data: any = null) {
+    if (!modelSource.value) {
+        console.warn('ModelSource not initialized');
+        return;
+    }
 
-  const { graph, layout } = createGraphData(data);
-  console.log('Updating graph with:', { graph, layout });
-  modelSource.value.updateGraph({
-    graph,
-    layout,
-    fitToBounds: true
-  });
+    const { graph, layout } = createGraphData(data);
+    
+    // If layout is empty (no saved positions), use automatic layout
+    const finalLayout = Object.keys(layout).length === 0 ? 
+        await autolayout(graph) : layout;
+
+    console.log('Updating graph with layout:', finalLayout);
+    modelSource.value.updateGraph({
+        graph,
+        layout: finalLayout,
+        fitToBounds: true
+    });
 }
 
 onMounted(() => {
@@ -245,3 +261,4 @@ onMounted(() => {
   --selected-shape-fill-color: rgba(59, 130, 246, 0.1);
 }
 </style>
+

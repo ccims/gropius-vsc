@@ -327,7 +327,7 @@ export function activate(context: vscode.ExtensionContext) {
                 }
             }
         }`;
-    
+
         try {
             await apiClient.authenticate();  // Ensure we're authenticated before query
             const response = await apiClient.executeQuery(query, {
@@ -340,7 +340,7 @@ export function activate(context: vscode.ExtensionContext) {
             throw new Error(`Failed to fetch project graph: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
-    
+
     context.subscriptions.push(
         vscode.commands.registerCommand("extension.showGraph", async () => {
             const panel = vscode.window.createWebviewPanel(
@@ -352,11 +352,11 @@ export function activate(context: vscode.ExtensionContext) {
                     localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'out', 'webview')]
                 }
             );
-    
+
             const scriptUri = panel.webview.asWebviewUri(
                 vscode.Uri.joinPath(context.extensionUri, 'out', 'webview', 'graphEditor.js')
             );
-    
+
             panel.webview.html = `
                 <!DOCTYPE html>
                 <html lang="en">
@@ -371,7 +371,7 @@ export function activate(context: vscode.ExtensionContext) {
                 </body>
                 </html>
             `;
-    
+
             panel.webview.onDidReceiveMessage(async (message) => {
                 console.log('Message from webview:', message);
                 switch (message.type) {
@@ -392,6 +392,9 @@ export function activate(context: vscode.ExtensionContext) {
                         break;
                 }
             });
+
+            // Add after creating the panel
+            panel.reveal(vscode.ViewColumn.One);
         })
     );
 
