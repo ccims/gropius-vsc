@@ -245,14 +245,67 @@ export function activate(context: vscode.ExtensionContext) {
             defaultView {
                 id
             }
+        }
+    
+        fragment GraphComponentVersionInfo on ComponentVersion {
+            version
+            id
+            component {
+                id
+                name
+                template {
+                    id
+                    name
+                    fill {
+                        color
+                    }
+                    stroke {
+                        color
+                        dash
+                    }
+                    shapeType
+                    shapeRadius
+                }
+            }
+            interfaceDefinitions {
+                nodes {
+                    visibleInterface {
+                        id
+                    }
+                    interfaceSpecificationVersion {
+                        id
+                        version
+                        interfaceSpecification {
+                            id
+                            name
+                            template {
+                                id
+                                name
+                                fill {
+                                    color
+                                }
+                                stroke {
+                                    color
+                                    dash
+                                }
+                                shapeType
+                                shapeRadius
+                            }
+                        }
+                    }
+                }
+            }
         }`;
     
         try {
+            await apiClient.authenticate();  // Ensure we're authenticated before query
             const response = await apiClient.executeQuery(query, {
                 project: projectId
             });
+            console.log('GraphQL response:', response);  // Debug log
             return response.data;
         } catch (error) {
+            console.error('GraphQL error:', error);  // Debug log
             throw new Error(`Failed to fetch project graph: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
@@ -289,20 +342,21 @@ export function activate(context: vscode.ExtensionContext) {
             `;
     
             panel.webview.onDidReceiveMessage(async (message) => {
+                console.log('Message from webview:', message);
                 switch (message.type) {
                     case 'ready':
                         try {
-                            // For testing, use a hardcoded project ID initially
-                            const projectId = "3a24498b-5134-4c27-a15c-a1b03514b81d"; // Replace with a real project ID
+                            await apiClient.authenticate();
+                            const projectId = message.projectId;
                             const projectData = await fetchProjectGraphData(projectId);
-                            
-                            // Send the project data to the webview
+                            console.log('Sending project data:', projectData);
                             panel.webview.postMessage({
                                 type: 'projectData',
                                 data: projectData
                             });
                         } catch (error) {
-                            vscode.window.showErrorMessage(`Failed to load project data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                            console.error('Failed to fetch data:', error);
+                            vscode.window.showErrorMessage(`Data fetch failed: ${error}`);
                         }
                         break;
                 }
