@@ -267,6 +267,24 @@ export function activate(context: vscode.ExtensionContext) {
                     shapeRadius
                 }
             }
+
+            outgoingRelations {
+                nodes {
+                    id
+                    end {
+                        id
+                    }
+                    template {
+                        name
+                        stroke {
+                            color
+                            dash
+                        }
+                        markerType
+                    }
+                }
+            }
+            
             interfaceDefinitions {
                 nodes {
                     visibleInterface {

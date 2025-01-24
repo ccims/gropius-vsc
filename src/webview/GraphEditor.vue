@@ -54,8 +54,10 @@ class CustomModelSource extends GraphModelSource {
 }
 
 function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout } {
+  console.log('Creating graph data from:', data);
+
   if (!data?.node) {
-    console.log('No project data available, using test data');
+    // Return test data if no project data available
     return {
       graph: {
         components: [
@@ -65,8 +67,8 @@ function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout 
             version: '1.0',
             style: {
               shape: 'RECT',
-              fill: { color: '#dbeafe' },
-              stroke: { color: '#2563eb' }
+              fill: { color: '#f3f4f6' },    // Lighter background
+              stroke: { color: '#1f2937' }    // Darker stroke
             },
             interfaces: [],
             contextMenu: {},
@@ -82,7 +84,6 @@ function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout 
     };
   }
 
-  console.log('Processing project data:', data);
   const project = data.node;
   const graph: Graph = {
     components: [],
@@ -91,27 +92,69 @@ function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout 
   };
   const layout: GraphLayout = {};
 
-  // Process components and their layouts
+  // Process components and their interfaces
   if (project.components?.nodes) {
     project.components.nodes.forEach((node: any) => {
       const template = node.component?.template || {};
+
+      // Process interfaces for this component
+      const interfaces = node.interfaceDefinitions.nodes
+        .filter((def: any) => def.visibleInterface)
+        .map((def: any) => {
+          const interfaceSpec = def.interfaceSpecificationVersion.interfaceSpecification;
+          const interfaceTemplate = interfaceSpec.template;
+
+          return {
+            id: def.visibleInterface.id,
+            name: interfaceSpec.name,
+            version: def.interfaceSpecificationVersion.version,
+            style: {
+              shape: interfaceTemplate.shapeType || 'HEXAGON',
+              fill: { color: interfaceTemplate.fill?.color || null },  // Changed to null for transparency
+              stroke: { color: interfaceTemplate.stroke?.color || '#1f2937' }
+            },
+            contextMenu: {},
+            issueTypes: []
+          };
+        });
+
+      // Add component with its interfaces
       graph.components.push({
         id: node.id,
         name: node.component?.name || 'Unnamed',
         version: String(node.version || '1.0'),
         style: {
           shape: template.shapeType || 'RECT',
-          fill: { color: template.fill?.color || '#dbeafe' },
-          stroke: { color: template.stroke?.color || '#2563eb' }
+          fill: { color: template.fill?.color || null },  // Changed to null for transparency
+          stroke: { color: template.stroke?.color || '#1f2937' }
         },
-        interfaces: [],
+        interfaces,
         contextMenu: {},
         issueTypes: []
       });
+
+      // Process outgoing relations
+      if (node.outgoingRelations?.nodes) {
+        node.outgoingRelations.nodes.forEach((relation: any) => {
+          if (relation.end?.id) {
+            graph.relations.push({
+              id: relation.id,
+              name: relation.template?.name || 'Relation',
+              start: node.id,
+              end: relation.end.id,
+              style: {
+                stroke: relation.template?.stroke || { color: '#1f2937' },  // Darker stroke for relations
+                marker: relation.template?.markerType || 'ARROW'
+              },
+              contextMenu: {}
+            });
+          }
+        });
+      }
     });
   }
 
-  // Apply layouts from relationPartnerLayouts
+  // Apply layouts
   if (project.relationPartnerLayouts?.nodes) {
     project.relationPartnerLayouts.nodes.forEach((layoutNode: any) => {
       if (layoutNode.relationPartner?.id && layoutNode.pos) {
@@ -166,12 +209,12 @@ onMounted(() => {
 
   // Initialize with test data
   updateGraph();
-  
+
   // Request project data from extension using the provided VS Code API
   console.log('Sending ready message...');
-  props.vscodeApi.postMessage({ 
-    type: 'ready', 
-    projectId: props.projectId 
+  props.vscodeApi.postMessage({
+    type: 'ready',
+    projectId: props.projectId
   });
 });
 </script>
@@ -184,12 +227,15 @@ onMounted(() => {
 :deep(.sprotty svg) {
   width: 100%;
   height: 100%;
-  --diagram-grid: rgba(0, 0, 0, 0.1);
-  --background-overlay-color: rgba(0, 0, 0, 0.05);
-  --shape-stroke-color: #374151;
+  /* Lighter background and better contrast */
+  --diagram-grid: rgba(0, 0, 0, 0.05);
+  --background-overlay-color: rgba(0, 0, 0, 0.02);
+  --shape-stroke-color: #1f2937;
+  /* Darker stroke for better contrast */
   --version-chip-background: #ffffff;
-  --version-chip-color: #374151;
-  --selected-shape-stroke-color: #3b82f6;
+  --version-chip-color: #1f2937;
+  /* Darker text */
+  --selected-shape-stroke-color: #2563eb;
   --selected-shape-fill-color: rgba(59, 130, 246, 0.1);
 }
 </style>
