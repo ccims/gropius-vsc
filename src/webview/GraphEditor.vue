@@ -130,7 +130,13 @@ function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout 
         },
         interfaces,
         contextMenu: {},
-        issueTypes: []
+        issueTypes: node.aggregatedIssues?.nodes.map((issue: any) => ({
+          id: issue.id,
+          name: issue.type.name,
+          iconPath: issue.type.iconPath,
+          count: issue.count,
+          isOpen: issue.isOpen
+        })) || []
       });
 
       // Process outgoing relations
@@ -157,13 +163,13 @@ function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout 
   // Apply layouts
   if (project.relationPartnerLayouts?.nodes) {
     project.relationPartnerLayouts.nodes.forEach((layoutNode: any) => {
-      if (layoutNode.relationPartner?.id && layoutNode.pos) {
-        layout[layoutNode.relationPartner.id] = {
-          pos: layoutNode.pos
-        };
-      }
+        if (layoutNode.relationPartner?.id && layoutNode.pos) {
+            layout[layoutNode.relationPartner.id] = {
+                pos: layoutNode.pos
+            };
+        }
     });
-  }
+}
 
   return { graph, layout };
 }

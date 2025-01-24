@@ -313,6 +313,19 @@ export function activate(context: vscode.ExtensionContext) {
                     }
                 }
             }
+
+            aggregatedIssues {
+                nodes {
+                    id
+                    type {
+                        id
+                        name
+                        iconPath    
+                    }
+                    count
+                    isOpen        
+                }
+            }
         }`;
     
         try {
