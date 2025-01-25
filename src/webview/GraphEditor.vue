@@ -5,6 +5,7 @@
 </template>
 
 <script setup lang="ts">
+
 import "reflect-metadata";
 import {
   Graph,
@@ -19,22 +20,15 @@ import { TYPES } from "sprotty";
 import { PropType, onMounted, shallowRef, ref, computed } from "vue";
 import { v4 as uuidv4 } from "uuid";
 
-// Define props including the VS Code API
 const props = defineProps({
-  projectId: {
-    type: String,
-    required: true
-  },
-  vscodeApi: {
-    type: Object,
-    required: true
-  }
+  projectId: { type: String, required: true },
+  vscodeApi: { type: Object, required: true }
 });
 
-// Setup reactive refs
 const editorId = ref(`graph-editor-${uuidv4()}`);
 const modelSource = shallowRef<CustomModelSource>();
 const projectData = ref<any>(null);
+const showIssueRelations = ref(true);  // Added to control issue relation visibility
 
 class CustomModelSource extends GraphModelSource {
   protected override handleCreateRelation(context: CreateRelationContext): void {
@@ -71,7 +65,7 @@ function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout 
   const graph: Graph = {
     components: [],
     relations: [],
-    issueRelations: []
+    issueRelations: showIssueRelations.value ? [] : []  // Only include issue relations if they should be shown
   };
   const layout: GraphLayout = {};
 
@@ -124,17 +118,23 @@ function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout 
       });
 
     // Process issue relations for the component
-    if (componentNode.aggregatedIssues?.nodes) {
+    if (componentNode.aggregatedIssues?.nodes && showIssueRelations.value) {
       const componentIssueRelations = componentNode.aggregatedIssues.nodes.flatMap((issue: any) =>
         issue.outgoingRelations?.nodes?.map((relation: any) => ({
           start: issue.id,
           end: relation.end.relationPartner.id,
-          count: issue.count
+          count: issue.count,
+          style: {
+            stroke: {
+              color: 'rgba(255, 255, 255, 0.6)',
+              dash: [5, 5]
+            },
+            marker: 'ARROW'
+          }
         })) || []
       );
       graph.issueRelations.push(...componentIssueRelations);
     }
-
     // Add component with its interfaces and issues
     graph.components.push({
       id: componentNode.id,
@@ -271,7 +271,7 @@ onMounted(() => {
 
   /* Selection and highlight colors */
   --selected-shape-stroke-color: rgba(59, 131, 246, 0.555);
-  --selected-shape-fill-color: rgba(59, 130, 246, 0.1);   
+  --selected-shape-fill-color: rgba(59, 130, 246, 0.1);
 
   /* Issue status colors */
   --issue-open-color: rgb(34, 197, 94);
