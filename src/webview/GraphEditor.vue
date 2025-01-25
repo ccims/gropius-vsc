@@ -55,47 +55,19 @@ class CustomModelSource extends GraphModelSource {
 }
 
 async function autolayout(graph: Graph): Promise<GraphLayout> {
-    const layoutEngine = new LayoutEngine(graph);
-    const coordinates = await layoutEngine.layout();
-    const resultingLayout: GraphLayout = {};
-    coordinates.forEach((pos, id) => {
-        resultingLayout[id] = { pos };
-    });
-    return resultingLayout;
+  const layoutEngine = new LayoutEngine(graph);
+  const coordinates = await layoutEngine.layout();
+  const resultingLayout: GraphLayout = {};
+  coordinates.forEach((pos, id) => {
+    resultingLayout[id] = { pos };
+  });
+  return resultingLayout;
 }
 
 function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout } {
   console.log('Creating graph data from:', data);
-
-  if (!data?.node) {
-    // Return test data if no project data available
-    return {
-      graph: {
-        components: [
-          {
-            id: 'comp1',
-            name: 'Test Component',
-            version: '1.0',
-            style: {
-              shape: 'RECT',
-              fill: { color: '#f3f4f6' },    // Lighter background
-              stroke: { color: '#1f2937' }    // Darker stroke
-            },
-            interfaces: [],
-            contextMenu: {},
-            issueTypes: []
-          }
-        ],
-        relations: [],
-        issueRelations: []
-      },
-      layout: {
-        comp1: { pos: { x: 100, y: 100 } }
-      }
-    };
-  }
-
-  const project = data.node;
+  
+  const project = data?.node;
   const graph: Graph = {
     components: [],
     relations: [],
@@ -103,92 +75,117 @@ function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout 
   };
   const layout: GraphLayout = {};
 
- // Process components and their interfaces
-if (project.components?.nodes) {
-    project.components.nodes.forEach((componentNode: any) => {
-        const template = componentNode.component?.template || {};
+  // Only proceed if we have project data
+  if (!project?.components?.nodes) {
+    return { graph, layout };
+  }
 
-        // Process interfaces for this component
-        const interfaces = componentNode.interfaceDefinitions.nodes
-            .filter((def: any) => def.visibleInterface)
-            .map((def: any) => {
-                const interfaceSpec = def.interfaceSpecificationVersion.interfaceSpecification;
-                const interfaceTemplate = interfaceSpec.template;
+  // Process components and their interfaces
+  project.components.nodes.forEach((componentNode: any) => {
+    const template = componentNode.component?.template || {};
 
-                return {
-                    id: def.visibleInterface.id,
-                    name: interfaceSpec.name,
-                    version: def.interfaceSpecificationVersion.version,
-                    style: {
-                        shape: interfaceTemplate.shapeType || 'HEXAGON',
-                        fill: { color: interfaceTemplate.fill?.color || null },
-                        stroke: { color: interfaceTemplate.stroke?.color || '#1f2937' }
-                    },
-                    contextMenu: {},
-                    // Interfaces can have their own issues
-                    issueTypes: def.visibleInterface.aggregatedIssues?.nodes.map((issue: any) => ({
-                        id: issue.id,
-                        name: issue.type.name,
-                        iconPath: issue.type.iconPath,
-                        count: issue.count,
-                        isOpen: issue.isOpen
-                    })) || []
-                };
-            });
+    // Process interfaces for this component
+    const interfaces = componentNode.interfaceDefinitions.nodes
+      .filter((def: any) => def.visibleInterface)
+      .map((def: any) => {
+        const interfaceSpec = def.interfaceSpecificationVersion.interfaceSpecification;
+        const interfaceTemplate = interfaceSpec.template;
 
-        // Add component with its interfaces and issues
-        graph.components.push({
-            id: componentNode.id,
-            name: componentNode.component?.name || 'Unnamed',
-            version: String(componentNode.version || '1.0'),
-            style: {
-                shape: template.shapeType || 'RECT',
-                fill: { color: template.fill?.color || null },
-                stroke: { color: template.stroke?.color || '#1f2937' }
-            },
-            interfaces,
-            contextMenu: {},
-            // Process component's issues
-            issueTypes: componentNode.aggregatedIssues?.nodes.map((issue: any) => ({
-                id: issue.id,
-                name: issue.type.name,
-                iconPath: issue.type.iconPath,
-                count: issue.count,
-                isOpen: issue.isOpen
+        // Process issue relations for interfaces
+        if (def.visibleInterface.aggregatedIssues?.nodes) {
+          const interfaceIssueRelations = def.visibleInterface.aggregatedIssues.nodes.flatMap((issue: any) =>
+            issue.outgoingRelations?.nodes?.map((relation: any) => ({
+              start: issue.id,
+              end: relation.end.relationPartner.id,
+              count: issue.count
             })) || []
-        });
-
-        // Process outgoing relations
-        if (componentNode.outgoingRelations?.nodes) {
-            componentNode.outgoingRelations.nodes.forEach((relation: any) => {
-                if (relation.end?.id) {
-                    graph.relations.push({
-                        id: relation.id,
-                        name: relation.template?.name || 'Relation',
-                        start: componentNode.id,
-                        end: relation.end.id,
-                        style: {
-                            stroke: relation.template?.stroke || { color: '#1f2937' },
-                            marker: relation.template?.markerType || 'ARROW'
-                        },
-                        contextMenu: {}
-                    });
-                }
-            });
+          );
+          graph.issueRelations.push(...interfaceIssueRelations);
         }
+
+        return {
+          id: def.visibleInterface.id,
+          name: interfaceSpec.name,
+          version: def.interfaceSpecificationVersion.version,
+          style: {
+            shape: interfaceTemplate.shapeType || 'HEXAGON',
+            fill: { color: interfaceTemplate.fill?.color || null },
+            stroke: { color: interfaceTemplate.stroke?.color || '#1f2937' }
+          },
+          contextMenu: {},
+          issueTypes: def.visibleInterface.aggregatedIssues?.nodes.map((issue: any) => ({
+            id: issue.id,
+            name: issue.type.name,
+            iconPath: issue.type.iconPath,
+            count: issue.count,
+            isOpen: issue.isOpen
+          })) || []
+        };
+      });
+
+    // Process issue relations for the component
+    if (componentNode.aggregatedIssues?.nodes) {
+      const componentIssueRelations = componentNode.aggregatedIssues.nodes.flatMap((issue: any) =>
+        issue.outgoingRelations?.nodes?.map((relation: any) => ({
+          start: issue.id,
+          end: relation.end.relationPartner.id,
+          count: issue.count
+        })) || []
+      );
+      graph.issueRelations.push(...componentIssueRelations);
+    }
+
+    // Add component with its interfaces and issues
+    graph.components.push({
+      id: componentNode.id,
+      name: componentNode.component?.name || 'Unnamed',
+      version: String(componentNode.version || '1.0'),
+      style: {
+        shape: template.shapeType || 'RECT',
+        fill: { color: template.fill?.color || null },
+        stroke: { color: template.stroke?.color || '#1f2937' }
+      },
+      interfaces,
+      contextMenu: {},
+      issueTypes: componentNode.aggregatedIssues?.nodes.map((issue: any) => ({
+        id: issue.id,
+        name: issue.type.name,
+        iconPath: issue.type.iconPath,
+        count: issue.count,
+        isOpen: issue.isOpen
+      })) || []
     });
-}
+
+    // Process outgoing relations
+    if (componentNode.outgoingRelations?.nodes) {
+      componentNode.outgoingRelations.nodes.forEach((relation: any) => {
+        if (relation.end?.id) {
+          graph.relations.push({
+            id: relation.id,
+            name: relation.template?.name || 'Relation',
+            start: componentNode.id,
+            end: relation.end.id,
+            style: {
+              stroke: relation.template?.stroke || { color: '#1f2937' },
+              marker: relation.template?.markerType || 'ARROW'
+            },
+            contextMenu: {}
+          });
+        }
+      });
+    }
+  });
 
   // Apply layouts
   if (project.relationPartnerLayouts?.nodes) {
     project.relationPartnerLayouts.nodes.forEach((layoutNode: any) => {
-        if (layoutNode.relationPartner?.id && layoutNode.pos) {
-            layout[layoutNode.relationPartner.id] = {
-                pos: layoutNode.pos
-            };
-        }
+      if (layoutNode.relationPartner?.id && layoutNode.pos) {
+        layout[layoutNode.relationPartner.id] = {
+          pos: layoutNode.pos
+        };
+      }
     });
-}
+  }
 
   return { graph, layout };
 }
@@ -207,23 +204,23 @@ function handleMessage(event: MessageEvent) {
 
 // Update graph with new data
 async function updateGraph(data: any = null) {
-    if (!modelSource.value) {
-        console.warn('ModelSource not initialized');
-        return;
-    }
+  if (!modelSource.value) {
+    console.warn('ModelSource not initialized');
+    return;
+  }
 
-    const { graph, layout } = createGraphData(data);
-    
-    // If layout is empty (no saved positions), use automatic layout
-    const finalLayout = Object.keys(layout).length === 0 ? 
-        await autolayout(graph) : layout;
+  const { graph, layout } = createGraphData(data);
 
-    console.log('Updating graph with layout:', finalLayout);
-    modelSource.value.updateGraph({
-        graph,
-        layout: finalLayout,
-        fitToBounds: true
-    });
+  // If layout is empty (no saved positions), use automatic layout
+  const finalLayout = Object.keys(layout).length === 0 ?
+    await autolayout(graph) : layout;
+
+  console.log('Updating graph with layout:', finalLayout);
+  modelSource.value.updateGraph({
+    graph,
+    layout: finalLayout,
+    fitToBounds: true
+  });
 }
 
 onMounted(() => {
@@ -269,4 +266,3 @@ onMounted(() => {
   --selected-shape-fill-color: rgba(59, 130, 246, 0.1);
 }
 </style>
-

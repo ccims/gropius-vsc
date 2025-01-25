@@ -278,6 +278,20 @@ export function activate(context: vscode.ExtensionContext) {
                     }
                     count
                     isOpen
+                    outgoingRelations(filter: { end: { relationPartner: { partOfProject: $project } } }) {
+                        nodes {
+                            end {
+                                id
+                                relationPartner {
+                                    id
+                                }
+                            }
+                            type {
+                                name
+                                id
+                            }
+                        }
+                    }
                 }
             }
 
