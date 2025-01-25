@@ -103,73 +103,81 @@ function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout 
   };
   const layout: GraphLayout = {};
 
-  // Process components and their interfaces
-  if (project.components?.nodes) {
-    project.components.nodes.forEach((node: any) => {
-      const template = node.component?.template || {};
+ // Process components and their interfaces
+if (project.components?.nodes) {
+    project.components.nodes.forEach((componentNode: any) => {
+        const template = componentNode.component?.template || {};
 
-      // Process interfaces for this component
-      const interfaces = node.interfaceDefinitions.nodes
-        .filter((def: any) => def.visibleInterface)
-        .map((def: any) => {
-          const interfaceSpec = def.interfaceSpecificationVersion.interfaceSpecification;
-          const interfaceTemplate = interfaceSpec.template;
+        // Process interfaces for this component
+        const interfaces = componentNode.interfaceDefinitions.nodes
+            .filter((def: any) => def.visibleInterface)
+            .map((def: any) => {
+                const interfaceSpec = def.interfaceSpecificationVersion.interfaceSpecification;
+                const interfaceTemplate = interfaceSpec.template;
 
-          return {
-            id: def.visibleInterface.id,
-            name: interfaceSpec.name,
-            version: def.interfaceSpecificationVersion.version,
-            style: {
-              shape: interfaceTemplate.shapeType || 'HEXAGON',
-              fill: { color: interfaceTemplate.fill?.color || null },  // Changed to null for transparency
-              stroke: { color: interfaceTemplate.stroke?.color || '#1f2937' }
-            },
-            contextMenu: {},
-            issueTypes: []
-          };
-        });
-
-      // Add component with its interfaces
-      graph.components.push({
-        id: node.id,
-        name: node.component?.name || 'Unnamed',
-        version: String(node.version || '1.0'),
-        style: {
-          shape: template.shapeType || 'RECT',
-          fill: { color: template.fill?.color || null },  // Changed to null for transparency
-          stroke: { color: template.stroke?.color || '#1f2937' }
-        },
-        interfaces,
-        contextMenu: {},
-        issueTypes: node.aggregatedIssues?.nodes.map((issue: any) => ({
-          id: issue.id,
-          name: issue.type.name,
-          iconPath: issue.type.iconPath,
-          count: issue.count,
-          isOpen: issue.isOpen
-        })) || []
-      });
-
-      // Process outgoing relations
-      if (node.outgoingRelations?.nodes) {
-        node.outgoingRelations.nodes.forEach((relation: any) => {
-          if (relation.end?.id) {
-            graph.relations.push({
-              id: relation.id,
-              name: relation.template?.name || 'Relation',
-              start: node.id,
-              end: relation.end.id,
-              style: {
-                stroke: relation.template?.stroke || { color: '#1f2937' },  // Darker stroke for relations
-                marker: relation.template?.markerType || 'ARROW'
-              },
-              contextMenu: {}
+                return {
+                    id: def.visibleInterface.id,
+                    name: interfaceSpec.name,
+                    version: def.interfaceSpecificationVersion.version,
+                    style: {
+                        shape: interfaceTemplate.shapeType || 'HEXAGON',
+                        fill: { color: interfaceTemplate.fill?.color || null },
+                        stroke: { color: interfaceTemplate.stroke?.color || '#1f2937' }
+                    },
+                    contextMenu: {},
+                    // Interfaces can have their own issues
+                    issueTypes: def.visibleInterface.aggregatedIssues?.nodes.map((issue: any) => ({
+                        id: issue.id,
+                        name: issue.type.name,
+                        iconPath: issue.type.iconPath,
+                        count: issue.count,
+                        isOpen: issue.isOpen
+                    })) || []
+                };
             });
-          }
+
+        // Add component with its interfaces and issues
+        graph.components.push({
+            id: componentNode.id,
+            name: componentNode.component?.name || 'Unnamed',
+            version: String(componentNode.version || '1.0'),
+            style: {
+                shape: template.shapeType || 'RECT',
+                fill: { color: template.fill?.color || null },
+                stroke: { color: template.stroke?.color || '#1f2937' }
+            },
+            interfaces,
+            contextMenu: {},
+            // Process component's issues
+            issueTypes: componentNode.aggregatedIssues?.nodes.map((issue: any) => ({
+                id: issue.id,
+                name: issue.type.name,
+                iconPath: issue.type.iconPath,
+                count: issue.count,
+                isOpen: issue.isOpen
+            })) || []
         });
-      }
+
+        // Process outgoing relations
+        if (componentNode.outgoingRelations?.nodes) {
+            componentNode.outgoingRelations.nodes.forEach((relation: any) => {
+                if (relation.end?.id) {
+                    graph.relations.push({
+                        id: relation.id,
+                        name: relation.template?.name || 'Relation',
+                        start: componentNode.id,
+                        end: relation.end.id,
+                        style: {
+                            stroke: relation.template?.stroke || { color: '#1f2937' },
+                            marker: relation.template?.markerType || 'ARROW'
+                        },
+                        contextMenu: {}
+                    });
+                }
+            });
+        }
     });
-  }
+}
 
   // Apply layouts
   if (project.relationPartnerLayouts?.nodes) {

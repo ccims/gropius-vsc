@@ -267,6 +267,19 @@ export function activate(context: vscode.ExtensionContext) {
                     shapeRadius
                 }
             }
+            
+            aggregatedIssues {
+                nodes {
+                    id
+                    type {
+                        id
+                        name
+                        iconPath
+                    }
+                    count
+                    isOpen
+                }
+            }
 
             outgoingRelations {
                 nodes {
@@ -314,18 +327,6 @@ export function activate(context: vscode.ExtensionContext) {
                 }
             }
 
-            aggregatedIssues {
-                nodes {
-                    id
-                    type {
-                        id
-                        name
-                        iconPath    
-                    }
-                    count
-                    isOpen        
-                }
-            }
         }`;
 
         try {
