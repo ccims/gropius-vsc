@@ -66,7 +66,7 @@ async function autolayout(graph: Graph): Promise<GraphLayout> {
 
 function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout } {
   console.log('Creating graph data from:', data);
-  
+
   const project = data?.node;
   const graph: Graph = {
     components: [],
@@ -109,8 +109,8 @@ function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout 
           version: def.interfaceSpecificationVersion.version,
           style: {
             shape: interfaceTemplate.shapeType || 'HEXAGON',
-            fill: { color: interfaceTemplate.fill?.color || null },
-            stroke: { color: interfaceTemplate.stroke?.color || '#1f2937' }
+            fill: { color: interfaceTemplate.fill?.color || 'transparent' },
+            stroke: { color: interfaceTemplate.stroke?.color || 'rgb(209, 213, 219)' }
           },
           contextMenu: {},
           issueTypes: def.visibleInterface.aggregatedIssues?.nodes.map((issue: any) => ({
@@ -142,8 +142,8 @@ function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout 
       version: String(componentNode.version || '1.0'),
       style: {
         shape: template.shapeType || 'RECT',
-        fill: { color: template.fill?.color || null },
-        stroke: { color: template.stroke?.color || '#1f2937' }
+        fill: { color: template.fill?.color || 'transparent' },
+        stroke: { color: template.stroke?.color || 'rgb(209, 213, 219)' }
       },
       interfaces,
       contextMenu: {},
@@ -254,15 +254,36 @@ onMounted(() => {
 :deep(.sprotty svg) {
   width: 100%;
   height: 100%;
-  /* Lighter background and better contrast */
-  --diagram-grid: rgba(0, 0, 0, 0.05);
-  --background-overlay-color: rgba(0, 0, 0, 0.02);
-  --shape-stroke-color: #1f2937;
-  /* Darker stroke for better contrast */
-  --version-chip-background: #ffffff;
-  --version-chip-color: #1f2937;
-  /* Darker text */
-  --selected-shape-stroke-color: #2563eb;
-  --selected-shape-fill-color: rgba(59, 130, 246, 0.1);
+
+  /* Dark theme background */
+  background-color: rgb(5, 5, 7);
+  --diagram-grid: rgba(255, 255, 255, 0.1);
+
+  /* The grid pattern */
+  background-image: radial-gradient(circle, var(--diagram-grid) 1px, transparent 1px);
+  background-size: 20px 20px;
+  --background-overlay-color: rgba(255, 255, 255, 0.05);
+
+  /* Component and interface styling */
+  --shape-stroke-color: rgb(209, 213, 219);
+  --version-chip-background: rgba(59, 131, 246, 0.437);
+  --version-chip-color: rgb(143, 174, 220);
+
+  /* Selection and highlight colors */
+  --selected-shape-stroke-color: rgba(59, 131, 246, 0.555);
+  --selected-shape-fill-color: rgba(59, 130, 246, 0.1);   
+
+  /* Issue status colors */
+  --issue-open-color: rgb(34, 197, 94);
+  --issue-closed-color: rgb(239, 68, 68);
+  --issue-relation-stroke-color: rgba(209, 213, 219, 0.4);
+
+  /* Highlight effects */
+  --highlight-stroke-color: rgb(59, 130, 246);
+  --highlight-fill-color: rgba(59, 130, 246, 0.2);
+
+  /* Add the dotted grid background */
+  background-image: radial-gradient(circle, var(--diagram-grid) 1px, transparent 1px);
+  background-size: 20px 20px;
 }
 </style>
