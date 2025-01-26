@@ -1,6 +1,6 @@
 <template>
-  <div class="h-full position-relative">
-    <div :id="editorId" class="sprotty h-full" />
+  <div class="graph-container">
+    <div :id="editorId" class="sprotty-container" />
   </div>
 </template>
 
@@ -212,7 +212,7 @@ function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout 
           start: componentNode.id,
           end: relation.end.id,
           style: {
-            stroke: relation.template?.stroke || { color: '#1f2937' },
+            stroke: relation.template?.stroke || { },
             marker: relation.template?.markerType || 'ARROW'
           },
           contextMenu: {}
@@ -292,8 +292,22 @@ onMounted(() => {
 </script>
 
 <style scoped>
+
+.graph-container {
+  height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.sprotty-container {
+  flex: 1;
+  min-height: 0;  /* This is important for flex layout */
+}
+
 :deep(.sprotty) {
   height: 100%;
+  width: 100%;
 }
 
 :deep(.sprotty svg) {
@@ -311,7 +325,7 @@ onMounted(() => {
   --selected-shape-fill-color: rgba(59, 130, 246, 0.1);
   --issue-open-color: rgb(34, 197, 94);
   --issue-closed-color: rgb(239, 68, 68);
-  --issue-relation-stroke-color: rgba(209, 213, 219, 0.4);
+  --issue-relation-stroke-color: rgb(209, 213, 219);
   --highlight-stroke-color: rgb(59, 130, 246);
   --highlight-fill-color: rgba(59, 130, 246, 0.2);
 }

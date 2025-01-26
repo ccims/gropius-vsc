@@ -356,7 +356,7 @@ export function activate(context: vscode.ExtensionContext) {
                 }
             }
         }`;
-    
+
         try {
             await apiClient.authenticate();
             const response = await apiClient.executeQuery(query, {
@@ -387,19 +387,31 @@ export function activate(context: vscode.ExtensionContext) {
             );
 
             panel.webview.html = `
-                <!DOCTYPE html>
-                <html lang="en">
-                <head>
-                    <meta charset="UTF-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>Graph Editor</title>
-                </head>
-                <body>
-                    <div id="app"></div>
-                    <script src="${scriptUri}"></script>
-                </body>
-                </html>
-            `;
+                    <!DOCTYPE html>
+                    <html lang="en">
+                    <head>
+                        <meta charset="UTF-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <title>Graph Editor</title>
+                        <style>
+                            html, body {
+                                height: 100vh;
+                                margin: 0;
+                                padding: 0;
+                                overflow: hidden;
+                            }
+                            #app {
+                                height: 100vh;
+                                width: 100%;
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <div id="app"></div>
+                        <script src="${scriptUri}"></script>
+                    </body>
+                    </html>
+                    `;
 
             panel.webview.onDidReceiveMessage(async (message) => {
                 console.log('Message from webview:', message);
