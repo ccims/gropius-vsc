@@ -9,16 +9,28 @@ class ProjectItem extends vscode.TreeItem {
         public readonly command?: vscode.Command,
         public readonly parent?: string,
         public readonly contextValue?: string,
-        public readonly id?: string
+        public readonly id?: string,
+        public readonly isButton: boolean = false  // New parameter to identify button items
     ) {
         super(label, collapsibleState);
-        this.tooltip = this.parent ? `${this.parent}: ${this.label}` : this.label;
-        this.iconPath = new vscode.ThemeIcon(
-            collapsibleState === vscode.TreeItemCollapsibleState.None ? "file" : "folder"
-        );
-        if (contextValue) {
-            this.contextValue = contextValue;
+        
+        if (isButton) {
+            // Style for button items
+            this.iconPath = new vscode.ThemeIcon("graph");
+            this.command = {
+                command: 'projectsView.showProjectGraph',
+                title: 'Show Graph',
+                arguments: [parent]  // Pass the project ID as an argument
+            };
+        } else {
+            // Regular item styling
+            this.tooltip = this.parent ? `${this.parent}: ${this.label}` : this.label;
+            this.iconPath = new vscode.ThemeIcon(
+                collapsibleState === vscode.TreeItemCollapsibleState.None ? "file" : "folder"
+            );
         }
+        
+        this.contextValue = contextValue;
     }
 }
 
@@ -172,6 +184,7 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
                     )
                 );
             } else {
+                // Project level - return sections and buttons
                 return Promise.resolve([
                     new ProjectItem(
                         "Component Versions",
@@ -185,6 +198,15 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
                         undefined,
                         dynamicProject.id
                     ),
+                    new ProjectItem(
+                        "Show Graph",
+                        vscode.TreeItemCollapsibleState.None,
+                        undefined,
+                        dynamicProject.id,
+                        undefined,
+                        undefined,
+                        true  // This is a button
+                    )
                 ]);
             }
         }
@@ -445,6 +467,13 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand("projectsView.refresh", async () => {
             await apiClient.authenticate();
             await projectsProvider.fetchDynamicProjects();
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('projectsView.showProjectGraph', (projectId: string) => {
+            console.log('Show graph clicked for project:', projectId);
+            // TODO: add the graph opening functionality 
         })
     );
 
