@@ -226,6 +226,76 @@ export function activate(context: vscode.ExtensionContext) {
     const apiClient = new APIClient(API_URL, CLIENT_ID, CLIENT_SECRET);
     const projectsProvider = new ProjectsProvider(apiClient);
 
+    async function showGraphForProject(projectId: string) {
+        // Create the webview panel just like before
+        const panel = vscode.window.createWebviewPanel(
+            "graphEditor",
+            "Graph Editor",
+            vscode.ViewColumn.One,
+            {
+                enableScripts: true,
+                localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'out', 'webview')]
+            }
+        );
+
+        // Get the script URI for our graph editor
+        const scriptUri = panel.webview.asWebviewUri(
+            vscode.Uri.joinPath(context.extensionUri, 'out', 'webview', 'graphEditor.js')
+        );
+
+        // Set up the HTML content
+        panel.webview.html = `
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Graph Editor</title>
+                <style>
+                    html, body {
+                        height: 100vh;
+                        margin: 0;
+                        padding: 0;
+                        overflow: hidden;
+                    }
+                    #app {
+                        height: 100vh;
+                        width: 100%;
+                    }
+                </style>
+            </head>
+            <body>
+                <div id="app"></div>
+                <script src="${scriptUri}"></script>
+            </body>
+            </html>
+        `;
+
+        // Handle messages from the webview
+        panel.webview.onDidReceiveMessage(async (message) => {
+            console.log('Message from webview:', message);
+            switch (message.type) {
+                case 'ready':
+                    try {
+                        await apiClient.authenticate();
+                        // Here we use the specific project ID instead of getting it from the message
+                        const projectData = await fetchProjectGraphData(projectId);
+                        console.log('Sending project data:', projectData);
+                        panel.webview.postMessage({
+                            type: 'projectData',
+                            data: projectData
+                        });
+                    } catch (error) {
+                        console.error('Failed to fetch data:', error);
+                        vscode.window.showErrorMessage(`Data fetch failed: ${error}`);
+                    }
+                    break;
+            }
+        });
+
+        panel.reveal(vscode.ViewColumn.One);
+    }
+
     async function fetchProjectGraphData(projectId: string) {
         const query = `
         query getProjectGraph($project: ID!) {
@@ -472,8 +542,8 @@ export function activate(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(
         vscode.commands.registerCommand('projectsView.showProjectGraph', (projectId: string) => {
-            console.log('Show graph clicked for project:', projectId);
-            // TODO: add the graph opening functionality 
+            // When the button is clicked, show the graph for the corresponding project
+            showGraphForProject(projectId);
         })
     );
 

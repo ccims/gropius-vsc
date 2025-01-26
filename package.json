@@ -21,10 +21,6 @@
         "title": "Refresh Projects Explorer"
       },
       {
-        "command": "extension.showGraph",
-        "title": "Show Graph Editor"
-      },
-      {
         "command": "projectsView.showProjectGraph",
         "title": "Show Graph",
         "icon": "$(graph)"
