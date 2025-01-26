@@ -14,8 +14,7 @@ declare global {
 const vscodeApi = window.acquireVsCodeApi();
 
 const app = createApp(GraphEditor, {
-    projectId: "3a24498b-5134-4c27-a15c-a1b03514b81d",  
-    vscodeApi: vscodeApi  
+    vscodeApi: vscodeApi
 });
 
 app.mount('#app');

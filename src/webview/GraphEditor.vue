@@ -20,9 +20,9 @@ import { onMounted, shallowRef, ref } from 'vue';
 import { v4 as uuidv4 } from 'uuid';
 
 const props = defineProps({
-  projectId: { type: String, required: true },
   vscodeApi: { type: Object, required: true }
 });
+const projectId = ref<string | null>(null);
 
 const editorId = ref(`graph-editor-${uuidv4()}`);
 const modelSource = shallowRef<CustomModelSource>();
@@ -285,8 +285,7 @@ onMounted(() => {
   // Request project data
   console.log('Sending ready message...');
   props.vscodeApi.postMessage({
-    type: 'ready',
-    projectId: props.projectId
+    type: 'ready'
   });
 });
 </script>
