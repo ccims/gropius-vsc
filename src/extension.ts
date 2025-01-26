@@ -205,10 +205,132 @@ export function activate(context: vscode.ExtensionContext) {
     const projectsProvider = new ProjectsProvider(apiClient);
 
     async function fetchProjectGraphData(projectId: string) {
-        const query = `query getProjectGraph($project: ID!) {
+        const query = `
+        query getProjectGraph($project: ID!) {
             node(id: $project) {
                 ... on Project {
-                    ...GraphInfo
+                    components {
+                        nodes {
+                            version
+                            id
+                            component {
+                                id
+                                name
+                                template {
+                                    id
+                                    name
+                                    fill {
+                                        color
+                                    }
+                                    stroke {
+                                        color
+                                        dash
+                                    }
+                                    shapeType
+                                    shapeRadius
+                                }
+                            }
+                            
+                            aggregatedIssues {
+                                nodes {
+                                    id
+                                    type {
+                                        id
+                                        name
+                                        iconPath
+                                    }
+                                    count
+                                    isOpen
+                                    outgoingRelations(filter: { end: { relationPartner: { partOfProject: $project } } }) {
+                                        nodes {
+                                            end {
+                                                id
+                                                relationPartner {
+                                                    id
+                                                }
+                                            }
+                                            type {
+                                                name
+                                                id
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+    
+                            outgoingRelations {
+                                nodes {
+                                    id
+                                    end {
+                                        id
+                                    }
+                                    template {
+                                        name
+                                        stroke {
+                                            color
+                                            dash
+                                        }
+                                        markerType
+                                    }
+                                }
+                            }
+                            
+                            interfaceDefinitions {
+                                nodes {
+                                    visibleInterface {
+                                        id
+                                        aggregatedIssues {
+                                            nodes {
+                                                id
+                                                type {
+                                                    id
+                                                    name
+                                                    iconPath
+                                                }
+                                                count
+                                                isOpen
+                                                outgoingRelations(filter: { end: { relationPartner: { partOfProject: $project } } }) {
+                                                    nodes {
+                                                        end {
+                                                            id
+                                                            relationPartner {
+                                                                id
+                                                            }
+                                                        }
+                                                        type {
+                                                            name
+                                                            id
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    interfaceSpecificationVersion {
+                                        id
+                                        version
+                                        interfaceSpecification {
+                                            id
+                                            name
+                                            template {
+                                                id
+                                                name
+                                                fill {
+                                                    color
+                                                }
+                                                stroke {
+                                                    color
+                                                    dash
+                                                }
+                                                shapeType
+                                                shapeRadius
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                     relationLayouts {
                         nodes {
                             relation {
@@ -233,125 +355,17 @@ export function activate(context: vscode.ExtensionContext) {
                     }
                 }
             }
-        }
-        
-        fragment GraphInfo on Project {
-            components {
-                nodes {
-                    ...GraphComponentVersionInfo
-                }
-            }
-            manageComponents: hasPermission(permission: MANAGE_COMPONENTS)
-            defaultView {
-                id
-            }
-        }
-    
-        fragment GraphComponentVersionInfo on ComponentVersion {
-            version
-            id
-            component {
-                id
-                name
-                template {
-                    id
-                    name
-                    fill {
-                        color
-                    }
-                    stroke {
-                        color
-                        dash
-                    }
-                    shapeType
-                    shapeRadius
-                }
-            }
-            
-            aggregatedIssues {
-                nodes {
-                    id
-                    type {
-                        id
-                        name
-                        iconPath
-                    }
-                    count
-                    isOpen
-                    outgoingRelations(filter: { end: { relationPartner: { partOfProject: $project } } }) {
-                        nodes {
-                            end {
-                                id
-                                relationPartner {
-                                    id
-                                }
-                            }
-                            type {
-                                name
-                                id
-                            }
-                        }
-                    }
-                }
-            }
-
-            outgoingRelations {
-                nodes {
-                    id
-                    end {
-                        id
-                    }
-                    template {
-                        name
-                        stroke {
-                            color
-                            dash
-                        }
-                        markerType
-                    }
-                }
-            }
-            
-            interfaceDefinitions {
-                nodes {
-                    visibleInterface {
-                        id
-                    }
-                    interfaceSpecificationVersion {
-                        id
-                        version
-                        interfaceSpecification {
-                            id
-                            name
-                            template {
-                                id
-                                name
-                                fill {
-                                    color
-                                }
-                                stroke {
-                                    color
-                                    dash
-                                }
-                                shapeType
-                                shapeRadius
-                            }
-                        }
-                    }
-                }
-            }
-
         }`;
-
+    
         try {
-            await apiClient.authenticate();  // Ensure we're authenticated before query
+            await apiClient.authenticate();
             const response = await apiClient.executeQuery(query, {
                 project: projectId
             });
-            console.log('GraphQL response:', response);  // Debug log
+            console.log('GraphQL response:', response);
             return response.data;
         } catch (error) {
-            console.error('GraphQL error:', error);  // Debug log
+            console.error('GraphQL error:', error);
             throw new Error(`Failed to fetch project graph: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
