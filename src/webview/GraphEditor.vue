@@ -78,16 +78,22 @@ function extractIssueTypes(relationPartner: any) {
 
 function extractIssueRelations(relationPartner: any, projectId: string): any[] {
   if (!showIssueRelations.value || !relationPartner?.aggregatedIssues?.nodes) {
+    console.log('Skipping issue relations for', relationPartner?.id, 'showIssueRelations:', showIssueRelations.value);
     return [];
   }
+  
+  console.log('Processing issue relations for:', relationPartner.id);
+  console.log('Aggregated issues:', relationPartner.aggregatedIssues.nodes);
   
   const aggregatedRelations = new Map<string, { start: string; end: string; count: number }>();
   
   relationPartner.aggregatedIssues.nodes.forEach((aggregatedIssue: any) => {
+    console.log('Processing aggregated issue:', aggregatedIssue.id);
     const outgoingRelations = aggregatedIssue.outgoingRelations?.nodes || [];
     
     outgoingRelations.forEach((relation: any) => {
       if (!relation.end?.relationPartner?.id) {
+        console.log('Skipping relation - missing end partner ID');
         return;
       }
       
@@ -107,10 +113,34 @@ function extractIssueRelations(relationPartner: any, projectId: string): any[] {
     });
   });
 
-  return Array.from(aggregatedRelations.values());
+  const result = Array.from(aggregatedRelations.values());
+  console.log('Extracted issue relations:', JSON.stringify(result, null, 2));
+  return result;
 }
 
 function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout } {
+  console.log('==================== START GRAPH DATA ====================');
+  console.log('Project ID:', data?.id);
+  console.log('Number of components:', data?.node?.components?.nodes?.length || 0);
+  if (data?.node?.components?.nodes) {
+    data.node.components.nodes.forEach((comp: any, index: number) => {
+      console.log(`\nComponent ${index + 1}:`);
+      console.log('ID:', comp.id);
+      console.log('Name:', comp.component?.name);
+      console.log('Aggregated Issues:', comp.aggregatedIssues?.nodes?.length || 0);
+      if (comp.aggregatedIssues?.nodes) {
+        comp.aggregatedIssues.nodes.forEach((issue: any, i: number) => {
+          console.log(`  Issue ${i + 1}:`, {
+            id: issue.id,
+            type: issue.type?.name,
+            count: issue.count,
+            outgoingRelations: issue.outgoingRelations?.nodes?.length || 0
+          });
+        });
+      }
+    });
+  }
+  console.log('==================== END GRAPH DATA ====================\n');
   const project = data?.node;
   const graph: Graph = {
     components: [],
@@ -118,6 +148,8 @@ function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout 
     issueRelations: []
   };
   const layout: GraphLayout = {};
+  
+  console.log('Starting to process project:', project?.id);
 
   if (!project?.components?.nodes) {
     return { graph, layout };
@@ -126,12 +158,15 @@ function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout 
   const projectId = data.id;
 
   project.components.nodes.forEach((componentNode: any) => {
+    console.log('Processing component:', componentNode.id);
     // Process interfaces
     const interfaces = componentNode.interfaceDefinitions?.nodes
       .filter((def: any) => def.visibleInterface)
       .map((def: any) => {
+        console.log('Processing interface:', def.visibleInterface.id);
         const interfaceSpec = def.interfaceSpecificationVersion.interfaceSpecification;
         const interfaceIssueRelations = extractIssueRelations(def.visibleInterface, projectId);
+        console.log('Interface issue relations:', interfaceIssueRelations.length);
         graph.issueRelations.push(...interfaceIssueRelations);
 
         return {
@@ -150,6 +185,7 @@ function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout 
 
     // Process component issue relations
     const componentIssueRelations = extractIssueRelations(componentNode, projectId);
+    console.log('Component issue relations:', componentIssueRelations.length);
     graph.issueRelations.push(...componentIssueRelations);
 
     // Add component
@@ -195,11 +231,19 @@ function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout 
     }
   });
 
+  console.log('Final graph structure:', {
+    componentCount: graph.components.length,
+    relationCount: graph.relations.length,
+    issueRelationCount: graph.issueRelations.length
+  });
+  console.log('Issue relations in final graph:', JSON.stringify(graph.issueRelations, null, 2));
+  
   return { graph, layout };
 }
 
 function handleMessage(event: MessageEvent) {
   const message = event.data;
+  console.log('Received message:', message);
   
   if (message.type === 'projectData') {
     projectData.value = message.data;
@@ -217,6 +261,12 @@ async function updateGraph(data: any = null) {
   const finalLayout = Object.keys(layout).length === 0 ? 
     await autolayout(graph) : layout;
 
+  console.log('Updating graph with:', {
+    components: graph.components.length,
+    relations: graph.relations.length,
+    issueRelations: graph.issueRelations.length
+  });
+
   modelSource.value.updateGraph({
     graph,
     layout: finalLayout,
@@ -225,6 +275,8 @@ async function updateGraph(data: any = null) {
 }
 
 onMounted(() => {
+  console.log('Component mounted, initializing...');
+  
   const container = createContainer(editorId.value);
   container.bind(CustomModelSource).toSelf().inSingletonScope();
   container.bind(TYPES.ModelSource).toService(CustomModelSource);
@@ -236,6 +288,7 @@ onMounted(() => {
   updateGraph();
 
   // Request project data
+  console.log('Sending ready message...');
   props.vscodeApi.postMessage({
     type: 'ready'
   });
@@ -269,7 +322,7 @@ onMounted(() => {
   background-size: 20px 20px;
   --background-overlay-color: rgba(255, 255, 255, 0.05);
   --shape-stroke-color: rgb(209, 213, 219);
-  --version-chip-background: rgba(59, 131, 246, 0.437);
+  --version-chip-background: rgb(0, 34, 90);
   --version-chip-color: rgb(143, 174, 220);
   --selected-shape-stroke-color: rgba(59, 131, 246, 0.555);
   --selected-shape-fill-color: rgba(59, 130, 246, 0.1);
