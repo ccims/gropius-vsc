@@ -349,8 +349,8 @@ export function activate(context: vscode.ExtensionContext) {
                                     }
                                 }
                             }
-    
-                            outgoingRelations {
+
+                            outgoingRelations(filter: { end: { partOfProject: $project } }) {
                                 nodes {
                                     id
                                     end {
@@ -371,6 +371,22 @@ export function activate(context: vscode.ExtensionContext) {
                                 nodes {
                                     visibleInterface {
                                         id
+                                        outgoingRelations(filter: { end: { partOfProject: $project } }) {
+                                            nodes {
+                                                id
+                                                end {
+                                                    id
+                                                }
+                                                template {
+                                                    name
+                                                    stroke {
+                                                        color
+                                                        dash
+                                                    }
+                                                    markerType
+                                                }
+                                            }
+                                        }
                                         aggregatedIssues {
                                             nodes {
                                                 id
@@ -453,7 +469,14 @@ export function activate(context: vscode.ExtensionContext) {
             await apiClient.authenticate();
             const response = await apiClient.executeQuery(query, {
                 project: projectId
-            });
+            }
+        );
+
+        // Add the project ID to the response data for reference
+        if (response.data) {
+            response.data.id = projectId;
+        }
+        
             console.log('GraphQL response:', response);
             return response.data;
         } catch (error) {

@@ -22,7 +22,6 @@ import { v4 as uuidv4 } from 'uuid';
 const props = defineProps({
   vscodeApi: { type: Object, required: true }
 });
-const projectId = ref<string | null>(null);
 
 const editorId = ref(`graph-editor-${uuidv4()}`);
 const modelSource = shallowRef<CustomModelSource>();
@@ -58,7 +57,11 @@ async function autolayout(graph: Graph): Promise<GraphLayout> {
 }
 
 function extractIssueTypes(relationPartner: any) {
-  return relationPartner.aggregatedIssues?.nodes
+  if (!relationPartner?.aggregatedIssues?.nodes) {
+    return [];
+  }
+  
+  return relationPartner.aggregatedIssues.nodes
     .map((issue: any) => ({
       id: issue.id,
       name: issue.type.name,
@@ -70,37 +73,31 @@ function extractIssueTypes(relationPartner: any) {
       if (a.isOpen && !b.isOpen) return -1;
       if (!a.isOpen && b.isOpen) return 1;
       return a.name.localeCompare(b.name);
-    }) ?? [];
+    });
 }
 
-function extractIssueRelations(relationPartner: any): any[] {
-  if (!showIssueRelations.value) {
+function extractIssueRelations(relationPartner: any, projectId: string): any[] {
+  if (!showIssueRelations.value || !relationPartner?.aggregatedIssues?.nodes) {
     return [];
   }
   
   const aggregatedRelations = new Map<string, { start: string; end: string; count: number }>();
   
-  relationPartner?.aggregatedIssues?.nodes?.forEach((aggregatedIssue: any) => {
-    // Each aggregated issue might have multiple outgoing relations
-    aggregatedIssue.outgoingRelations?.nodes?.forEach((relation: any) => {
-      // The relationPartner.id is the component or interface that owns the issue
-      const startId = relationPartner.id;
-      // The end.relationPartner.id is the target component or interface
-      const endId = relation.end?.relationPartner?.id;
-      
-      if (!endId) {
+  relationPartner.aggregatedIssues.nodes.forEach((aggregatedIssue: any) => {
+    const outgoingRelations = aggregatedIssue.outgoingRelations?.nodes || [];
+    
+    outgoingRelations.forEach((relation: any) => {
+      if (!relation.end?.relationPartner?.id) {
         return;
       }
       
-      // Create a unique key based on the start and end components/interfaces
+      const startId = relationPartner.id;
+      const endId = relation.end.relationPartner.id;
       const key = `${startId}-${endId}`;
       
       if (aggregatedRelations.has(key)) {
-        // If this relation already exists, update its count
-        const existing = aggregatedRelations.get(key)!;
-        existing.count += aggregatedIssue.count;
+        aggregatedRelations.get(key)!.count += aggregatedIssue.count;
       } else {
-        // Create a new relation
         aggregatedRelations.set(key, {
           start: startId,
           end: endId,
@@ -114,9 +111,6 @@ function extractIssueRelations(relationPartner: any): any[] {
 }
 
 function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout } {
-  // Log initial data received
-  console.log('Starting createGraphData with data:', data);
-
   const project = data?.node;
   const graph: Graph = {
     components: [],
@@ -125,37 +119,20 @@ function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout 
   };
   const layout: GraphLayout = {};
 
-  // Early return if no components data
   if (!project?.components?.nodes) {
-    console.log('No components found in project data, returning empty graph');
     return { graph, layout };
   }
 
-  // Process components
+  const projectId = data.id;
+
   project.components.nodes.forEach((componentNode: any) => {
-    console.log('\n--- Processing Component ---');
-    console.log('Component ID:', componentNode.id);
-    console.log('Component Name:', componentNode.component?.name);
-    
-    const template = componentNode.component?.template || {};
-    
     // Process interfaces
     const interfaces = componentNode.interfaceDefinitions?.nodes
       .filter((def: any) => def.visibleInterface)
       .map((def: any) => {
-        console.log('\n------ Processing Interface ------');
-        console.log('Interface ID:', def.visibleInterface.id);
         const interfaceSpec = def.interfaceSpecificationVersion.interfaceSpecification;
-        console.log('Interface Spec Name:', interfaceSpec.name);
-
-        // Log interface issues before processing
-        console.log('Interface Aggregated Issues:', def.visibleInterface.aggregatedIssues?.nodes);
-
-        // Process interface issue relations
-        const interfaceIssueRelations = extractIssueRelations(def.visibleInterface);
-        console.log('Extracted Interface Issue Relations:', interfaceIssueRelations);
+        const interfaceIssueRelations = extractIssueRelations(def.visibleInterface, projectId);
         graph.issueRelations.push(...interfaceIssueRelations);
-        console.log('Current Issue Relations Count:', graph.issueRelations.length);
 
         return {
           id: def.visibleInterface.id,
@@ -169,50 +146,38 @@ function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout 
           issueTypes: extractIssueTypes(def.visibleInterface),
           contextMenu: {}
         };
-      }) ?? [];
-
-    // Log component issues before processing
-    console.log('\n--- Processing Component Issues ---');
-    console.log('Component Aggregated Issues:', componentNode.aggregatedIssues?.nodes);
+      }) || [];
 
     // Process component issue relations
-    const componentIssueRelations = extractIssueRelations(componentNode);
-    console.log('Extracted Component Issue Relations:', componentIssueRelations);
+    const componentIssueRelations = extractIssueRelations(componentNode, projectId);
     graph.issueRelations.push(...componentIssueRelations);
-    console.log('Updated Issue Relations Count:', graph.issueRelations.length);
 
-    // Add component to graph
+    // Add component
     graph.components.push({
       id: componentNode.id,
       name: componentNode.component?.name || 'Unnamed',
       version: String(componentNode.version || '1.0'),
       style: {
-        shape: template.shapeType || 'RECT',
-        fill: { color: template.fill?.color || 'transparent' },
-        stroke: { color: template.stroke?.color || 'rgb(209, 213, 219)' }
+        shape: componentNode.component?.template?.shapeType || 'RECT',
+        fill: { color: componentNode.component?.template?.fill?.color || 'transparent' },
+        stroke: { color: componentNode.component?.template?.stroke?.color || 'rgb(209, 213, 219)' }
       },
       interfaces,
       issueTypes: extractIssueTypes(componentNode),
       contextMenu: {}
     });
 
-    // Process relations
-    console.log('\n--- Processing Component Relations ---');
-    componentNode.outgoingRelations?.nodes?.forEach((relation: any) => {
+    // Process relations specific to this project
+    const outgoingRelations = componentNode.outgoingRelations?.nodes || [];
+    outgoingRelations.forEach((relation: any) => {
       if (relation.end?.id) {
-        console.log('Adding relation:', {
-          from: componentNode.id,
-          to: relation.end.id,
-          type: relation.template?.name
-        });
-        
         graph.relations.push({
           id: relation.id,
           name: relation.template?.name || 'Relation',
           start: componentNode.id,
           end: relation.end.id,
           style: {
-            stroke: relation.template?.stroke || { },
+            stroke: relation.template?.stroke || {},
             marker: relation.template?.markerType || 'ARROW'
           },
           contextMenu: {}
@@ -222,7 +187,6 @@ function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout 
   });
 
   // Apply layouts
-  console.log('\n--- Processing Layouts ---');
   project.relationPartnerLayouts?.nodes?.forEach((layoutNode: any) => {
     if (layoutNode.relationPartner?.id && layoutNode.pos) {
       layout[layoutNode.relationPartner.id] = {
@@ -231,19 +195,11 @@ function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout 
     }
   });
 
-  // Log final graph state
-  console.log('\n=== Final Graph State ===');
-  console.log('Components:', graph.components.length);
-  console.log('Relations:', graph.relations.length);
-  console.log('Issue Relations:', graph.issueRelations.length);
-  console.log('Layout entries:', Object.keys(layout).length);
-
   return { graph, layout };
 }
 
 function handleMessage(event: MessageEvent) {
   const message = event.data;
-  console.log('Received message:', message);
   
   if (message.type === 'projectData') {
     projectData.value = message.data;
@@ -261,7 +217,6 @@ async function updateGraph(data: any = null) {
   const finalLayout = Object.keys(layout).length === 0 ? 
     await autolayout(graph) : layout;
 
-  console.log('Updating graph with layout:', finalLayout);
   modelSource.value.updateGraph({
     graph,
     layout: finalLayout,
@@ -270,8 +225,6 @@ async function updateGraph(data: any = null) {
 }
 
 onMounted(() => {
-  console.log('Component mounted, initializing...');
-  
   const container = createContainer(editorId.value);
   container.bind(CustomModelSource).toSelf().inSingletonScope();
   container.bind(TYPES.ModelSource).toService(CustomModelSource);
@@ -283,7 +236,6 @@ onMounted(() => {
   updateGraph();
 
   // Request project data
-  console.log('Sending ready message...');
   props.vscodeApi.postMessage({
     type: 'ready'
   });
@@ -291,7 +243,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-
 .graph-container {
   height: 100vh;
   width: 100%;
@@ -301,7 +252,7 @@ onMounted(() => {
 
 .sprotty-container {
   flex: 1;
-  min-height: 0;  /* This is important for flex layout */
+  min-height: 0;
 }
 
 :deep(.sprotty) {
