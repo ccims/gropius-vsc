@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { CLIENT_ID, CLIENT_SECRET, API_URL } from "./config";
 import { APIClient } from "./apiClient";
+import { FETCH_DYNAMIC_PROJECTS_QUERY, FETCH_PROJECT_GRAPH_QUERY } from "./queries";
 
 class ProjectItem extends vscode.TreeItem {
     constructor(
@@ -60,42 +61,7 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
     }
 
     async fetchDynamicProjects(): Promise<void> {
-        const query = `
-            query MyQuery {
-                projects {
-                    nodes {
-                        id
-                        name
-                        issues {
-                            nodes {
-                                id
-                                title
-                            }
-                        }
-                        components {
-                            nodes {
-                                id
-                                version
-                                component {
-                                    id
-                                    name
-                                    description
-                                    issues {
-                                        nodes {
-                                            id
-                                            title
-                                            type {
-                                                name
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        `;
+        const query = FETCH_DYNAMIC_PROJECTS_QUERY;
 
         try {
             const response = await this.apiClient.executeQuery(query);
@@ -297,240 +263,39 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
     async function fetchProjectGraphData(projectId: string) {
-        const query = `
-  query getProjectGraph($project: ID!) {
-    node(id: $project) {
-      ... on Project {
-        components {
-          nodes {
-            version
-            id
-            component {
-              id
-              name
-              template {
-                id
-                name
-                fill {
-                  color
-                }
-                stroke {
-                  color
-                  dash
-                }
-                shapeType
-                shapeRadius
-              }
-            }
-            
-            aggregatedIssues {
-              nodes {
-                id
-                type {
-                  id
-                  name
-                  iconPath
-                }
-                count
-                isOpen
-                outgoingRelations(filter: { end: { relationPartner: { partOfProject: $project } } }) {
-                  nodes {
-                    id
-                    end {
-                      id
-                      relationPartner {
-                        id
-                      }
-                    }
-                    type {
-                      name
-                      id
-                    }
-                  }
-                }
-                affectedByIssues: incomingRelations(filter: { start: { relationPartner: { partOfProject: $project } } }) {
-                  nodes {
-                    id
-                    start {
-                      id
-                      relationPartner {
-                        id
-                      }
-                    }
-                    type {
-                      name
-                      id
-                    }
-                  }
-                }
-              }
-            }
-
-            outgoingRelations(filter: { end: { partOfProject: $project } }) {
-              nodes {
-                id
-                end {
-                  id
-                }
-                template {
-                  name
-                  stroke {
-                    color
-                    dash
-                  }
-                  markerType
-                }
-              }
-            }
-            
-            interfaceDefinitions {
-              nodes {
-                visibleInterface {
-                  id
-                  aggregatedIssues {
-                    nodes {
-                      id
-                      type {
-                        id
-                        name
-                        iconPath
-                      }
-                      count
-                      isOpen
-                      outgoingRelations(filter: { end: { relationPartner: { partOfProject: $project } } }) {
-                        nodes {
-                          id
-                          end {
-                            id
-                            relationPartner {
-                              id
-                            }
-                          }
-                          type {
-                            name
-                            id
-                          }
-                        }
-                      }
-                      affectedByIssues: incomingRelations(filter: { start: { relationPartner: { partOfProject: $project } } }) {
-                        nodes {
-                          id
-                          start {
-                            id
-                            relationPartner {
-                              id
-                            }
-                          }
-                          type {
-                            name
-                            id
-                          }
-                        }
-                      }
-                    }
-                  }
-                  outgoingRelations(filter: { end: { partOfProject: $project } }) {
-                    nodes {
-                      id
-                      end {
-                        id
-                      }
-                      template {
-                        name
-                        stroke {
-                          color
-                          dash
-                        }
-                        markerType
-                      }
-                    }
-                  }
-                }
-                interfaceSpecificationVersion {
-                  id
-                  version
-                  interfaceSpecification {
-                    id
-                    name
-                    template {
-                      id
-                      name
-                      fill {
-                        color
-                      }
-                      stroke {
-                        color
-                        dash
-                      }
-                      shapeType
-                      shapeRadius
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-        relationLayouts {
-          nodes {
-            relation {
-              id
-            }
-            points {
-              x
-              y
-            }
-          }
-        }
-        relationPartnerLayouts {
-          nodes {
-            relationPartner {
-              id
-            }
-            pos {
-              x
-              y
-            }
-          }
-        }
-      }
-    }
-  }`;
+        const query = FETCH_PROJECT_GRAPH_QUERY;
 
         try {
             await apiClient.authenticate();
             const response = await apiClient.executeQuery(query, {
                 project: projectId
-            }
-        );
-
-
-
-        console.log('\n==================== START SERVER RESPONSE ====================');
-        console.log('Project ID:', projectId);
-        if (response.data?.node?.components?.nodes) {
-            console.log('Components found:', response.data.node.components.nodes.length);
-            response.data.node.components.nodes.forEach((comp: any, index: number) => {
-                console.log(`\nComponent ${index + 1} Details:`);
-                console.log('Name:', comp.component?.name);
-                console.log('Number of issues:', comp.aggregatedIssues?.nodes?.length || 0);
-                console.log('Number of interfaces:', comp.interfaceDefinitions?.nodes?.length || 0);
             });
-        } else {
-            console.log('No components found in response');
-        }
-        console.log('==================== END SERVER RESPONSE ====================\n');
 
-        // Add the project ID to the response data for reference
-        if (response.data) {
-            response.data.id = projectId;
+            console.log('\n==================== START SERVER RESPONSE ====================');
+            console.log('Project ID:', projectId);
+            if (response.data?.node?.components?.nodes) {
+                console.log('Components found:', response.data.node.components.nodes.length);
+                response.data.node.components.nodes.forEach((comp: any, index: number) => {
+                    console.log(`\nComponent ${index + 1} Details:`);
+                    console.log('Name:', comp.component?.name);
+                    console.log('Number of issues:', comp.aggregatedIssues?.nodes?.length || 0);
+                    console.log('Number of interfaces:', comp.interfaceDefinitions?.nodes?.length || 0);
+                });
+            } else {
+                console.log('No components found in response');
+            }
+            console.log('==================== END SERVER RESPONSE ====================\n');
+
+            // Add the project ID to the response data for reference
+            if (response.data) {
+                response.data.id = projectId;
+            }
+            
+            return response.data;
+        } catch (error) {
+            console.error('GraphQL error:', error);
+            throw new Error(`Failed to fetch project graph: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
-        
-        return response.data;
-    } catch (error) {
-        console.error('GraphQL error:', error);
-        throw new Error(`Failed to fetch project graph: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
     }
 
     context.subscriptions.push(
@@ -693,15 +458,12 @@ export function activate(context: vscode.ExtensionContext) {
         })
     );
 
-
-
     apiClient
         .authenticate()
         .then(() => projectsProvider.fetchDynamicProjects())
         .catch((error) =>
             vscode.window.showErrorMessage(
-                `Initialization failed: ${error instanceof Error ? error.message : "Unknown error"
-                }`
+                `Initialization failed: ${error instanceof Error ? error.message : "Unknown error"}`
             )
         );
 }
