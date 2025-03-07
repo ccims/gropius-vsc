@@ -3,7 +3,20 @@ import { CLIENT_ID, CLIENT_SECRET, API_URL } from "./config";
 import { APIClient } from "./apiClient";
 import { FETCH_DYNAMIC_PROJECTS_QUERY, FETCH_PROJECT_GRAPH_QUERY } from "./queries";
 
+/**
+ * Represents a single item in the projects tree view.
+ */
 class ProjectItem extends vscode.TreeItem {
+    /**
+     * Creates a new ProjectItem.
+     * @param label - The label of the item.
+     * @param collapsibleState - Whether the item can be expanded.
+     * @param command - Optional command to run when the item is clicked.
+     * @param parent - The parent project ID.
+     * @param contextValue - Context for when-clause expressions.
+     * @param id - Unique identifier for the item.
+     * @param isButton - Flag to indicate if this item should be styled as a button.
+     */
     constructor(
         public readonly label: string,
         public readonly collapsibleState: vscode.TreeItemCollapsibleState,
@@ -11,10 +24,10 @@ class ProjectItem extends vscode.TreeItem {
         public readonly parent?: string,
         public readonly contextValue?: string,
         public readonly id?: string,
-        public readonly isButton: boolean = false  // New parameter to identify button items
+        public readonly isButton: boolean = false
     ) {
         super(label, collapsibleState);
-        
+
         if (isButton) {
             // Style for button items
             this.iconPath = new vscode.ThemeIcon("graph");
@@ -30,11 +43,14 @@ class ProjectItem extends vscode.TreeItem {
                 collapsibleState === vscode.TreeItemCollapsibleState.None ? "file" : "folder"
             );
         }
-        
+
         this.contextValue = contextValue;
     }
 }
 
+/**
+ * Provides project data for the VS Code tree view.
+ */
 class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
     private _onDidChangeTreeData: vscode.EventEmitter<ProjectItem | undefined | null | void> =
         new vscode.EventEmitter<ProjectItem | undefined | null | void>();
@@ -54,12 +70,18 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
         issues: { id: string; title: string }[];
     }[] = [];
 
-    constructor(private apiClient: APIClient) { }
+    constructor(private apiClient: APIClient) {}
 
+    /**
+     * Triggers the tree view to refresh.
+     */
     refresh(): void {
         this._onDidChangeTreeData.fire();
     }
 
+    /**
+     * Fetches dynamic projects data from the server using the FETCH_DYNAMIC_PROJECTS_QUERY.
+     */
     async fetchDynamicProjects(): Promise<void> {
         const query = FETCH_DYNAMIC_PROJECTS_QUERY;
 
@@ -95,10 +117,18 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
         }
     }
 
+    /**
+     * Returns the tree item representation for an element.
+     * @param element - The ProjectItem.
+     */
     getTreeItem(element: ProjectItem): vscode.TreeItem {
         return element;
     }
 
+    /**
+     * Retrieves the children of a given tree item.
+     * @param element - The parent ProjectItem. If omitted, returns the root projects.
+     */
     getChildren(element?: ProjectItem): Thenable<ProjectItem[]> {
         if (!element) {
             const dynamicProjectItems = this.dynamicProjects.map(
@@ -150,7 +180,7 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
                     )
                 );
             } else {
-                // Project level - return sections and buttons
+                // Project level – return sections and a button
                 return Promise.resolve([
                     new ProjectItem(
                         "Component Versions",
@@ -171,7 +201,7 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
                         dynamicProject.id,
                         undefined,
                         undefined,
-                        true  // This is a button
+                        true // This is a button item
                     )
                 ]);
             }
@@ -180,6 +210,10 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
         return Promise.resolve([]);
     }
 
+    /**
+     * Helper method to extract the error message.
+     * @param error - The error object.
+     */
     private getErrorMessage(error: unknown): string {
         if (error instanceof Error) {
             return error.message;
@@ -188,88 +222,111 @@ class ProjectsProvider implements vscode.TreeDataProvider<ProjectItem> {
     }
 }
 
+/**
+ * Creates the HTML content for the Graph Editor webview.
+ * @param scriptUri - The URI of the Graph Editor script.
+ * @returns The HTML content as a string.
+ */
+function getGraphEditorHtml(scriptUri: vscode.Uri): string {
+    return `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Graph Editor</title>
+            <style>
+                html, body {
+                    height: 100vh;
+                    margin: 0;
+                    padding: 0;
+                    overflow: hidden;
+                }
+                #app {
+                    height: 100vh;
+                    width: 100%;
+                }
+            </style>
+        </head>
+        <body>
+            <div id="app"></div>
+            <script src="${scriptUri}"></script>
+        </body>
+        </html>
+    `;
+}
+
+/**
+ * Creates and returns a configured Graph Editor webview panel.
+ * @param context - The extension context.
+ * @returns The configured webview panel.
+ */
+function createGraphEditorPanel(context: vscode.ExtensionContext): vscode.WebviewPanel {
+    const panel = vscode.window.createWebviewPanel(
+        "graphEditor",
+        "Graph Editor",
+        vscode.ViewColumn.One,
+        {
+            enableScripts: true,
+            localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'out', 'webview')]
+        }
+    );
+    const scriptUri = panel.webview.asWebviewUri(
+        vscode.Uri.joinPath(context.extensionUri, 'out', 'webview', 'graphEditor.js')
+    );
+    panel.webview.html = getGraphEditorHtml(scriptUri);
+    return panel;
+}
+
+/**
+ * Activates the extension.
+ * @param context - The extension context.
+ */
 export function activate(context: vscode.ExtensionContext) {
     const apiClient = new APIClient(API_URL, CLIENT_ID, CLIENT_SECRET);
     const projectsProvider = new ProjectsProvider(apiClient);
 
+    /**
+     * Opens a Graph Editor webview for a given project ID.
+     * @param projectId - The ID of the project.
+     */
     async function showGraphForProject(projectId: string) {
-        // Create the webview panel just like before
-        const panel = vscode.window.createWebviewPanel(
-            "graphEditor",
-            "Graph Editor",
-            vscode.ViewColumn.One,
-            {
-                enableScripts: true,
-                localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'out', 'webview')]
-            }
-        );
+        const panel = createGraphEditorPanel(context);
 
-        // Get the script URI for our graph editor
-        const scriptUri = panel.webview.asWebviewUri(
-            vscode.Uri.joinPath(context.extensionUri, 'out', 'webview', 'graphEditor.js')
-        );
-
-        // Set up the HTML content
-        panel.webview.html = `
-            <!DOCTYPE html>
-            <html lang="en">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Graph Editor</title>
-                <style>
-                    html, body {
-                        height: 100vh;
-                        margin: 0;
-                        padding: 0;
-                        overflow: hidden;
-                    }
-                    #app {
-                        height: 100vh;
-                        width: 100%;
-                    }
-                </style>
-            </head>
-            <body>
-                <div id="app"></div>
-                <script src="${scriptUri}"></script>
-            </body>
-            </html>
-        `;
-
-        // Handle messages from the webview
+        // Listen for messages from the webview
         panel.webview.onDidReceiveMessage(async (message) => {
             console.log('Message from webview:', message);
-            switch (message.type) {
-                case 'ready':
-                    try {
-                        await apiClient.authenticate();
-                        // Here we use the specific project ID instead of getting it from the message
-                        const projectData = await fetchProjectGraphData(projectId);
-                        console.log('Sending project data:', projectData);
-                        panel.webview.postMessage({
-                            type: 'projectData',
-                            data: projectData
-                        });
-                    } catch (error) {
-                        console.error('Failed to fetch data:', error);
-                        vscode.window.showErrorMessage(`Data fetch failed: ${error}`);
-                    }
-                    break;
+            if (message.type === 'ready') {
+                try {
+                    await apiClient.authenticate();
+                    // Fetch graph data for the specified project
+                    const projectData = await fetchProjectGraphData(projectId);
+                    console.log('Sending project data:', projectData);
+                    panel.webview.postMessage({
+                        type: 'projectData',
+                        data: projectData
+                    });
+                } catch (error) {
+                    console.error('Failed to fetch data:', error);
+                    vscode.window.showErrorMessage(`Data fetch failed: ${error}`);
+                }
             }
         });
 
         panel.reveal(vscode.ViewColumn.One);
     }
 
+    /**
+     * Fetches the project graph data using the FETCH_PROJECT_GRAPH_QUERY.
+     * @param projectId - The ID of the project.
+     * @returns The fetched project data.
+     */
     async function fetchProjectGraphData(projectId: string) {
         const query = FETCH_PROJECT_GRAPH_QUERY;
 
         try {
             await apiClient.authenticate();
-            const response = await apiClient.executeQuery(query, {
-                project: projectId
-            });
+            const response = await apiClient.executeQuery(query, { project: projectId });
 
             console.log('\n==================== START SERVER RESPONSE ====================');
             console.log('Project ID:', projectId);
@@ -286,7 +343,7 @@ export function activate(context: vscode.ExtensionContext) {
             }
             console.log('==================== END SERVER RESPONSE ====================\n');
 
-            // Add the project ID to the response data for reference
+            // Attach the project ID to the response data for reference
             if (response.data) {
                 response.data.id = projectId;
             }
@@ -298,77 +355,39 @@ export function activate(context: vscode.ExtensionContext) {
         }
     }
 
+    // Register the "extension.showGraph" command (for standalone graph view)
     context.subscriptions.push(
         vscode.commands.registerCommand("extension.showGraph", async () => {
-            const panel = vscode.window.createWebviewPanel(
-                "graphEditor",
-                "Graph Editor",
-                vscode.ViewColumn.One,
-                {
-                    enableScripts: true,
-                    localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'out', 'webview')]
-                }
-            );
+            const panel = createGraphEditorPanel(context);
 
-            const scriptUri = panel.webview.asWebviewUri(
-                vscode.Uri.joinPath(context.extensionUri, 'out', 'webview', 'graphEditor.js')
-            );
-
-            panel.webview.html = `
-                    <!DOCTYPE html>
-                    <html lang="en">
-                    <head>
-                        <meta charset="UTF-8">
-                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                        <title>Graph Editor</title>
-                        <style>
-                            html, body {
-                                height: 100vh;
-                                margin: 0;
-                                padding: 0;
-                                overflow: hidden;
-                            }
-                            #app {
-                                height: 100vh;
-                                width: 100%;
-                            }
-                        </style>
-                    </head>
-                    <body>
-                        <div id="app"></div>
-                        <script src="${scriptUri}"></script>
-                    </body>
-                    </html>
-                    `;
-
+            // Listen for messages from the webview
             panel.webview.onDidReceiveMessage(async (message) => {
                 console.log('Message from webview:', message);
-                switch (message.type) {
-                    case 'ready':
-                        try {
-                            await apiClient.authenticate();
-                            const projectId = message.projectId;
-                            const projectData = await fetchProjectGraphData(projectId);
-                            console.log('Sending project data:', projectData);
-                            panel.webview.postMessage({
-                                type: 'projectData',
-                                data: projectData
-                            });
-                        } catch (error) {
-                            console.error('Failed to fetch data:', error);
-                            vscode.window.showErrorMessage(`Data fetch failed: ${error}`);
-                        }
-                        break;
+                if (message.type === 'ready') {
+                    try {
+                        await apiClient.authenticate();
+                        const projectId = message.projectId;
+                        const projectData = await fetchProjectGraphData(projectId);
+                        console.log('Sending project data:', projectData);
+                        panel.webview.postMessage({
+                            type: 'projectData',
+                            data: projectData
+                        });
+                    } catch (error) {
+                        console.error('Failed to fetch data:', error);
+                        vscode.window.showErrorMessage(`Data fetch failed: ${error}`);
+                    }
                 }
             });
 
-            // Add after creating the panel
             panel.reveal(vscode.ViewColumn.One);
         })
     );
 
+    // Register the tree view for projects
     vscode.window.registerTreeDataProvider("projectsView", projectsProvider);
 
+    // Register the command to refresh the projects view
     context.subscriptions.push(
         vscode.commands.registerCommand("projectsView.refresh", async () => {
             await apiClient.authenticate();
@@ -376,13 +395,14 @@ export function activate(context: vscode.ExtensionContext) {
         })
     );
 
+    // Register the command to show the project graph from a tree view button
     context.subscriptions.push(
         vscode.commands.registerCommand('projectsView.showProjectGraph', (projectId: string) => {
-            // When the button is clicked, show the graph for the corresponding project
             showGraphForProject(projectId);
         })
     );
 
+    // Register the command to edit component details
     context.subscriptions.push(
         vscode.commands.registerCommand("extension.editComponentDetails", (component) => {
             if (!component) {
@@ -407,6 +427,7 @@ export function activate(context: vscode.ExtensionContext) {
                 "componentDetails.js"
             );
 
+            // Set up the HTML content for the component details view
             panel.webview.html = `
             <!DOCTYPE html>
             <html lang="en">
@@ -428,6 +449,7 @@ export function activate(context: vscode.ExtensionContext) {
             </body>
             </html>`;
 
+            // Handle messages from the component details webview
             panel.webview.onDidReceiveMessage(async (message) => {
                 if (message.command === "vueAppReady") {
                     panel.webview.postMessage(component);
@@ -440,9 +462,7 @@ export function activate(context: vscode.ExtensionContext) {
                             updatedComponent.name,
                             updatedComponent.description
                         );
-
                         await projectsProvider.fetchDynamicProjects();
-
                         vscode.window.showInformationMessage(
                             `Component updated successfully: ${updatedComponent.name}`
                         );
@@ -458,6 +478,7 @@ export function activate(context: vscode.ExtensionContext) {
         })
     );
 
+    // Initial authentication and projects load
     apiClient
         .authenticate()
         .then(() => projectsProvider.fetchDynamicProjects())
