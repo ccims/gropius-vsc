@@ -1,0 +1,56 @@
+/* Common container styling to match VS Code Explorer */
+#app {
+    font-family: var(--vscode-font-family, sans-serif);
+    font-size: var(--vscode-font-size, 13px);
+    color: var(--vscode-foreground, #cccccc);
+    margin: 0;
+    padding: 0 0 0 16px; /* Left indent to match Explorer */
+  }
+  
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  
+  /* No border-bottom between items now */
+  .component-item {
+    padding: 0;
+  }
+  
+  .component-item:last-child {
+    border-bottom: none;
+  }
+  
+  /* Entire clickable row */
+  .component-title-line {
+    cursor: pointer;
+    display: block;
+    padding: 4px 0 4px 8px;
+    width: 100%;
+  }
+  
+  /* Hover effect: background color changes */
+  .component-title-line:hover {
+    background-color: var(--vscode-list-hoverBackground, #2a2d2e);
+  }
+  
+  /* For the "name" portion of items */
+  .component-name {
+    font-weight: normal;
+  }
+  
+  /* For the version parentheses, e.g. (v1), (v2) */
+  .component-versions {
+    margin-left: 8px;
+    font-style: italic;
+    color: var(--vscode-foreground, #cccccc);
+  }
+  
+  /* Description or other text, smaller and lighter */
+  .component-description {
+    color: #999999;
+    margin-left: 8px;
+    margin-top: 2px;
+    font-size: 0.9rem;
+  }

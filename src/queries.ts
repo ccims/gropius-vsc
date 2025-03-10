@@ -12,6 +12,12 @@ query MyQuery {
           version
         }
       }
+      issues {
+        nodes {
+          id
+          title
+        }
+      }
     }
   }
 }
