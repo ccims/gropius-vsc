@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
 import { loadConfigurations } from '../mapping/config-loader';
 import { APIClient } from '../apiClient';
 import { CLIENT_ID, CLIENT_SECRET, API_URL } from '../config';
@@ -8,6 +7,7 @@ import { GET_COMPONENT_VERSIONS_IN_PROJECT_QUERY } from '../queries';
 
 interface ComponentTreeItem {
     name: string;
+    description?: string; 
     versions?: string[];
     children?: ComponentTreeItem[];
     expanded: boolean;
@@ -16,7 +16,6 @@ interface ComponentTreeItem {
 export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvider {
 
     private apiClient: APIClient;
-    private componentVersionsCache: Map<string, any> = new Map();
     private isAuthenticated: boolean = false;
 
     public static readonly viewType = 'gropiusComponentVersions';
@@ -93,13 +92,11 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
         }
     }
 
-    // Mock implementation of fetching component versions
-    // Replace with actual API calls in production
     private async _fetchComponentVersions(
         componentId?: string,
         projectId?: string,
         componentVersionId?: string
-    ): Promise<{ name: string, versions: string[] }> {
+    ): Promise<{ name: string, description?: string, versions: string[] }> {
         try {
             // Authenticate if needed
             if (!this.isAuthenticated) {
@@ -120,6 +117,7 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
                     component {
                       id
                       name
+                      description
                     }
                   }
                 }
@@ -131,11 +129,13 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
 
                 if (result.data?.node) {
                     const version = result.data.node;
+                    const versionString = version.version.startsWith('v') ? version.version : `v${version.version}`;
                     return {
-                        name: version.component?.name || "Unknown Component",
-                        versions: [`v${version.version}`]
+                      name: version.component?.name || "Unknown Component",
+                      description: version.component?.description || "",
+                      versions: [versionString]
                     };
-                }
+                  }
             }
             // For the component+project case
             else if (componentId && projectId) {
@@ -153,20 +153,20 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
                     const componentVersions = project.components.nodes
                         .filter((node: any) => node.component.id === componentId);
 
-                    if (componentVersions.length > 0) {
-                        // Get the component name from the first version
-                        const componentName = componentVersions[0].component.name;
-
-                        // Format all version strings
-                        const versionStrings = componentVersions.map((v: any) => {
-                            return v.version.startsWith('v') ? v.version : `v${v.version}`;
-                        });
-
-                        return {
-                            name: componentName,
-                            versions: versionStrings
-                        };
-                    }
+                        if (componentVersions.length > 0) {
+                            const componentName = componentVersions[0].component.name;
+                            const componentDescription = componentVersions[0].component.description || "";
+                            
+                            const versionStrings = componentVersions.map((v: any) => {
+                              return v.version.startsWith('v') ? v.version : `v${v.version}`;
+                            });
+                            
+                            return {
+                              name: componentName,
+                              description: componentDescription,
+                              versions: versionStrings
+                            };
+                          }
                 }
             }
 
@@ -207,6 +207,7 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
                             if (component.versions.length > 0) {
                                 treeItems.push({
                                     name: component.name,
+                                    description: component.description, // Add this line
                                     versions: component.versions,
                                     expanded: false
                                 });
@@ -237,6 +238,7 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
                             if (component && component.versions.length > 0) {
                                 folderItem.children!.push({
                                     name: component.name,
+                                    description: component.description, // Add this line
                                     versions: component.versions,
                                     expanded: false
                                 });
@@ -268,6 +270,7 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
                     if (component && component.versions.length > 0) {
                         treeItems.push({
                             name: component.name,
+                            description: component.description, // Add this line
                             versions: component.versions,
                             expanded: false
                         });
