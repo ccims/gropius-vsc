@@ -16,6 +16,12 @@ query MyQuery {
         nodes {
           id
           title
+          type {
+            name
+          }
+          state {
+            isOpen
+          }
         }
       }
     }
