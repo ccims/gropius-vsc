@@ -15,6 +15,11 @@
       "explorer": [
         {
           "type": "webview",
+          "id": "gropiusComponentVersions",
+          "name": "Gropius Component Versions"
+        },
+        {
+          "type": "webview",
           "id": "componentVersions",
           "name": "Component Versions"
         },
@@ -22,11 +27,6 @@
           "type": "webview",
           "id": "componentIssues",
           "name": "Component Issues"
-        },
-        {
-          "type": "webview",
-          "id": "gropiusComponentVersions",
-          "name": "Gropius Component Versions"
         },
         {
           "type": "webview",
@@ -40,18 +40,7 @@
         "command": "gropius.refreshComponentVersions",
         "title": "Refresh Component Versions",
         "icon": "$(refresh)"
-      }
-    ],
-    "menus": {
-      "view/title": [
-        {
-          "command": "gropius.refreshComponentVersions",
-          "when": "view == gropiusComponentVersions",
-          "group": "navigation"
-        }
-      ]
-    },
-    "commands": [
+      },
       {
         "command": "extension.showComponentIssues",
         "title": "Show Component Issues"

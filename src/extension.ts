@@ -15,22 +15,38 @@ const globalApiClient = new APIClient(API_URL, CLIENT_ID, CLIENT_SECRET);
  * Registers all providers and commands in VS Code
  */
 export function activate(context: vscode.ExtensionContext) {
-  // 1) Register the "Component Versions" view
+  // 1) Register the Gropius Component Versions webview.
+  const gropiusComponentVersionsProvider = new GropiusComponentVersionsProvider(context);
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      GropiusComponentVersionsProvider.viewType,
+      gropiusComponentVersionsProvider
+    )
+  );
+
+  // 2) Register the "Component Versions" view
   const componentVersionsProvider = new ComponentVersionsProvider(context, globalApiClient);
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider("componentVersions", componentVersionsProvider)
   );
 
-  // 2) Register the "Component Issues" view
+  // 3) Register the "Component Issues" view
   const componentIssuesProvider = new ComponentIssuesProvider(context, globalApiClient);
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider("componentIssues", componentIssuesProvider)
   );
 
-  // 3) Register the "Graphs" view
+  // 4) Register the "Graphs" view
   const graphsProvider = new GraphsProvider(context, globalApiClient);
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider("graphs", graphsProvider)
+  );
+
+  // Command to refresh component versions
+  context.subscriptions.push(
+    vscode.commands.registerCommand('gropius.refreshComponentVersions', () => {
+      gropiusComponentVersionsProvider.refresh();
+    })
   );
 
   // Command to show component issues for a given component ID
@@ -44,22 +60,6 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("extension.showGraph", async (projectId: string): Promise<void> => {
       await graphsProvider.openGraphEditor(projectId);
-    })
-  );
-
-  // Register the Gropius Component Versions webview.
-  const gropiusComponentVersionsProvider = new GropiusComponentVersionsProvider(context);
-  context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider(
-      GropiusComponentVersionsProvider.viewType,
-      gropiusComponentVersionsProvider
-    )
-  );
-  
-  // Register refresh command
-  context.subscriptions.push(
-    vscode.commands.registerCommand('gropius.refreshComponentVersions', () => {
-      gropiusComponentVersionsProvider.refresh();
     })
   );
 }
