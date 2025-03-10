@@ -54,3 +54,15 @@
     margin-top: 2px;
     font-size: 0.9rem;
   }
+
+  .component-title-line {
+    display: flex;
+    align-items: center;
+  }
+  
+  .issue-icon {
+    width: 16px;
+    height: 16px;
+    margin-right: 8px;
+  }
+  
