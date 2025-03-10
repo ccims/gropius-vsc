@@ -1,5 +1,4 @@
 import * as vscode from "vscode";
-import * as path from "path";
 import { CLIENT_ID, CLIENT_SECRET, API_URL } from "./config";
 import { APIClient } from "./apiClient";
 import {
@@ -8,15 +7,15 @@ import {
   FETCH_PROJECT_GRAPH_QUERY
 } from "./queries";
 
-// -----------------------------------------------------------------
-// Global API client instance used by all providers.
+// Create a single, global API client instance
 const globalApiClient = new APIClient(API_URL, CLIENT_ID, CLIENT_SECRET);
 
-// -----------------------------------------------------------------
-// ComponentVersionsProvider: Provides a webview that lists all component versions.
-// It queries the server using FETCH_COMPONENT_VERSIONS_QUERY and sends the list
-// via postMessage with command "updateComponentVersions". When a component is clicked,
-// it sends its component id to trigger the issues view.
+/**
+ * ComponentVersionsProvider:
+ * - Fetches all components + versions with FETCH_COMPONENT_VERSIONS_QUERY
+ * - Sends them to the webview with "updateComponentVersions"
+ * - Listens for "selectComponent" messages to call "extension.showComponentIssues"
+ */
 export class ComponentVersionsProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "componentVersions";
   private _view?: vscode.WebviewView;
@@ -33,12 +32,17 @@ export class ComponentVersionsProvider implements vscode.WebviewViewProvider {
   ): void {
     this._view = webviewView;
     webviewView.webview.options = { enableScripts: true };
+
+    // Provide HTML for the webview
     webviewView.webview.html = this.getHtmlForWebview(webviewView.webview);
 
+    // Listen for messages from the Vue app
     webviewView.webview.onDidReceiveMessage((message: any): void => {
       if (message.command === "vueAppReady") {
+        // Vue is ready; fetch & send components
         this.fetchAndSendComponentVersions();
       } else if (message.command === "selectComponent") {
+        // A component ID was clicked; show its issues
         const componentId = message.componentId;
         vscode.commands.executeCommand("extension.showComponentIssues", componentId);
       }
@@ -55,17 +59,17 @@ export class ComponentVersionsProvider implements vscode.WebviewViewProvider {
         "componentVersions.js"
       )
     );
-    return `
+    return /* html */ `
       <!DOCTYPE html>
       <html lang="en">
-        <head>
-          <meta charset="UTF-8"/>
-          <title>Component Versions</title>
-        </head>
-        <body style="padding:0;margin:0;">
-          <div id="app"></div>
-          <script src="${scriptUri}"></script>
-        </body>
+      <head>
+        <meta charset="UTF-8"/>
+        <title>Component Versions</title>
+      </head>
+      <body style="padding:0;margin:0;">
+        <div id="app"></div>
+        <script src="${scriptUri}"></script>
+      </body>
       </html>
     `;
   }
@@ -78,22 +82,28 @@ export class ComponentVersionsProvider implements vscode.WebviewViewProvider {
         throw new Error("No component data received.");
       }
       const components = response.data.components.nodes;
+      // Send data to the webview
       this._view?.webview.postMessage({
         command: "updateComponentVersions",
         data: components
       });
     } catch (error: any) {
       vscode.window.showErrorMessage(
-        `Failed to fetch component versions: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to fetch component versions: ${
+          error instanceof Error ? error.message : String(error)
+        }`
       );
     }
   }
 }
 
-// ComponentIssuesProvider: Provides a webview that lists issues for a single component.
-// When a component is selected (its id is sent via the "extension.showComponentIssues" command),
-// this provider queries all components using FETCH_COMPONENT_VERSIONS_QUERY, finds the component
-// with that id, and sends its issues via postMessage (command "updateComponentIssues").
+/**
+ * ComponentIssuesProvider:
+ * - Receives a component ID
+ * - Fetches all components with FETCH_COMPONENT_VERSIONS_QUERY
+ * - Finds the matching component
+ * - Sends its issues via "updateComponentIssues"
+ */
 export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "componentIssues";
   private _view?: vscode.WebviewView;
@@ -110,11 +120,14 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
   ): void {
     this._view = webviewView;
     webviewView.webview.options = { enableScripts: true };
+
+    // Provide HTML for the webview
     webviewView.webview.html = this.getHtmlForWebview(webviewView.webview);
 
+    // Optionally listen for messages from the Vue app
     webviewView.webview.onDidReceiveMessage((message: any): void => {
       if (message.command === "vueAppReady") {
-        // Do nothing until a component is selected.
+        // Do nothing until a component is selected
       }
       return;
     });
@@ -129,21 +142,24 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
         "componentIssues.js"
       )
     );
-    return `
+    return /* html */ `
       <!DOCTYPE html>
       <html lang="en">
-        <head>
-          <meta charset="UTF-8"/>
-          <title>Component Issues</title>
-        </head>
-        <body style="padding:0;margin:0;">
-          <div id="app"></div>
-          <script src="${scriptUri}"></script>
-        </body>
+      <head>
+        <meta charset="UTF-8"/>
+        <title>Component Issues</title>
+      </head>
+      <body style="padding:0;margin:0;">
+        <div id="app"></div>
+        <script src="${scriptUri}"></script>
+      </body>
       </html>
     `;
   }
 
+  /**
+   * Called by "extension.showComponentIssues" with a componentId
+   */
   public async updateIssues(componentId: string): Promise<void> {
     try {
       await this.apiClient.authenticate();
@@ -152,27 +168,29 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
         throw new Error("No component data received.");
       }
       const components: any[] = response.data.components.nodes;
-      // Find the component that matches the given componentId.
-      const component = components.find((c: any): boolean => c.id === componentId);
-      // If found, extract its issues; otherwise, use an empty array.
+      // Find the matching component
+      const component = components.find((c: any) => c.id === componentId);
       const issues = component ? component.issues.nodes : [];
+      // Send these issues to the webview
       this._view?.webview.postMessage({
         command: "updateComponentIssues",
         data: issues
       });
     } catch (error: any) {
       vscode.window.showErrorMessage(
-        `Failed to fetch component issues: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to fetch component issues: ${
+          error instanceof Error ? error.message : String(error)
+        }`
       );
     }
   }
 }
 
-// -----------------------------------------------------------------
-// GraphsProvider: Provides a webview with a Vue UI that displays a list
-// of projects (using FETCH_DYNAMIC_PROJECTS_QUERY). Each project is rendered
-// with a button; when clicked, it opens the Graph Editor.
-// All helper functions for the Graph Editor are encapsulated within this provider.
+/**
+ * GraphsProvider:
+ * - Displays a list of projects using FETCH_DYNAMIC_PROJECTS_QUERY
+ * - Each project has a "Show Graph" button that opens a Graph Editor
+ */
 export class GraphsProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "graphs";
   private _view?: vscode.WebviewView;
@@ -189,6 +207,8 @@ export class GraphsProvider implements vscode.WebviewViewProvider {
   ): void {
     this._view = webviewView;
     webviewView.webview.options = { enableScripts: true };
+
+    // Provide HTML for the webview
     webviewView.webview.html = this.getHtmlForWebview(webviewView.webview);
 
     webviewView.webview.onDidReceiveMessage((message: any): void => {
@@ -204,19 +224,24 @@ export class GraphsProvider implements vscode.WebviewViewProvider {
 
   private getHtmlForWebview(webview: vscode.Webview): string {
     const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.context.extensionUri, "out", "webview", "graphs.js")
+      vscode.Uri.joinPath(
+        this.context.extensionUri,
+        "out",
+        "webview",
+        "graphs.js"
+      )
     );
-    return `
+    return /* html */ `
       <!DOCTYPE html>
       <html lang="en">
-        <head>
-          <meta charset="UTF-8"/>
-          <title>Graphs</title>
-        </head>
-        <body style="padding:0;margin:0;">
-          <div id="app"></div>
-          <script src="${scriptUri}"></script>
-        </body>
+      <head>
+        <meta charset="UTF-8"/>
+        <title>Graphs</title>
+      </head>
+      <body style="padding:0;margin:0;">
+        <div id="app"></div>
+        <script src="${scriptUri}"></script>
+      </body>
       </html>
     `;
   }
@@ -235,7 +260,9 @@ export class GraphsProvider implements vscode.WebviewViewProvider {
       });
     } catch (error: any) {
       vscode.window.showErrorMessage(
-        `Failed to fetch projects: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to fetch projects: ${
+          error instanceof Error ? error.message : String(error)
+        }`
       );
     }
   }
@@ -286,70 +313,73 @@ export class GraphsProvider implements vscode.WebviewViewProvider {
       return response.data;
     } catch (error) {
       throw new Error(
-        `Failed to fetch project graph: ${error instanceof Error ? error.message : "Unknown error"}`
+        `Failed to fetch project graph: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
       );
     }
   }
 
   private getGraphEditorHtml(scriptUri: vscode.Uri): string {
-    return `
+    return /* html */ `
       <!DOCTYPE html>
       <html lang="en">
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Graph Editor</title>
-          <style>
-            html, body {
-              height: 100vh;
-              margin: 0;
-              padding: 0;
-              overflow: hidden;
-            }
-            #app {
-              height: 100vh;
-              width: 100%;
-            }
-          </style>
-        </head>
-        <body>
-          <div id="app"></div>
-          <script src="${scriptUri}"></script>
-        </body>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Graph Editor</title>
+        <style>
+          html, body {
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+          }
+          #app {
+            height: 100vh;
+            width: 100%;
+          }
+        </style>
+      </head>
+      <body>
+        <div id="app"></div>
+        <script src="${scriptUri}"></script>
+      </body>
       </html>
     `;
   }
 }
 
-// -----------------------------------------------------------------
-// activate() registers the three views and commands.
+/**
+ * Registers all providers and commands in VS Code
+ */
 export function activate(context: vscode.ExtensionContext): void {
-  // Register the Component Versions webview.
+  // 1) Register the "Component Versions" view
   const componentVersionsProvider = new ComponentVersionsProvider(context, globalApiClient);
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider("componentVersions", componentVersionsProvider)
   );
 
-  // Register the Graphs webview.
+  // 2) Register the "Graphs" view
   const graphsProvider = new GraphsProvider(context, globalApiClient);
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider("graphs", graphsProvider)
   );
 
-  // Register the Component Issues webview.
+  // 3) Register the "Component Issues" view
   const componentIssuesProvider = new ComponentIssuesProvider(context, globalApiClient);
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider("componentIssues", componentIssuesProvider)
   );
 
-  // Register a command to update the Component Issues view when a component is selected.
+  // Command to show component issues for a given component ID
   context.subscriptions.push(
     vscode.commands.registerCommand("extension.showComponentIssues", async (componentId: string): Promise<void> => {
       await componentIssuesProvider.updateIssues(componentId);
     })
   );
 
-  // Optional: register a command to open the Graph Editor directly.
+  // Optional: command to open the Graph Editor for a project ID
   context.subscriptions.push(
     vscode.commands.registerCommand("extension.showGraph", async (projectId: string): Promise<void> => {
       await graphsProvider.openGraphEditor(projectId);

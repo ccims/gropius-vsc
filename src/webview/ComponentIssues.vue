@@ -1,9 +1,10 @@
 <template>
     <div id="app">
-      <h1>Component Issues</h1>
       <ul v-if="issues.length">
-        <li v-for="issue in issues" :key="issue.id" class="issue-item">
-          <span class="issue-title">{{ issue.title }}</span>
+        <li v-for="issue in issues" :key="issue.id" class="component-item">
+          <div class="component-title-line">
+            <span class="component-name">{{ issue.title }}</span>
+          </div>
         </li>
       </ul>
       <p v-else>No issues available.</p>
@@ -36,28 +37,5 @@
   };
   </script>
   
-  <style scoped>
-  #app {
-    font-family: var(--vscode-font-family, sans-serif);
-    font-size: var(--vscode-font-size, 13px);
-    color: var(--vscode-foreground, #cccccc);
-    margin: 0;
-    padding: 8px;
-  }
-  ul {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
-  .issue-item {
-    padding: 4px 0;
-    border-bottom: 1px solid var(--vscode-settings-dropdownBorder, #555);
-  }
-  .issue-item:last-child {
-    border-bottom: none;
-  }
-  .issue-title {
-    font-weight: normal;
-  }
-  </style>
+  <!-- We omit <style> here, since all styling is in global.css -->
   
