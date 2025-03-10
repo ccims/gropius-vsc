@@ -4,7 +4,7 @@ import * as path from 'path';
 import * as yaml from 'js-yaml'; 
 
 // Interfaces for our configuration
-interface GropiusWorkspaceConfig {
+export interface GropiusWorkspaceConfig {
   version: string;
   rootFolders: {
     name: string;
@@ -12,19 +12,19 @@ interface GropiusWorkspaceConfig {
   }[];
 }
 
-interface GropiusMapping {
+export interface GropiusMapping {
   path: string;
   componentVersion?: string;
   project?: string;
   component?: string;
 }
 
-interface GropiusFolderConfig {
+export interface GropiusFolderConfig {
   mappings: GropiusMapping[];
 }
 
 // Function to find and load configuration files
-async function loadConfigurations(): Promise<Map<string, GropiusMapping[]>> {
+export async function loadConfigurations(): Promise<Map<string, GropiusMapping[]>> {
   const workspaceFolders = vscode.workspace.workspaceFolders;
   if (!workspaceFolders) {
     return new Map();
