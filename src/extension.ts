@@ -1,5 +1,4 @@
 import * as vscode from "vscode";
-import * as path from "path";
 import { CLIENT_ID, CLIENT_SECRET, API_URL } from "./config";
 import { APIClient } from "./apiClient";
 import {
