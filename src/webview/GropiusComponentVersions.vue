@@ -3,6 +3,9 @@
       <div v-if="loading" class="loading">
         <p>Loading component versions...</p>
       </div>
+      <div v-else-if="treeItems.length === 0" class="empty-state">
+        <p>No component versions found. Please check your folder mappings.</p>
+      </div>
       <div v-else class="component-tree">
         <div class="tree-item" v-for="(item, index) in treeItems" :key="index">
           <div 

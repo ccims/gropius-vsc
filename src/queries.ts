@@ -17,6 +17,21 @@ query MyQuery {
 }
 `;
 
+export const FETCH_COMPONENT_VERSION_BY_ID_QUERY = `
+query GetComponentVersion($id: ID!) {
+  node(id: $id) {
+    ... on ComponentVersion {
+      id
+      version
+      component {
+        id
+        name
+      }
+    }
+  }
+}
+`;
+
 
 export const FETCH_DYNAMIC_PROJECTS_QUERY = `
   query MyQuery {
