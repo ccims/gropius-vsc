@@ -15,7 +15,7 @@
   <script>
   let vscode;
   export default {
-    name: "GraphsView",
+    name: "Graphs",
     data() {
       return {
         projects: []

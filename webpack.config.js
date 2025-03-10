@@ -9,7 +9,7 @@ module.exports = {
     entry: {
         graph: './src/webview/main.ts',
         componentVersions: './src/webview/componentVersions.ts',
-        graphsView: './src/webview/graphsView.ts',
+        graphs: './src/webview/graphs.ts',
         graphEditor: './src/webview/graph-editor.ts'
     },
     output: {

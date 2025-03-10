@@ -181,8 +181,8 @@ export class ComponentVersionsProvider implements vscode.WebviewViewProvider {
 // -----------------------------------------------------------------
 // GraphsViewProvider: Provides a webview with a Vue UI that displays a list of projects.
 // Each project is shown with a button that, when clicked, calls showGraphForProject.
-export class GraphsViewProvider implements vscode.WebviewViewProvider {
-  public static readonly viewType = "graphsView";
+export class GraphsProvider implements vscode.WebviewViewProvider {
+  public static readonly viewType = "graphs";
   private _view?: vscode.WebviewView;
 
   constructor(
@@ -215,7 +215,7 @@ export class GraphsViewProvider implements vscode.WebviewViewProvider {
         this.context.extensionUri,
         "out",
         "webview",
-        "graphsView.js"
+        "graphs.js"
       )
     );
     return `
@@ -265,9 +265,9 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   // Register the Graphs webview
-  const graphsViewProvider = new GraphsViewProvider(context, globalApiClient);
+  const graphsProvider = new GraphsProvider(context, globalApiClient);
   context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider("graphsView", graphsViewProvider)
+    vscode.window.registerWebviewViewProvider("graphs", graphsProvider)
   );
 
   // Optional: register a command to open the Graph Editor directly
