@@ -10,7 +10,8 @@ module.exports = {
         graph: './src/webview/main.ts',
         componentVersions: './src/webview/componentVersions.ts',
         graphs: './src/webview/graphs.ts',
-        graphEditor: './src/webview/graph-editor.ts'
+        graphEditor: './src/webview/graph-editor.ts',
+        componentIssues: './src/webview/componentIssues.ts'
     },
     output: {
         path: path.resolve(__dirname, 'out', 'webview'),

@@ -12,11 +12,16 @@ query MyQuery {
           version
         }
       }
+      issues {
+        nodes {
+          id
+          title
+        }
+      }
     }
   }
 }
 `;
-
 
 export const FETCH_DYNAMIC_PROJECTS_QUERY = `
   query MyQuery {

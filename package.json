@@ -20,11 +20,26 @@
         },
         {
           "type": "webview",
+          "id": "componentIssues",
+          "name": "Component Issues"
+        },
+        {
+          "type": "webview",
           "id": "graphs",
           "name": "Graphs"
         }
       ]
-    }
+    },
+    "commands": [
+      {
+        "command": "extension.showComponentIssues",
+        "title": "Show Component Issues"
+      },
+      {
+        "command": "extension.showGraph",
+        "title": "Show Graph"
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",

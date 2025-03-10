@@ -1,17 +1,11 @@
 <template>
   <div id="app">
     <ul v-if="components.length">
-      <li
-        v-for="component in components"
-        :key="component.id"
-        class="component-item"
-      >
-        <!-- The entire row is clickable and toggles the description -->
-        <div class="component-title-line" @click="toggleDescription(component.id)">
+      <li v-for="component in components" :key="component.id" class="component-item">
+        <!-- The entire row is clickable: toggles description and sends the component id -->
+        <div class="component-title-line" @click="handleClick(component)">
           <span class="component-name">{{ component.name }}</span>
-          (v<span class="component-version">
-            {{ component.versions?.nodes?.[0]?.version || "N/A" }}
-          </span>)
+          <span class="component-versions">{{ formatVersions(component.versions.nodes) }}</span>
         </div>
         <!-- The description is shown only if expanded[component.id] is true -->
         <p class="component-description" v-if="expanded[component.id]">
@@ -43,7 +37,7 @@ export default {
     }
     window.addEventListener("message", (event) => {
       const message = event.data;
-      // Listen for the message with the correct command:
+      // Listen for the message with command "updateComponentVersions"
       if (message && message.command === "updateComponentVersions") {
         this.components = message.data;
       }
@@ -51,34 +45,44 @@ export default {
   },
   methods: {
     toggleDescription(componentId) {
-      // Create a new object to trigger reactivity in Vue 3.
+      // Update the expanded state to trigger reactivity.
       this.expanded = {
         ...this.expanded,
         [componentId]: !this.expanded[componentId]
       };
+    },
+    handleClick(component) {
+      this.toggleDescription(component.id);
+      if (vscode) {
+        // Send the component id so that the issues view can filter issues for that component.
+        vscode.postMessage({ command: "selectComponent", componentId: component.id });
+      }
+    },
+    formatVersions(versions) {
+      if (!versions || !versions.length) return "";
+      // Map each version to a string "(v<version>)" and join them with a space.
+      return versions.map(v => `(v${v.version})`).join(" ");
     }
   }
 };
 </script>
 
 <style scoped>
-/* Match the Explorer style with minimal spacing and a left indent */
+/* Match Explorer style: minimal spacing with a left indent */
 #app {
   font-family: var(--vscode-font-family, sans-serif);
   font-size: var(--vscode-font-size, 13px);
   color: var(--vscode-foreground, #cccccc);
   margin: 0;
-  padding: 0 0 0 16px; /* Align with the tree above */
+  padding: 0 0 0 16px;
 }
 
-/* Remove default list styling */
 ul {
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-/* Each component item with a thin divider */
 .component-item {
   border-bottom: 1px solid var(--vscode-settings-dropdownBorder, #555);
   padding: 0;
@@ -88,7 +92,7 @@ ul {
   border-bottom: none;
 }
 
-/* The entire clickable row */
+/* Entire clickable row */
 .component-title-line {
   cursor: pointer;
   display: block;
@@ -101,17 +105,16 @@ ul {
   background-color: var(--vscode-list-hoverBackground, #2a2d2e);
 }
 
-/* Component name: normal weight */
 .component-name {
   font-weight: normal;
 }
 
-/* Version text styling */
-.component-version {
+.component-versions {
+  margin-left: 8px;
+  font-style: italic;
   color: var(--vscode-foreground, #cccccc);
 }
 
-/* Description styling: light grey and indented */
 .component-description {
   color: #999999;
   margin-left: 8px;
