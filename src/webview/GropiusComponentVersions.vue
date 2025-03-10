@@ -12,12 +12,18 @@
             class="tree-node"
             :class="{ 'has-children': item.children && item.children.length > 0 }"
             @click="toggleExpand(item)"
+            @mouseenter="hoveredItem = item"
+            @mouseleave="hoveredItem = null"
           >
             <span class="icon" v-if="item.children && item.children.length > 0">
-              {{ item.expanded ? '▼' : '►' }}
+              {{ item.expanded ? '▾' : '▸' }}
             </span>
-            <img v-else class="custom-icon" :src="customIconPath" alt="Component" />
-            <span class="node-name">{{ item.name }}</span>
+            <img v-else class="custom-icon" :src="customIconPath" alt="Component" @error="handleImageError" />
+            
+            <span class="node-name">
+              {{ item.name }}
+            </span>
+            
             <span class="version-tags" v-if="item.versions && item.versions.length > 0">
               <span class="version-tag" v-for="(version, vIndex) in item.versions" :key="vIndex">
                 {{ version }}
@@ -25,16 +31,32 @@
             </span>
           </div>
           
+          <div class="description-panel" v-if="hoveredItem === item && item.description">
+            {{ item.description }}
+          </div>
+          
           <div class="children" v-if="item.expanded && item.children && item.children.length > 0">
             <div class="tree-item" v-for="(child, childIndex) in item.children" :key="childIndex">
-              <div class="tree-node child-node">
-                <img class="custom-icon" :src="customIconPath" alt="Component" />
-                <span class="node-name">{{ child.name }}</span>
+              <div 
+                class="tree-node child-node"
+                @mouseenter="hoveredItem = child"
+                @mouseleave="hoveredItem = null"
+              >
+                <img class="custom-icon" :src="customIconPath" alt="Component" @error="handleImageError" />
+                
+                <span class="node-name">
+                  {{ child.name }}
+                </span>
+                
                 <span class="version-tags" v-if="child.versions && child.versions.length > 0">
                   <span class="version-tag" v-for="(version, vIndex) in child.versions" :key="vIndex">
                     {{ version }}
                   </span>
                 </span>
+              </div>
+              
+              <div class="description-panel" v-if="hoveredItem === child && child.description">
+                {{ child.description }}
               </div>
             </div>
           </div>
@@ -48,6 +70,7 @@
   
   interface TreeItem {
     name: string;
+    description?: string;
     versions?: string[];
     children?: TreeItem[];
     expanded: boolean;
@@ -63,16 +86,23 @@
   const vscode = acquireVsCodeApi();
   
   export default defineComponent({
-  name: 'GropiusComponentVersions',
-  setup() {
-    const loading = ref(true);
-    const treeItems = ref<TreeItem[]>([]);
-    const customIconPath = ref((window as any).customIconPath || '');
-
-    // Function to toggle the expanded state of a tree item
-    const toggleExpand = (item: TreeItem) => {
-      item.expanded = !item.expanded;
-    };
+    name: 'GropiusComponentVersions',
+    setup() {
+      const loading = ref(true);
+      const treeItems = ref<TreeItem[]>([]);
+      const customIconPath = ref((window as any).customIconPath || '');
+      const hoveredItem = ref<TreeItem | null>(null);
+  
+      // Function to toggle the expanded state of a tree item
+      const toggleExpand = (item: TreeItem) => {
+        item.expanded = !item.expanded;
+      };
+  
+      const handleImageError = (event: Event) => {
+        console.error('Failed to load icon:', customIconPath.value);
+        // Use a fallback icon if the image fails to load
+        (event.target as HTMLImageElement).style.display = 'none';
+      };
   
       onMounted(() => {
         // Request component version data from the extension
@@ -83,6 +113,7 @@
           const message = event.data;
           
           if (message.command === 'componentVersionsData') {
+            console.log("Received component versions data:", message.data);
             treeItems.value = message.data.map((item: any) => ({
               ...item,
               expanded: false
@@ -96,7 +127,9 @@
         loading,
         treeItems,
         toggleExpand,
-        customIconPath
+        customIconPath,
+        handleImageError,
+        hoveredItem
       };
     }
   });
@@ -113,12 +146,12 @@
     text-align: center;
     padding: 20px;
   }
-
+  
   .empty-state {
-  text-align: center;
-  padding: 20px;
-  color: var(--vscode-disabledForeground);
-}
+    text-align: center;
+    padding: 20px;
+    color: var(--vscode-disabledForeground);
+  }
   
   .tree-item {
     margin-bottom: 4px;
@@ -136,18 +169,18 @@
     background-color: var(--vscode-list-hoverBackground);
   }
   
-.icon {
-  margin-right: 6px;
-  display: inline-block;
-  min-width: 16px;
-  text-align: center;
-}
-
-.custom-icon {
-  width: 16px;
-  height: 16px;
-  margin-right: 6px;
-}
+  .icon {
+    margin-right: 6px;
+    display: inline-block;
+    min-width: 16px;
+    text-align: center;
+  }
+  
+  .custom-icon {
+    width: 16px;
+    height: 16px;
+    margin-right: 6px;
+  }
   
   .node-name {
     flex-grow: 1;
@@ -178,5 +211,26 @@
   
   .has-children {
     font-weight: bold;
+  }
+  
+  .description-panel {
+    margin-top: 2px;
+    margin-left: 22px;
+    padding: 6px 10px;
+    background-color: var(--vscode-editor-background);
+    border-left: 3px solid var(--vscode-activityBarBadge-background);
+    color: var(--vscode-descriptionForeground);
+    font-size: 12px;
+    border-radius: 0 3px 3px 0;
+    max-width: 90%;
+    line-height: 1.4;
+    animation: fadeIn 0.2s ease-in;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
   </style>

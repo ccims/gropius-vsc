@@ -57,6 +57,7 @@ query GetComponentVersionsInProject($projectId: ID!) {
           component {
             id
             name
+            description
           }
         }
       }
