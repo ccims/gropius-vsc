@@ -11,7 +11,8 @@ module.exports = {
         componentVersions: './src/webview/componentVersions.ts',
         gropiusComponentVersions: './src/webview/gropius-component-versions.ts',
         graphs: './src/webview/graphs.ts',
-        graphEditor: './src/webview/graph-editor.ts'
+        graphEditor: './src/webview/graph-editor.ts',
+        componentIssues: './src/webview/componentIssues.ts'
     },
     output: {
         path: path.resolve(__dirname, 'out', 'webview'),

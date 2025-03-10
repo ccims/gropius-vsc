@@ -12,6 +12,12 @@ query MyQuery {
           version
         }
       }
+      issues {
+        nodes {
+          id
+          title
+        }
+      }
     }
   }
 }
@@ -31,7 +37,6 @@ query GetComponentVersion($id: ID!) {
   }
 }
 `;
-
 
 export const FETCH_DYNAMIC_PROJECTS_QUERY = `
   query MyQuery {

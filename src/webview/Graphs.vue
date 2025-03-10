@@ -10,9 +10,9 @@
       </ul>
       <p v-else>No projects available.</p>
     </div>
-  </template>
+</template>
   
-  <script>
+<script>
   let vscode;
   export default {
     name: "Graphs",
@@ -43,7 +43,7 @@
       }
     }
   };
-  </script>
+</script>
   
   <style scoped>
   #app {
@@ -79,5 +79,5 @@
   .show-graph-btn:hover {
     background-color: var(--vscode-button-hoverBackground, #005f9e);
   }
-  </style>
+</style>
   
