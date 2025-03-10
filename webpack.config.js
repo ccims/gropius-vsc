@@ -9,6 +9,7 @@ module.exports = {
     entry: {
         graph: './src/webview/main.ts',
         componentVersions: './src/webview/componentVersions.ts',
+        gropiusComponentVersions: './src/webview/gropius-component-versions.ts',
         graphs: './src/webview/graphs.ts',
         graphEditor: './src/webview/graph-editor.ts'
     },

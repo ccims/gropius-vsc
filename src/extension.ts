@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { GropiusComponentVersionsProvider } from './webview/GropiusComponentVersionsProvider';
 import { CLIENT_ID, CLIENT_SECRET, API_URL } from "./config";
 import { APIClient } from "./apiClient";
 import {
@@ -270,4 +271,23 @@ export function activate(context: vscode.ExtensionContext) {
       await graphsProvider.openGraphEditor(projectId);
     })
   );
+
+  // Register the Gropius Component Versions provider
+  const gropiusComponentVersionsProvider = new GropiusComponentVersionsProvider(context);
+  
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      GropiusComponentVersionsProvider.viewType,
+      gropiusComponentVersionsProvider
+    )
+  );
+  
+  // Register refresh command
+  context.subscriptions.push(
+    vscode.commands.registerCommand('gropius.refreshComponentVersions', () => {
+      gropiusComponentVersionsProvider.refresh();
+    })
+  );
 }
+
+export function deactivate() {}
