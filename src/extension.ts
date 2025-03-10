@@ -9,104 +9,13 @@ import {
 } from "./queries";
 
 // -----------------------------------------------------------------
-// Top-level function to open the Graph Editor for a given project.
-// This function is defined outside of activate() so it is reusable.
-export async function showGraphForProject(
-  context: vscode.ExtensionContext,
-  projectId: string
-) {
-  const panel = createGraphEditorPanel(context);
-  panel.webview.onDidReceiveMessage(async (message) => {
-    if (message.type === "ready") {
-      try {
-        await globalApiClient.authenticate();
-        const projectData = await fetchProjectGraphData(projectId);
-        panel.webview.postMessage({
-          type: "projectData",
-          data: projectData
-        });
-      } catch (error) {
-        vscode.window.showErrorMessage(`Data fetch failed: ${error}`);
-      }
-    }
-  });
-  panel.reveal(vscode.ViewColumn.One);
-}
-
-async function fetchProjectGraphData(projectId: string) {
-  try {
-    await globalApiClient.authenticate();
-    const response = await globalApiClient.executeQuery(FETCH_PROJECT_GRAPH_QUERY, {
-      project: projectId
-    });
-    return response.data;
-  } catch (error) {
-    throw new Error(
-      `Failed to fetch project graph: ${
-        error instanceof Error ? error.message : "Unknown error"
-      }`
-    );
-  }
-}
-
-function createGraphEditorPanel(
-  context: vscode.ExtensionContext
-): vscode.WebviewPanel {
-  const panel = vscode.window.createWebviewPanel(
-    "graphEditor",
-    "Graph Editor",
-    vscode.ViewColumn.One,
-    {
-      enableScripts: true,
-      localResourceRoots: [
-        vscode.Uri.joinPath(context.extensionUri, "out", "webview")
-      ]
-    }
-  );
-  const scriptUri = panel.webview.asWebviewUri(
-    vscode.Uri.joinPath(context.extensionUri, "out", "webview", "graphEditor.js")
-  );
-  panel.webview.html = getGraphEditorHtml(scriptUri);
-  return panel;
-}
-
-function getGraphEditorHtml(scriptUri: vscode.Uri): string {
-  return `
-    <!DOCTYPE html>
-    <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Graph Editor</title>
-        <style>
-          html, body {
-            height: 100vh;
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-          }
-          #app {
-            height: 100vh;
-            width: 100%;
-          }
-        </style>
-      </head>
-      <body>
-        <div id="app"></div>
-        <script src="${scriptUri}"></script>
-      </body>
-    </html>
-  `;
-}
-
-// -----------------------------------------------------------------
-// Global API client instance (used by both views)
+// Global API client instance used by both views.
 const globalApiClient = new APIClient(API_URL, CLIENT_ID, CLIENT_SECRET);
 
 // -----------------------------------------------------------------
 // ComponentVersionsProvider: Provides a webview that lists all components.
-// It queries the server with FETCH_COMPONENT_VERSIONS_QUERY and sends
-// the list via postMessage with command "updateComponentVersions".
+// It queries the server using FETCH_COMPONENT_VERSIONS_QUERY and sends
+// the list via postMessage (with command "updateComponentVersions").
 export class ComponentVersionsProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "componentVersions";
   private _view?: vscode.WebviewView;
@@ -179,8 +88,10 @@ export class ComponentVersionsProvider implements vscode.WebviewViewProvider {
 }
 
 // -----------------------------------------------------------------
-// GraphsViewProvider: Provides a webview with a Vue UI that displays a list of projects.
-// Each project is shown with a button that, when clicked, calls showGraphForProject.
+// GraphsProvider: Provides a webview with a Vue UI that displays a list
+// of projects (fetched using FETCH_DYNAMIC_PROJECTS_QUERY). Each project is
+// rendered with a button; when clicked the button opens the Graph Editor.
+// All functions for opening the graph editor are encapsulated here.
 export class GraphsProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "graphs";
   private _view?: vscode.WebviewView;
@@ -204,7 +115,8 @@ export class GraphsProvider implements vscode.WebviewViewProvider {
         this.fetchAndSendProjects();
       } else if (message.command === "showGraph") {
         const projectId = message.projectId;
-        showGraphForProject(this.context, projectId);
+        // Now openGraphEditor is public.
+        this.openGraphEditor(projectId);
       }
     });
   }
@@ -253,27 +165,110 @@ export class GraphsProvider implements vscode.WebviewViewProvider {
       );
     }
   }
+
+  // Make openGraphEditor public so it can be called externally.
+  public async openGraphEditor(projectId: string) {
+    // Create the Graph Editor panel.
+    const panel = vscode.window.createWebviewPanel(
+      "graphEditor",
+      "Graph Editor",
+      vscode.ViewColumn.One,
+      {
+        enableScripts: true,
+        localResourceRoots: [
+          vscode.Uri.joinPath(this.context.extensionUri, "out", "webview")
+        ]
+      }
+    );
+
+    const scriptUri = panel.webview.asWebviewUri(
+      vscode.Uri.joinPath(this.context.extensionUri, "out", "webview", "graphEditor.js")
+    );
+    panel.webview.html = this.getGraphEditorHtml(scriptUri);
+
+    panel.webview.onDidReceiveMessage(async (message) => {
+      if (message.type === "ready") {
+        try {
+          await this.apiClient.authenticate();
+          const projectData = await this.fetchProjectGraphData(projectId);
+          panel.webview.postMessage({
+            type: "projectData",
+            data: projectData
+          });
+        } catch (error) {
+          vscode.window.showErrorMessage(`Data fetch failed: ${error}`);
+        }
+      }
+    });
+
+    panel.reveal(vscode.ViewColumn.One);
+  }
+
+  private async fetchProjectGraphData(projectId: string) {
+    try {
+      await this.apiClient.authenticate();
+      const response = await this.apiClient.executeQuery(FETCH_PROJECT_GRAPH_QUERY, {
+        project: projectId
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(
+        `Failed to fetch project graph: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    }
+  }
+
+  private getGraphEditorHtml(scriptUri: vscode.Uri): string {
+    return `
+      <!DOCTYPE html>
+      <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Graph Editor</title>
+          <style>
+            html, body {
+              height: 100vh;
+              margin: 0;
+              padding: 0;
+              overflow: hidden;
+            }
+            #app {
+              height: 100vh;
+              width: 100%;
+            }
+          </style>
+        </head>
+        <body>
+          <div id="app"></div>
+          <script src="${scriptUri}"></script>
+        </body>
+      </html>
+    `;
+  }
 }
 
 // -----------------------------------------------------------------
-// activate() function registers the two views.
+// activate() registers the two views.
 export function activate(context: vscode.ExtensionContext) {
-  // Register the Component Versions webview
+  // Register the Component Versions webview.
   const componentVersionsProvider = new ComponentVersionsProvider(context, globalApiClient);
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider("componentVersions", componentVersionsProvider)
   );
 
-  // Register the Graphs webview
+  // Register the Graphs webview (using the view id "graphs").
   const graphsProvider = new GraphsProvider(context, globalApiClient);
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider("graphs", graphsProvider)
   );
 
-  // Optional: register a command to open the Graph Editor directly
+  // Optional: register a command to open the Graph Editor directly.
   context.subscriptions.push(
     vscode.commands.registerCommand("extension.showGraph", async (projectId: string) => {
-      await showGraphForProject(context, projectId);
+      await graphsProvider.openGraphEditor(projectId);
     })
   );
 }
