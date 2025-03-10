@@ -1,3 +1,23 @@
+export const FETCH_COMPONENT_VERSIONS_QUERY = `
+query MyQuery {
+  components {
+    nodes {
+      id
+      name
+      description
+      versions {
+        nodes {
+          id
+          tags
+          version
+        }
+      }
+    }
+  }
+}
+`;
+
+
 export const FETCH_DYNAMIC_PROJECTS_QUERY = `
   query MyQuery {
     projects {

@@ -40,6 +40,16 @@
         {
           "id": "projectsView",
           "name": "Projects"
+        },
+        {
+          "type": "webview",
+          "id": "componentVersions",
+          "name": "Component Versions"
+        },
+        {
+          "type": "webview",
+          "id": "componentDetailsView",
+          "name": "Component Details"
         }
       ]
     }
