@@ -11,35 +11,17 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
-    "commands": [
-      {
-        "command": "extension.editComponentDetails",
-        "title": "Edit Component Details"
-      },
-      {
-        "command": "projectsView.refresh",
-        "title": "Refresh Projects Explorer"
-      },
-      {
-        "command": "projectsView.showProjectGraph",
-        "title": "Show Graph",
-        "icon": "$(graph)"
-      }
-    ],
-    "menus": {
-      "view/item/context": [
-        {
-          "command": "projectsView.showProjectGraph",
-          "when": "view == projectsView && viewItem == project",
-          "group": "navigation"
-        }
-      ]
-    },
     "views": {
       "explorer": [
         {
-          "id": "projectsView",
-          "name": "Projects"
+          "type": "webview",
+          "id": "componentVersions",
+          "name": "Component Versions"
+        },
+        {
+          "type": "webview",
+          "id": "graphs",
+          "name": "Graphs"
         }
       ]
     }
