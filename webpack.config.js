@@ -8,12 +8,12 @@ module.exports = {
     mode: 'development',
     entry: {
         graph: './src/webview/main.ts',
-        componentDetails: './src/webview/component-details.ts',
-        componentVersions: "./src/webview/componentVersions.ts",
+        componentVersions: './src/webview/componentVersions.ts',
+        graphsView: './src/webview/graphsView.ts',
         graphEditor: './src/webview/graph-editor.ts'
     },
     output: {
-        path: path.resolve(__dirname, 'out/webview'),
+        path: path.resolve(__dirname, 'out', 'webview'),
         filename: '[name].js',
     },
     resolve: {
