@@ -220,12 +220,12 @@ export default defineComponent({
 .description-panel {
     margin-top: 2px;
     margin-left: 2px;
-    padding: 3px 5px;
+    padding: 8px 12px;
     background-color: var(--vscode-editor-background);
-    color: var(--vscode-descriptionForeground);
+    color: rgba(255, 255, 255, 0.85);
     font-size: 12px;
     border-radius: 0 3px 3px 0;
-    line-height: 1.4;
+    line-height: 1.6;
     animation: fadeIn 0.2s ease-in;
     word-wrap: break-word;
     overflow-wrap: break-word;
@@ -235,6 +235,7 @@ export default defineComponent({
     opacity: 0;
     transform: translateY(5px);
     animation: slideUpFade 0.3s ease forwards;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
 @keyframes slideUpFade {
