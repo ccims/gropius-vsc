@@ -32,6 +32,27 @@ query GetComponentVersion($id: ID!) {
 }
 `;
 
+export const GET_COMPONENT_VERSIONS_IN_PROJECT_QUERY = `
+query GetComponentVersionsInProject($projectId: ID!) {
+  project: node(id: $projectId) {
+    ... on Project {
+      id
+      name
+      components {
+        nodes {
+          id
+          version
+          component {
+            id
+            name
+          }
+        }
+      }
+    }
+  }
+}
+`;
+
 
 export const FETCH_DYNAMIC_PROJECTS_QUERY = `
   query MyQuery {
