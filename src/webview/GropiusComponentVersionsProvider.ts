@@ -280,22 +280,30 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
     }
 
     private _getHtmlForWebview(webview: vscode.Webview) {
-        // Get path to the built Vue app
+
         const scriptPath = webview.asWebviewUri(
             vscode.Uri.joinPath(this._extensionUri, 'out', 'webview', 'gropiusComponentVersions.js')
         );
-
+        
+        const iconPath = webview.asWebviewUri(
+            vscode.Uri.joinPath(this._extensionUri, 'resources', 'icons', 'gropius-component-version-icon.png')
+        );
+    
         return `<!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Gropius Component Versions</title>
-    </head>
-    <body>
-        <div id="app"></div>
-        <script src="${scriptPath}"></script>
-    </body>
-    </html>`;
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Gropius Component Versions</title>
+            <script>
+                // Make the icon path available to the Vue app
+                window.customIconPath = "${iconPath}";
+            </script>
+        </head>
+        <body>
+            <div id="app"></div>
+            <script src="${scriptPath}"></script>
+        </body>
+        </html>`;
     }
 }

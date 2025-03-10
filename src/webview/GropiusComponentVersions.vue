@@ -16,7 +16,7 @@
             <span class="icon" v-if="item.children && item.children.length > 0">
               {{ item.expanded ? '▼' : '►' }}
             </span>
-            <span class="icon component-icon" v-else>📦</span>
+            <img v-else class="custom-icon" :src="customIconPath" alt="Component" />
             <span class="node-name">{{ item.name }}</span>
             <span class="version-tags" v-if="item.versions && item.versions.length > 0">
               <span class="version-tag" v-for="(version, vIndex) in item.versions" :key="vIndex">
@@ -28,7 +28,7 @@
           <div class="children" v-if="item.expanded && item.children && item.children.length > 0">
             <div class="tree-item" v-for="(child, childIndex) in item.children" :key="childIndex">
               <div class="tree-node child-node">
-                <span class="icon component-icon">📦</span>
+                <img class="custom-icon" :src="customIconPath" alt="Component" />
                 <span class="node-name">{{ child.name }}</span>
                 <span class="version-tags" v-if="child.versions && child.versions.length > 0">
                   <span class="version-tag" v-for="(version, vIndex) in child.versions" :key="vIndex">
@@ -63,15 +63,16 @@
   const vscode = acquireVsCodeApi();
   
   export default defineComponent({
-    name: 'GropiusComponentVersions',
-    setup() {
-      const loading = ref(true);
-      const treeItems = ref<TreeItem[]>([]);
-  
-      // Function to toggle the expanded state of a tree item
-      const toggleExpand = (item: TreeItem) => {
-        item.expanded = !item.expanded;
-      };
+  name: 'GropiusComponentVersions',
+  setup() {
+    const loading = ref(true);
+    const treeItems = ref<TreeItem[]>([]);
+    const customIconPath = ref((window as any).customIconPath || '');
+
+    // Function to toggle the expanded state of a tree item
+    const toggleExpand = (item: TreeItem) => {
+      item.expanded = !item.expanded;
+    };
   
       onMounted(() => {
         // Request component version data from the extension
@@ -94,7 +95,8 @@
       return {
         loading,
         treeItems,
-        toggleExpand
+        toggleExpand,
+        customIconPath
       };
     }
   });
@@ -111,6 +113,12 @@
     text-align: center;
     padding: 20px;
   }
+
+  .empty-state {
+  text-align: center;
+  padding: 20px;
+  color: var(--vscode-disabledForeground);
+}
   
   .tree-item {
     margin-bottom: 4px;
@@ -128,16 +136,18 @@
     background-color: var(--vscode-list-hoverBackground);
   }
   
-  .icon {
-    margin-right: 6px;
-    display: inline-block;
-    min-width: 16px;
-    text-align: center;
-  }
-  
-  .component-icon {
-    color: #3794ff;
-  }
+.icon {
+  margin-right: 6px;
+  display: inline-block;
+  min-width: 16px;
+  text-align: center;
+}
+
+.custom-icon {
+  width: 16px;
+  height: 16px;
+  margin-right: 6px;
+}
   
   .node-name {
     flex-grow: 1;
