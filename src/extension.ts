@@ -12,6 +12,29 @@ import {
 const globalApiClient = new APIClient(API_URL, CLIENT_ID, CLIENT_SECRET);
 
 // -----------------------------------------------------------------
+// activate() registers the two views.
+export function activate(context: vscode.ExtensionContext) {
+  // Register the Component Versions webview.
+  const componentVersionsProvider = new ComponentVersionsProvider(context, globalApiClient);
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider("componentVersions", componentVersionsProvider)
+  );
+
+  // Register the Graphs webview (using the view id "graphs").
+  const graphsProvider = new GraphsProvider(context, globalApiClient);
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider("graphs", graphsProvider)
+  );
+
+  // Optional: register a command to open the Graph Editor directly.
+  context.subscriptions.push(
+    vscode.commands.registerCommand("extension.showGraph", async (projectId: string) => {
+      await graphsProvider.openGraphEditor(projectId);
+    })
+  );
+}
+
+// -----------------------------------------------------------------
 // ComponentVersionsProvider: Provides a webview that lists all components.
 // It queries the server using FETCH_COMPONENT_VERSIONS_QUERY and sends
 // the list via postMessage (with command "updateComponentVersions").
@@ -247,27 +270,4 @@ export class GraphsProvider implements vscode.WebviewViewProvider {
       </html>
     `;
   }
-}
-
-// -----------------------------------------------------------------
-// activate() registers the two views.
-export function activate(context: vscode.ExtensionContext) {
-  // Register the Component Versions webview.
-  const componentVersionsProvider = new ComponentVersionsProvider(context, globalApiClient);
-  context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider("componentVersions", componentVersionsProvider)
-  );
-
-  // Register the Graphs webview (using the view id "graphs").
-  const graphsProvider = new GraphsProvider(context, globalApiClient);
-  context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider("graphs", graphsProvider)
-  );
-
-  // Optional: register a command to open the Graph Editor directly.
-  context.subscriptions.push(
-    vscode.commands.registerCommand("extension.showGraph", async (projectId: string) => {
-      await graphsProvider.openGraphEditor(projectId);
-    })
-  );
 }
