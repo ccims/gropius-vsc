@@ -52,6 +52,10 @@
       {
         "command": "extension.showGraph",
         "title": "Show Graph"
+      },
+      {
+        "command": "extension.rebuildVue",
+        "title": "Rebuild Vue Bundles"
       }
     ]
   },

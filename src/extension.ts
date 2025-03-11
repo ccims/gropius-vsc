@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { exec } from 'child_process';
 import { CLIENT_ID, CLIENT_SECRET, API_URL } from "./config";
 import { APIClient } from "./apiClient";
 import { loadConfigurations } from './mapping/config-loader';
@@ -89,6 +90,23 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("extension.showGraph", async (projectId: string): Promise<void> => {
       await graphsProvider.openGraphEditor(projectId);
+    })
+  );
+
+  // *** NEW: Command to rebuild the Vue bundles ***
+  context.subscriptions.push(
+    vscode.commands.registerCommand('extension.rebuildVue', () => {
+      // Adjust the working directory (cwd) as needed.
+      exec('npm run build:vue', { cwd: __dirname }, (error, stdout, stderr) => {
+        if (error) {
+          vscode.window.showErrorMessage(`Vue build failed: ${stderr}`);
+          console.error("Vue build error:", error);
+        } else {
+          vscode.window.showInformationMessage("Vue build completed successfully.");
+          console.log("Vue build output:", stdout);
+          // Optionally, refresh affected webviews here.
+        }
+      });
     })
   );
 }
