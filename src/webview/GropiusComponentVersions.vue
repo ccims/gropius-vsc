@@ -22,8 +22,10 @@
                             {{ item.name }}
                         </span>
 
-                        <span class="version-tags" v-if="item.versions && item.versions.length > 0">
-                            <span class="version-tag" v-for="(version, vIndex) in item.versions" :key="vIndex">
+                        <span class="version-tags">
+                            <span class="version-tag" v-for="(version, vIndex) in item.versions" :key="vIndex"
+                                @click.stop="handleVersionClick(item, version, vIndex)"
+                                :class="{ 'clicked': clickedVersion === `${item.id}-${version}-${vIndex}` }">
                                 {{ version }}
                             </span>
                         </span>
@@ -46,8 +48,10 @@
                                     {{ child.name }}
                                 </span>
 
-                                <span class="version-tags" v-if="child.versions && child.versions.length > 0">
-                                    <span class="version-tag" v-for="(version, vIndex) in child.versions" :key="vIndex">
+                                <span class="version-tags">
+                                    <span class="version-tag" v-for="(version, vIndex) in child.versions" :key="vIndex"
+                                        @click.stop="handleVersionClick(child, version, vIndex)"
+                                        :class="{ 'clicked': clickedVersion === `${child.id}-${version}-${vIndex}` }">
                                         {{ version }}
                                     </span>
                                 </span>
@@ -68,6 +72,8 @@
 import { defineComponent, ref, onMounted } from 'vue';
 
 interface TreeItem {
+    id?: string; // optional property
+    componentVersionIds?: string[];
     name: string;
     description?: string;
     versions?: string[];
@@ -91,6 +97,45 @@ export default defineComponent({
         const treeItems = ref<TreeItem[]>([]);
         const customIconPath = ref((window as any).customIconPath || '');
         const hoveredItem = ref<TreeItem | null>(null);
+
+        const clickedVersion = ref<string | null>(null);
+        const clickFeedbackTimer = ref<number | null>(null);
+
+        // Handle version tag click
+        const handleVersionClick = (item: TreeItem, version: string, index: number) => {
+            // Create a truly unique ID by including the version string itself
+            const uniqueId = `${item.id}-${version}-${index}`;
+            // Get the component version ID if available
+            const versionId = item.componentVersionIds && item.componentVersionIds[index];
+
+            // Visual feedback
+            clickedVersion.value = uniqueId;
+
+            // Clear previous timeout if exists
+            if (clickFeedbackTimer.value !== null) {
+                clearTimeout(clickFeedbackTimer.value);
+            }
+
+            // Set timeout to remove feedback after 500ms
+            clickFeedbackTimer.value = setTimeout(() => {
+                clickedVersion.value = null;
+            }, 500) as unknown as number;
+
+            // Log to console - replace with actual action later
+            console.log(`Clicked version: ${version}, Component: ${item.name}, Component ID: ${item.id || 'unknown'}, Version ID: ${versionId || 'unknown'}`);
+
+
+            // Send a message to the extension
+            vscode.postMessage({
+                command: 'versionClicked',
+                data: {
+                    componentName: item.name,
+                    version: version,
+                    componentId: item.id,
+                    componentVersionId: versionId
+                }
+            });
+        };
 
         // Function to toggle the expanded state of a tree item
         const toggleExpand = (item: TreeItem) => {
@@ -128,7 +173,9 @@ export default defineComponent({
             toggleExpand,
             customIconPath,
             handleImageError,
-            hoveredItem
+            hoveredItem,
+            clickedVersion,
+            handleVersionClick
         };
     }
 });
@@ -202,6 +249,21 @@ export default defineComponent({
     padding: 2px 6px;
     border-radius: 10px;
     font-size: 0.85em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+}
+
+.version-tag:hover {
+    background-color: var(--vscode-button-hoverBackground, #0e639c);
+    box-shadow: 0 0 0 1px rgba(0, 120, 212, 0.4);
+    transform: translateY(-1px);
+}
+
+.version-tag.clicked {
+    background-color: var(--vscode-button-background, #0e639c);
+    transform: translateY(1px);
+    box-shadow: 0 0 0 1px rgba(0, 120, 212, 0.6);
 }
 
 .children {
