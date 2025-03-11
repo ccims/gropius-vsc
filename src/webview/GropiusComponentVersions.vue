@@ -24,8 +24,10 @@
 
                         <span class="version-tags">
                             <span class="version-tag" v-for="(version, vIndex) in item.versions" :key="vIndex"
-                                @click.stop="handleVersionClick(item, version, vIndex)"
-                                :class="{ 'clicked': clickedVersion === `${item.id}-${version}-${vIndex}` }">
+                                @click.stop="handleVersionClick(item, version, vIndex)" :class="{
+                                    'clicked': clickedVersion === `${item.id}-${version}-${vIndex}`,
+                                    'active': activeVersion === `${item.id}-${version}-${vIndex}`
+                                }">
                                 {{ version }}
                             </span>
                         </span>
@@ -50,8 +52,10 @@
 
                                 <span class="version-tags">
                                     <span class="version-tag" v-for="(version, vIndex) in child.versions" :key="vIndex"
-                                        @click.stop="handleVersionClick(child, version, vIndex)"
-                                        :class="{ 'clicked': clickedVersion === `${child.id}-${version}-${vIndex}` }">
+                                        @click.stop="handleVersionClick(child, version, vIndex)" :class="{
+                                            'clicked': clickedVersion === `${child.id}-${version}-${vIndex}`,
+                                            'active': activeVersion === `${child.id}-${version}-${vIndex}`
+                                        }">
                                         {{ version }}
                                     </span>
                                 </span>
@@ -93,6 +97,9 @@ const vscode = acquireVsCodeApi();
 export default defineComponent({
     name: 'GropiusComponentVersions',
     setup() {
+
+        const activeVersion = ref<string | null>(null);
+
         const loading = ref(true);
         const treeItems = ref<TreeItem[]>([]);
         const customIconPath = ref((window as any).customIconPath || '');
@@ -103,27 +110,25 @@ export default defineComponent({
 
         // Handle version tag click
         const handleVersionClick = (item: TreeItem, version: string, index: number) => {
-            // Create a truly unique ID by including the version string itself
+
             const uniqueId = `${item.id}-${version}-${index}`;
-            // Get the component version ID if available
             const versionId = item.componentVersionIds && item.componentVersionIds[index];
 
-            // Visual feedback
+            // Set temporary click feedback
             clickedVersion.value = uniqueId;
 
-            // Clear previous timeout if exists
+            // Clear previous click feedback timeout
             if (clickFeedbackTimer.value !== null) {
                 clearTimeout(clickFeedbackTimer.value);
             }
 
-            // Set timeout to remove feedback after 500ms
+            // Set timeout to remove temporary click feedback
             clickFeedbackTimer.value = setTimeout(() => {
                 clickedVersion.value = null;
             }, 500) as unknown as number;
 
-            // Log to console - replace with actual action later
-            console.log(`Clicked version: ${version}, Component: ${item.name}, Component ID: ${item.id || 'unknown'}, Version ID: ${versionId || 'unknown'}`);
-
+            // Set the active version (this persists)
+            activeVersion.value = uniqueId;
 
             // Call the command to show issues for this component version
             if (versionId) {
@@ -177,7 +182,8 @@ export default defineComponent({
             handleImageError,
             hoveredItem,
             clickedVersion,
-            handleVersionClick
+            handleVersionClick,
+            activeVersion
         };
     }
 });
@@ -279,6 +285,11 @@ export default defineComponent({
 
 .has-children {
     font-weight: bold;
+}
+
+.version-tag.active {
+    background-color: var(--vscode-button-background, #0e639c);
+    border: 1px solid var(--vscode-button-border, #0e639c);
 }
 
 .description-panel {
