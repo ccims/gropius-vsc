@@ -7,6 +7,7 @@ import {
   FETCH_DYNAMIC_PROJECTS_QUERY,
   FETCH_PROJECT_GRAPH_QUERY,
   GET_ISSUES_OF_COMPONENT_VERSION_QUERY,
+  GET_ISSUE_DETAILS,
   FETCH_COMPONENT_VERSION_BY_ID_QUERY,
   GET_COMPONENT_VERSIONS_IN_PROJECT_QUERY
 } from "./queries";
@@ -52,7 +53,13 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  // 3) Register the "Graphs" view
+  // 3) Register the "Issue Details" view
+  const issueDetailsProvider = new IssueDetailsProvider(context.extensionUri);
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(IssueDetailsProvider.viewType, issueDetailsProvider)
+  );
+
+  // 4) Register the "Graphs" view
   const graphsProvider = new GraphsProvider(context, globalApiClient);
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider("graphs", graphsProvider)
@@ -71,6 +78,12 @@ export function activate(context: vscode.ExtensionContext) {
       await componentIssuesProvider.updateIssues(componentId);
     })
   );
+
+  // Command to show issue details for a given issue ID
+  vscode.commands.registerCommand('extension.showIssueDetails', (issueId: string) => {
+    console.log("Command extension.showIssueDetails invoked with issueId:", issueId);
+    issueDetailsProvider.updateIssueDetails(issueId);
+  });
 
   // Optional: command to open the Graph Editor for a project ID
   context.subscriptions.push(
@@ -411,14 +424,17 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
   ): void {
     this._view = webviewView;
     webviewView.webview.options = { enableScripts: true };
-
+  
     // Provide HTML for the webview
     webviewView.webview.html = this.getHtmlForWebview(webviewView.webview);
-
-    // Optionally listen for messages from the Vue app
+  
+    // Listen for messages from the Vue app
     webviewView.webview.onDidReceiveMessage((message: any): void => {
       if (message.command === "vueAppReady") {
         // Do nothing until a component is selected
+      } else if (message.command === "issueClicked") {
+        console.log("ComponentIssuesProvider received issueClicked with id:", message.issueId);
+        vscode.commands.executeCommand('extension.showIssueDetails', message.issueId);
       }
       return;
     });
@@ -543,6 +559,89 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
       command: 'updateComponentIssues',
       data: placeholderIssues
     });
+  }
+}
+
+/**
+ * IssueDetailsProvider:
+ * - ...
+ */
+class IssueDetailsProvider implements vscode.WebviewViewProvider {
+  public static readonly viewType = 'issueDetails';
+  private _view?: vscode.WebviewView;
+  constructor(private readonly _extensionUri: vscode.Uri) {}
+
+  public resolveWebviewView(
+    webviewView: vscode.WebviewView,
+    _context: vscode.WebviewViewResolveContext,
+    _token: vscode.CancellationToken
+  ) {
+    console.log("[IssueDetailsProvider] resolveWebviewView called");
+    this._view = webviewView;
+    webviewView.webview.options = {
+      enableScripts: true,
+      localResourceRoots: [this._extensionUri]
+    };
+    webviewView.webview.html = this.getHtmlForWebview(webviewView.webview);
+    console.log("[IssueDetailsProvider] Webview HTML set");
+  }
+
+  private getHtmlForWebview(webview: vscode.Webview): string {
+    const scriptUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this._extensionUri, 'out', 'webview', 'issueDetails.js')
+    );
+    return `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Issue Details</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script src="${scriptUri}"></script>
+  </body>
+</html>`;
+  }
+
+  public updateIssueDetails(issueId: string) {
+    if (!this._view) {
+      console.error("[IssueDetailsProvider] _view is undefined, cannot update issue details");
+      return;
+    }
+    console.log(`[IssueDetailsProvider] updateIssueDetails called with issueId: ${issueId}`);
+    globalApiClient.authenticate()
+      .then(() => {
+        return globalApiClient.executeQuery(GET_ISSUE_DETAILS, { id: issueId });
+      })
+      .then(data => {
+        console.log("[IssueDetailsProvider] Received data:", data);
+        let foundIssue = null;
+        if (data.data && data.data.components && data.data.components.nodes) {
+          for (const component of data.data.components.nodes) {
+            if (component.issues && component.issues.nodes) {
+              for (const issue of component.issues.nodes) {
+                if (issue.id === issueId) {
+                  foundIssue = issue;
+                  break;
+                }
+              }
+            }
+            if (foundIssue) break;
+          }
+        }
+        if (!foundIssue) {
+          console.warn(`[IssueDetailsProvider] No issue found for id ${issueId}`);
+        } else {
+          console.log("[IssueDetailsProvider] Issue fetched successfully:", foundIssue);
+        }
+        this._view?.webview.postMessage({ command: 'displayIssue', issue: foundIssue });
+        console.log("[IssueDetailsProvider] Posted displayIssue message");
+      })
+      .catch(error => {
+        console.error("[IssueDetailsProvider] Error fetching issue:", error);
+        this._view?.webview.postMessage({ command: 'displayIssue', issue: null });
+      });
   }
 }
 

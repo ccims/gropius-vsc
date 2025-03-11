@@ -6,16 +6,19 @@ const webpack = require('webpack');
 
 module.exports = {
     mode: 'development',
+    target: 'web',
     entry: {
         graph: './src/webview/main.ts',
         gropiusComponentVersions: './src/webview/gropius-component-versions.ts',
         componentIssues: './src/webview/componentIssues.ts',
+        issueDetails: './src/webview/issueDetails.ts',
         graphs: './src/webview/graphs.ts',
         graphEditor: './src/webview/graph-editor.ts'
     },
     output: {
         path: path.resolve(__dirname, 'out', 'webview'),
         filename: '[name].js',
+        libraryTarget: 'umd',
     },
     resolve: {
         extensions: ['.ts', '.js', '.vue'],

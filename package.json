@@ -25,6 +25,11 @@
         },
         {
           "type": "webview",
+          "id": "issueDetails",
+          "name": "Issue Details"
+        },
+        {
+          "type": "webview",
           "id": "graphs",
           "name": "Graphs"
         }
@@ -39,6 +44,10 @@
       {
         "command": "extension.showComponentIssues",
         "title": "Show Component Issues"
+      },
+      {
+        "command": "extension.showIssueDetails",
+        "title": "Show Issue Details"
       },
       {
         "command": "extension.showGraph",

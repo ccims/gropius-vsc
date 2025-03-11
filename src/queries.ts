@@ -56,6 +56,43 @@ query GetIssueIDOfComponentVersion($id: ID!) {
 }
 `;
 
+export const GET_ISSUE_DETAILS = `
+query MyQuery {
+  components {
+    nodes {
+      id
+      name
+      description
+      versions {
+        nodes {
+          id
+          tags
+          version
+        }
+      }
+      issues {
+        nodes {
+          id
+          title
+          type {
+            name
+          }
+          state {
+            isOpen
+          }
+          body {
+            body
+            lastModifiedAt
+          }
+          estimatedTime
+          hasPermission(permission: READ)
+        }
+      }
+    }
+  }
+}
+`;
+
 export const FETCH_COMPONENT_VERSION_BY_ID_QUERY = `
 query GetComponentVersion($id: ID!) {
   node(id: $id) {
