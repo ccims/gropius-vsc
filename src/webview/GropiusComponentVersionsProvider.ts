@@ -7,7 +7,7 @@ import { GET_COMPONENT_VERSIONS_IN_PROJECT_QUERY } from '../queries';
 
 interface ComponentTreeItem {
     id?: string;
-    componentVersionIds?: string[]; 
+    componentVersionIds?: string[];
     name: string;
     description?: string;
     versions?: string[];
@@ -51,9 +51,12 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
                     await this._sendComponentVersionsData();
                     break;
                 case 'versionClicked':
-                    // For now, just log the click
+                    // For now log the click
                     console.log('Version clicked:', message.data);
-                    // You can handle the click action here later
+                    break;
+                case 'showComponentVersionIssues':
+                    // Call the command to show issues for this component version
+                    vscode.commands.executeCommand('extension.showComponentVersionIssues', message.data.componentVersionId);
                     break;
             }
         });

@@ -29,6 +29,33 @@ query MyQuery {
 }
 `;
 
+export const GET_ISSUES_OF_COMPONENT_VERSION_QUERY = `
+query GetIssueIDOfComponentVersion($id: ID!) {
+  node(id: $id) {
+    ... on ComponentVersion {
+      id
+      version
+      aggregatedIssues {
+        nodes {
+          issues {
+            nodes {
+              id
+              title
+              type {
+                name
+              }
+              state {
+                isOpen
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+`;
+
 export const FETCH_COMPONENT_VERSION_BY_ID_QUERY = `
 query GetComponentVersion($id: ID!) {
   node(id: $id) {

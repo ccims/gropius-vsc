@@ -125,16 +125,18 @@ export default defineComponent({
             console.log(`Clicked version: ${version}, Component: ${item.name}, Component ID: ${item.id || 'unknown'}, Version ID: ${versionId || 'unknown'}`);
 
 
-            // Send a message to the extension
-            vscode.postMessage({
-                command: 'versionClicked',
-                data: {
-                    componentName: item.name,
-                    version: version,
-                    componentId: item.id,
-                    componentVersionId: versionId
-                }
-            });
+            // Call the command to show issues for this component version
+            if (versionId) {
+                vscode.postMessage({
+                    command: 'showComponentVersionIssues',
+                    data: {
+                        componentName: item.name,
+                        version: version,
+                        componentId: item.id,
+                        componentVersionId: versionId
+                    }
+                });
+            }
         };
 
         // Function to toggle the expanded state of a tree item

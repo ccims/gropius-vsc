@@ -5,7 +5,8 @@ import { APIClient } from "./apiClient";
 import {
   FETCH_COMPONENT_VERSIONS_QUERY,
   FETCH_DYNAMIC_PROJECTS_QUERY,
-  FETCH_PROJECT_GRAPH_QUERY
+  FETCH_PROJECT_GRAPH_QUERY,
+  GET_ISSUES_OF_COMPONENT_VERSION_QUERY
 } from "./queries";
 
 // Create a single, global API client instance
@@ -35,6 +36,12 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider("componentIssues", componentIssuesProvider)
   );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('extension.showComponentVersionIssues', async (componentVersionId: string): Promise<void> => {
+        await componentIssuesProvider.updateVersionIssues(componentVersionId);
+    })
+);
 
   // 4) Register the "Graphs" view
   const graphsProvider = new GraphsProvider(context, globalApiClient);
@@ -77,7 +84,7 @@ export class ComponentVersionsProvider implements vscode.WebviewViewProvider {
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly apiClient: APIClient
-  ) {}
+  ) { }
 
   resolveWebviewView(
     webviewView: vscode.WebviewView,
@@ -143,8 +150,7 @@ export class ComponentVersionsProvider implements vscode.WebviewViewProvider {
       });
     } catch (error: any) {
       vscode.window.showErrorMessage(
-        `Failed to fetch component versions: ${
-          error instanceof Error ? error.message : String(error)
+        `Failed to fetch component versions: ${error instanceof Error ? error.message : String(error)
         }`
       );
     }
@@ -165,7 +171,7 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly apiClient: APIClient
-  ) {}
+  ) { }
 
   resolveWebviewView(
     webviewView: vscode.WebviewView,
@@ -232,11 +238,80 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
       });
     } catch (error: any) {
       vscode.window.showErrorMessage(
-        `Failed to fetch component issues: ${
-          error instanceof Error ? error.message : String(error)
+        `Failed to fetch component issues: ${error instanceof Error ? error.message : String(error)
         }`
       );
     }
+  }
+
+  public async updateVersionIssues(componentVersionId: string): Promise<void> {
+    try {
+        await this.apiClient.authenticate();
+        
+        // Use the improved query that gets all issue details in one call
+        const result = await this.apiClient.executeQuery(GET_ISSUES_OF_COMPONENT_VERSION_QUERY, { id: componentVersionId });
+        
+        if (result.data?.node) {
+            const componentVersion = result.data.node;
+            
+            // Extract all issues from the nested structure
+            const allIssues = [];
+            const aggregatedIssueGroups = componentVersion.aggregatedIssues.nodes || [];
+            
+            for (const group of aggregatedIssueGroups) {
+                const issues = group.issues.nodes || [];
+                allIssues.push(...issues);
+            }
+            
+            // Deduplicate issues based on ID
+            const uniqueIssues = allIssues.filter((issue, index, self) => 
+                index === self.findIndex((i) => i.id === issue.id)
+            );
+            
+            console.log(`Found ${uniqueIssues.length} unique issues for component version ${componentVersionId}`);
+            
+            // Send the issues to the webview
+            this._view?.webview.postMessage({
+                command: 'updateComponentIssues',
+                data: uniqueIssues
+            });
+        } else {
+            // If no component version found, send empty array
+            this._view?.webview.postMessage({
+                command: 'updateComponentIssues',
+                data: []
+            });
+        }
+    } catch (error: any) {
+        vscode.window.showErrorMessage(
+            `Failed to fetch component version issues: ${
+                error instanceof Error ? error.message : String(error)
+            }`
+        );
+        
+        // Send empty array to clear the view
+        this._view?.webview.postMessage({
+            command: 'updateComponentIssues',
+            data: []
+        });
+    }
+}
+
+  // Helper method to fetch issue details by IDs
+  private async fetchAndSendIssueDetails(issueIds: string[]): Promise<void> {
+    // If we need to fetch individual issues, we can do it here
+    // For now, just send the IDs as placeholders
+    const placeholderIssues = issueIds.map(id => ({
+      id: id,
+      title: `Issue ${id.substring(0, 8)}...`,
+      type: { name: "Unknown" },
+      state: { isOpen: true }
+    }));
+
+    this._view?.webview.postMessage({
+      command: 'updateComponentIssues',
+      data: placeholderIssues
+    });
   }
 }
 
@@ -252,7 +327,7 @@ export class GraphsProvider implements vscode.WebviewViewProvider {
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly apiClient: APIClient
-  ) {}
+  ) { }
 
   resolveWebviewView(
     webviewView: vscode.WebviewView,
@@ -314,8 +389,7 @@ export class GraphsProvider implements vscode.WebviewViewProvider {
       });
     } catch (error: any) {
       vscode.window.showErrorMessage(
-        `Failed to fetch projects: ${
-          error instanceof Error ? error.message : String(error)
+        `Failed to fetch projects: ${error instanceof Error ? error.message : String(error)
         }`
       );
     }
@@ -367,8 +441,7 @@ export class GraphsProvider implements vscode.WebviewViewProvider {
       return response.data;
     } catch (error) {
       throw new Error(
-        `Failed to fetch project graph: ${
-          error instanceof Error ? error.message : "Unknown error"
+        `Failed to fetch project graph: ${error instanceof Error ? error.message : "Unknown error"
         }`
       );
     }
@@ -404,4 +477,4 @@ export class GraphsProvider implements vscode.WebviewViewProvider {
   }
 }
 
-export function deactivate() {}
+export function deactivate() { }
