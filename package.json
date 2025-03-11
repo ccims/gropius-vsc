@@ -20,11 +20,6 @@
         },
         {
           "type": "webview",
-          "id": "componentVersions",
-          "name": "Component Versions"
-        },
-        {
-          "type": "webview",
           "id": "componentIssues",
           "name": "Component Issues"
         },

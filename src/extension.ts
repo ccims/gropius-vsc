@@ -31,7 +31,7 @@ interface ComponentTreeItem {
  * Registers all providers and commands in VS Code
  */
 export function activate(context: vscode.ExtensionContext) {
-  // 1) Register the Gropius Component Versions webview.
+  // 1) Register the Gropius Component Versions view
   const gropiusComponentVersionsProvider = new GropiusComponentVersionsProvider(context, globalApiClient);
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
@@ -40,13 +40,7 @@ export function activate(context: vscode.ExtensionContext) {
     )
   );
 
-  // 2) Register the "Component Versions" view
-  const componentVersionsProvider = new ComponentVersionsProvider(context, globalApiClient);
-  context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider("componentVersions", componentVersionsProvider)
-  );
-
-  // 3) Register the "Component Issues" view
+  // 2) Register the "Component Issues" view
   const componentIssuesProvider = new ComponentIssuesProvider(context, globalApiClient);
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider("componentIssues", componentIssuesProvider)
@@ -58,7 +52,7 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  // 4) Register the "Graphs" view
+  // 3) Register the "Graphs" view
   const graphsProvider = new GraphsProvider(context, globalApiClient);
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider("graphs", graphsProvider)
@@ -391,92 +385,6 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
         <script src="${scriptPath}"></script>
     </body>
     </html>`;
-  }
-}
-
-/**
- * ComponentVersionsProvider:
- * - Fetches all components + versions with FETCH_COMPONENT_VERSIONS_QUERY
- * - Sends them to the webview with "updateComponentVersions"
- * - Listens for "selectComponent" messages to call "extension.showComponentIssues"
- */
-export class ComponentVersionsProvider implements vscode.WebviewViewProvider {
-  public static readonly viewType = "componentVersions";
-  private _view?: vscode.WebviewView;
-
-  constructor(
-    private readonly context: vscode.ExtensionContext,
-    private readonly apiClient: APIClient
-  ) { }
-
-  resolveWebviewView(
-    webviewView: vscode.WebviewView,
-    _context: vscode.WebviewViewResolveContext,
-    _token: vscode.CancellationToken
-  ): void {
-    this._view = webviewView;
-    webviewView.webview.options = { enableScripts: true };
-
-    // Provide HTML for the webview
-    webviewView.webview.html = this.getHtmlForWebview(webviewView.webview);
-
-    // Listen for messages from the Vue app
-    webviewView.webview.onDidReceiveMessage((message: any): void => {
-      if (message.command === "vueAppReady") {
-        // Vue is ready; fetch & send components
-        this.fetchAndSendComponentVersions();
-      } else if (message.command === "selectComponent") {
-        // A component ID was clicked; show its issues
-        const componentId = message.componentId;
-        vscode.commands.executeCommand("extension.showComponentIssues", componentId);
-      }
-      return;
-    });
-  }
-
-  private getHtmlForWebview(webview: vscode.Webview): string {
-    const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(
-        this.context.extensionUri,
-        "out",
-        "webview",
-        "componentVersions.js"
-      )
-    );
-    return /* html */ `
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8"/>
-        <title>Component Versions</title>
-      </head>
-      <body style="padding:0;margin:0;">
-        <div id="app"></div>
-        <script src="${scriptUri}"></script>
-      </body>
-      </html>
-    `;
-  }
-
-  private async fetchAndSendComponentVersions(): Promise<void> {
-    try {
-      await this.apiClient.authenticate();
-      const response = await this.apiClient.executeQuery(FETCH_COMPONENT_VERSIONS_QUERY);
-      if (!response.data || !response.data.components) {
-        throw new Error("No component data received.");
-      }
-      const components = response.data.components.nodes;
-      // Send data to the webview
-      this._view?.webview.postMessage({
-        command: "updateComponentVersions",
-        data: components
-      });
-    } catch (error: any) {
-      vscode.window.showErrorMessage(
-        `Failed to fetch component versions: ${error instanceof Error ? error.message : String(error)
-        }`
-      );
-    }
   }
 }
 
