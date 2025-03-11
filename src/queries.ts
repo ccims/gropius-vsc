@@ -65,6 +65,7 @@ query GetComponentVersion($id: ID!) {
       component {
         id
         name
+        description
       }
     }
   }
@@ -92,7 +93,6 @@ query GetComponentVersionsInProject($projectId: ID!) {
   }
 }
 `;
-
 
 export const FETCH_DYNAMIC_PROJECTS_QUERY = `
   query MyQuery {
@@ -130,6 +130,7 @@ export const FETCH_DYNAMIC_PROJECTS_QUERY = `
     }
   }
 `;
+
 
 export const FETCH_PROJECT_GRAPH_QUERY = `
   query getProjectGraph($project: ID!) {
