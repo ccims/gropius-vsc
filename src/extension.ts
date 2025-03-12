@@ -50,8 +50,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand('extension.showComponentVersionIssues', async (componentVersionId: string): Promise<void> => {
-      await componentIssuesProvider.updateVersionIssues(componentVersionId);
-      componentIssuesProvider.revealView();
+        await componentIssuesProvider.updateVersionIssues(componentVersionId);
     })
   );
 
@@ -429,44 +428,28 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
  */
 export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "componentIssues";
-  
-  // Store the last fetched issues and the last selected version ID
-  private lastIssues: any[] | null = null;
-  private lastVersionId: string | null = null;
-
   private _view?: vscode.WebviewView;
 
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly apiClient: APIClient
-  ) {}
+  ) { }
 
-  public resolveWebviewView(
+  resolveWebviewView(
     webviewView: vscode.WebviewView,
     _context: vscode.WebviewViewResolveContext,
     _token: vscode.CancellationToken
   ): void {
     this._view = webviewView;
     webviewView.webview.options = { enableScripts: true };
-
+  
     // Provide HTML for the webview
     webviewView.webview.html = this.getHtmlForWebview(webviewView.webview);
-
-    // When the view is resolved, force a re-fetch if a version was previously clicked.
-    if (this.lastVersionId) {
-      this.updateVersionIssues(this.lastVersionId);
-    } else if (this.lastIssues) {
-      // Alternatively, if we already have stored issues, post them.
-      webviewView.webview.postMessage({
-        command: "updateComponentIssues",
-        data: this.lastIssues
-      });
-    }
-
+  
     // Listen for messages from the Vue app
     webviewView.webview.onDidReceiveMessage((message: any): void => {
       if (message.command === "vueAppReady") {
-        // Do nothing until a component is selected.
+        // Do nothing until a component is selected
       } else if (message.command === "issueClicked") {
         console.log("ComponentIssuesProvider received issueClicked with id:", message.issueId);
         vscode.commands.executeCommand('extension.showIssueDetails', message.issueId);
@@ -500,7 +483,7 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
   }
 
   /**
-   * Called by "extension.showComponentIssues" with a componentId.
+   * Called by "extension.showComponentIssues" with a componentId
    */
   public async updateIssues(componentId: string): Promise<void> {
     try {
@@ -510,75 +493,59 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
         throw new Error("No component data received.");
       }
       const components: any[] = response.data.components.nodes;
+      // Find the matching component
       const component = components.find((c: any) => c.id === componentId);
       const issues = component ? component.issues.nodes : [];
-
-      // Store in memory
-      this.lastIssues = issues;
-
-      // If the view is open, post them immediately
-      if (this._view) {
-        this._view.webview.postMessage({
-          command: "updateComponentIssues",
-          data: issues
-        });
-      }
+      // Send these issues to the webview
+      this._view?.webview.postMessage({
+        command: "updateComponentIssues",
+        data: issues
+      });
     } catch (error: any) {
       vscode.window.showErrorMessage(
-        `Failed to fetch component issues: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to fetch component issues: ${error instanceof Error ? error.message : String(error)
+        }`
       );
     }
   }
 
-  /**
-   * Called by "extension.showComponentVersionIssues" with a version ID.
-   * This method fetches the issues for the selected version, stores them,
-   * and (if the view is open) posts them.
-   */
   public async updateVersionIssues(componentVersionId: string): Promise<void> {
     try {
-      // Save the last selected version ID
-      this.lastVersionId = componentVersionId;
-
       await this.apiClient.authenticate();
-      const result = await this.apiClient.executeQuery(
-        GET_ISSUES_OF_COMPONENT_VERSION_QUERY,
-        { id: componentVersionId }
-      );
-
+      
+      // Use the improved query that gets all issue details in one call
+      const result = await this.apiClient.executeQuery(GET_ISSUES_OF_COMPONENT_VERSION_QUERY, { id: componentVersionId });
+      
       if (result.data?.node) {
         const componentVersion = result.data.node;
+        
+        // Extract all issues from the nested structure
         const allIssues = [];
         const aggregatedIssueGroups = componentVersion.aggregatedIssues.nodes || [];
-
+        
         for (const group of aggregatedIssueGroups) {
           const issues = group.issues.nodes || [];
           allIssues.push(...issues);
         }
-
+        
         // Deduplicate issues based on ID
-        const uniqueIssues = allIssues.filter((issue, index, self) =>
+        const uniqueIssues = allIssues.filter((issue, index, self) => 
           index === self.findIndex((i) => i.id === issue.id)
         );
-
-        console.log(`Found ${uniqueIssues.length} unique issues for version ${componentVersionId}`);
-        this.lastIssues = uniqueIssues;
-
-        // If the view is open, post the new issues
-        if (this._view) {
-          this._view.webview.postMessage({
-            command: "updateComponentIssues",
-            data: uniqueIssues
-          });
-        }
+        
+        console.log(`Found ${uniqueIssues.length} unique issues for component version ${componentVersionId}`);
+        
+        // Send the issues to the webview
+        this._view?.webview.postMessage({
+          command: 'updateComponentIssues',
+          data: uniqueIssues
+        });
       } else {
-        this.lastIssues = [];
-        if (this._view) {
-          this._view.webview.postMessage({
-            command: "updateComponentIssues",
-            data: []
-          });
-        }
+        // If no component version found, send empty array
+        this._view?.webview.postMessage({
+          command: 'updateComponentIssues',
+          data: []
+        });
       }
     } catch (error: any) {
       vscode.window.showErrorMessage(
@@ -586,31 +553,30 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
           error instanceof Error ? error.message : String(error)
         }`
       );
-      this.lastIssues = [];
-      if (this._view) {
-        this._view.webview.postMessage({
-          command: "updateComponentIssues",
-          data: []
-        });
-      }
+      
+      // Send empty array to clear the view
+      this._view?.webview.postMessage({
+        command: 'updateComponentIssues',
+        data: []
+      });
     }
   }
 
-  /**
-   * Force the "Component Issues" view to open and refresh its data.
-   * This method is called whenever a new version is clicked.
-   */
-  public revealView() {
-    if (this._view) {
-      this._view.show(false); // Force the view to show
-      if (this.lastVersionId) {
-        // Force a re-fetch for the last selected version
-        this.updateVersionIssues(this.lastVersionId);
-      }
-    } else {
-      // If the view is not yet resolved, try to open the Explorer
-      vscode.commands.executeCommand('workbench.view.explorer');
-    }
+  // Helper method to fetch issue details by IDs
+  private async fetchAndSendIssueDetails(issueIds: string[]): Promise<void> {
+    // If we need to fetch individual issues, we can do it here
+    // For now, just send the IDs as placeholders
+    const placeholderIssues = issueIds.map(id => ({
+      id: id,
+      title: `Issue ${id.substring(0, 8)}...`,
+      type: { name: "Unknown" },
+      state: { isOpen: true }
+    }));
+
+    this._view?.webview.postMessage({
+      command: 'updateComponentIssues',
+      data: placeholderIssues
+    });
   }
 }
 
