@@ -61,13 +61,14 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
+    "compile": "tsc -p ./ && npm run build:vue",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
     "test": "vscode-test",
     "webpack": "webpack",
-    "build:vue": "webpack --config webpack.config.js"
+    "build:vue": "webpack --config webpack.config.js",
+    "build:all": "npm run compile && npm run build:vue"
   },
   "devDependencies": {
     "@types/inversify": "^2.0.32",
