@@ -16,22 +16,26 @@
         {
           "type": "webview",
           "id": "gropiusComponentVersions",
-          "name": "Gropius Component Versions"
+          "name": "Gropius Component Versions",
+          "icon": "resources/icons/gropius-component-verison-icon.png"
         },
         {
           "type": "webview",
           "id": "componentIssues",
-          "name": "Component Issues"
+          "name": "Component Issues",
+          "icon": "resources/icons/gropius-component-verison-icon.png"
         },
         {
           "type": "webview",
           "id": "issueDetails",
-          "name": "Issue Details"
+          "name": "Issue Details",
+          "icon": "resources/icons/gropius-component-verison-icon.png"
         },
         {
           "type": "webview",
           "id": "graphs",
-          "name": "Graphs"
+          "name": "Graphs",
+          "icon": "resources/icons/gropius-component-verison-icon.png"
         }
       ]
     },
