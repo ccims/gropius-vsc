@@ -19,18 +19,16 @@
 
         <!-- State Section -->
         <div class="info-section">
-          <div class="section-header">State</div>
-          <div class="section-content">
-            <div class="badge state-badge" :class="{
-              'state-open': issue.state && issue.state.isOpen,
-              'state-completed': issue.state && !issue.state.isOpen && issue.state.name === 'Completed',
-              'state-not-planned': issue.state && !issue.state.isOpen && issue.state.name === 'Not planned'
-            }">
-              {{ issue.state ? issue.state.name : 'Unknown' }}
+          <div class="section-header-row">
+            <div class="section-header">State:</div>
+            <div class="section-content inline-content">
+              <div class="badge state-badge"
+                :class="{ 'state-open': issue.state && issue.state.isOpen, 'state-completed': issue.state && !issue.state.isOpen && issue.state.name === 'Completed', 'state-not-planned': issue.state && !issue.state.isOpen && issue.state.name === 'Not Planned' }">
+                {{ issue.state ? issue.state.name : 'Unknown' }}
+              </div>
             </div>
           </div>
         </div>
-
         <!-- Affects Section -->
         <div class="info-section" v-if="issue.affects && issue.affects.nodes.length > 0">
           <div class="section-header">Components & Projects</div>
@@ -354,19 +352,20 @@ export default {
 .state-badge {
   padding: 4px 12px;
   border-radius: 12px;
+  font-weight: normal;
+  background-color: rgba(0, 0, 0, 0.2);
+  /* Slightly transparent dark background */
 }
 
 .state-open {
-  background-color: #2ea043;
-  /* Green for open */
-  color: white;
+  color: #2ea043;
+  /* Green text for open */
 }
 
 .state-completed,
 .state-not-planned {
-  background-color: #f85149;
-  /* Red for completed/not planned */
-  color: white;
+  color: #f85149;
+  /* Red text for completed/not planned */
 }
 
 .component-badge,
@@ -494,4 +493,20 @@ export default {
 .error-message {
   max-width: 300px;
 }
+
+.section-header-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.section-header {
+  font-weight: bold;
+  color: white;
+}
+
+.inline-content {
+  margin-bottom: 0;
+}
+
 </style>
