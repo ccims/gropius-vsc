@@ -9,11 +9,17 @@
 
       <!-- Main Content Sections -->
       <div class="issue-sections">
+
         <!-- Type Section -->
         <div class="info-section">
-          <div class="section-header">Type</div>
-          <div class="section-content">
-            <div class="badge type-badge" v-if="issue.type">{{ issue.type.name }}</div>
+          <div class="section-header-row">
+            <div class="section-header">Type</div>
+            <div class="section-content inline-content">
+              <div class="badge type-badge" v-if="issue.type">
+                <img class="type-icon" :src="getTypeIconPath(issue.type.name)" alt="" />
+                {{ issue.type.name }}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -212,6 +218,31 @@ export default {
         return entity.name;
       }
       return `${entity.__typename || 'Unknown'}: ${entity.id}`;
+    },
+
+    getTypeIconPath(typeName) {
+      const isOpen = this.issue.state && this.issue.state.isOpen;
+
+      switch (typeName) {
+        case "Bug":
+          return Boolean(isOpen)
+            ? new URL("../../resources/icons/bug-green.png", import.meta.url).href
+            : new URL("../../resources/icons/bug-red.png", import.meta.url).href;
+        case "Feature":
+          return Boolean(isOpen)
+            ? new URL("../../resources/icons/magnifier-green.png", import.meta.url).href
+            : new URL("../../resources/icons/magnifier-red.png", import.meta.url).href;
+        case "Misc":
+          return Boolean(isOpen)
+            ? new URL("../../resources/icons/exclamation-green.png", import.meta.url).href
+            : new URL("../../resources/icons/exclamation-red.png", import.meta.url).href;
+        case "Task":
+          return Boolean(isOpen)
+            ? new URL("../../resources/icons/exclamation-green.png", import.meta.url).href
+            : new URL("../../resources/icons/exclamation-red.png", import.meta.url).href;
+        default:
+          return new URL("../../resources/icons/bug-black.png", import.meta.url).href;
+      }
     }
   },
   mounted() {
@@ -345,8 +376,22 @@ export default {
 }
 
 .type-badge {
-  background-color: var(--vscode-activityBarBadge-background, #007acc);
-  color: var(--vscode-activityBarBadge-foreground, white);
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.9em;
+  background-color: rgba(50, 50, 50, 0.6);
+  /* Dark transparent background */
+  color: #9cdcfe;
+  /* Light blue text for types */
+  gap: 6px;
+}
+
+.type-icon {
+  width: 16px;
+  height: 16px;
+  opacity: 0.9;
 }
 
 .state-badge {
@@ -508,5 +553,4 @@ export default {
 .inline-content {
   margin-bottom: 0;
 }
-
 </style>
