@@ -619,7 +619,8 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
 
 /**
  * IssueDetailsProvider:
- * - ...
+ * - Displays detailed information about a selected issue
+ * - Handles issue selection and view persistence
  */
 class IssueDetailsProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'issueDetails';
@@ -641,12 +642,24 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
     };
     webviewView.webview.html = this.getHtmlForWebview(webviewView.webview);
     console.log("[IssueDetailsProvider] Webview HTML set");
+    
     // When the view is (re)opened, if a last issue was selected, re-fetch its details.
     if (this.lastIssueId) {
       this.updateIssueDetails(this.lastIssueId);
     }
+
     webviewView.webview.onDidReceiveMessage((message: any) => {
-      // (Optional: Handle messages from the webview if needed.)
+      if (message.command === "vueAppReady") {
+        console.log("[IssueDetailsProvider] Vue app is ready");
+        // If we have a last issue ID, refresh the data
+        if (this.lastIssueId) {
+          this.updateIssueDetails(this.lastIssueId);
+        }
+      } else if (message.command === "openRelatedIssue") {
+        console.log(`[IssueDetailsProvider] Opening related issue: ${message.issueId}`);
+        // Execute the command to show this issue
+        vscode.commands.executeCommand('extension.showIssueDetails', message.issueId);
+      }
     });
   }
 
@@ -676,37 +689,41 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
     console.log(`[IssueDetailsProvider] updateIssueDetails called with issueId: ${issueId}`);
     // Save the last issue id for persistence.
     this.lastIssueId = issueId;
+    
     globalApiClient.authenticate()
       .then(() => {
         return globalApiClient.executeQuery(GET_ISSUE_DETAILS, { id: issueId });
       })
       .then(data => {
         console.log("[IssueDetailsProvider] Received data:", data);
-        let foundIssue = null;
-        if (data.data && data.data.components && data.data.components.nodes) {
-          for (const component of data.data.components.nodes) {
-            if (component.issues && component.issues.nodes) {
-              for (const issue of component.issues.nodes) {
-                if (issue.id === issueId) {
-                  foundIssue = issue;
-                  break;
-                }
-              }
-            }
-            if (foundIssue) break;
-          }
-        }
-        if (!foundIssue) {
-          console.warn(`[IssueDetailsProvider] No issue found for id ${issueId}`);
+        
+        // The query now directly returns the issue at data.node
+        if (data.data && data.data.node) {
+          console.log("[IssueDetailsProvider] Issue fetched successfully:", data.data.node);
+          this._view?.webview.postMessage({ 
+            command: 'displayIssue', 
+            issue: data.data.node 
+          });
         } else {
-          console.log("[IssueDetailsProvider] Issue fetched successfully:", foundIssue);
+          console.warn(`[IssueDetailsProvider] No issue found for id ${issueId}`);
+          this._view?.webview.postMessage({ 
+            command: 'displayIssue', 
+            issue: null,
+            error: 'Issue not found'
+          });
         }
-        this._view?.webview.postMessage({ command: 'displayIssue', issue: foundIssue });
+        
         console.log("[IssueDetailsProvider] Posted displayIssue message");
       })
       .catch(error => {
         console.error("[IssueDetailsProvider] Error fetching issue:", error);
-        this._view?.webview.postMessage({ command: 'displayIssue', issue: null });
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        
+        this._view?.webview.postMessage({ 
+          command: 'displayIssue', 
+          issue: null,
+          error: `Error fetching issue: ${errorMessage}`
+        });
       });
   }
 

@@ -57,35 +57,72 @@ query GetIssueIDOfComponentVersion($id: ID!) {
 `;
 
 export const GET_ISSUE_DETAILS = `
-query MyQuery {
-  components {
-    nodes {
+query GetIssueDetails($id: ID!) {
+  node(id: $id) {
+    ... on Issue {
       id
-      name
-      description
-      versions {
+      title
+      createdAt
+      lastUpdatedAt
+      affects {
         nodes {
-          id
-          tags
-          version
-        }
-      }
-      issues {
-        nodes {
-          id
-          title
-          type {
+          ... on Component {
+            id
             name
           }
-          state {
-            isOpen
+          ... on ComponentVersion {
+            id
+            version
+            component {
+              name
+            }
           }
-          body {
-            body
-            lastModifiedAt
+          ... on Interface {
+            id
+            interfaceDefinition {
+              id
+            }
           }
-          estimatedTime
-          hasPermission(permission: READ)
+          ... on InterfacePart {
+            id
+            name
+          }
+          ... on Project {
+            id
+            name
+          }
+        }
+      }
+      state {
+        isOpen
+        name
+      }
+      type {
+        name
+      }
+      priority {
+        name
+      }
+      body {
+        body
+        lastModifiedAt
+      }
+      estimatedTime
+      hasPermission(permission: READ)
+      outgoingRelations {
+        nodes {
+          issue {
+            id
+            title
+          }
+        }
+      }
+      incomingRelations {
+        nodes {
+          issue {
+            id
+            title
+          }
         }
       }
     }
