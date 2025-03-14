@@ -64,8 +64,14 @@ query GetIssueDetails($id: ID!) {
       title
       createdAt
       lastUpdatedAt
+      labels {
+        nodes {
+          name
+        }
+      }
       affects {
         nodes {
+          __typename
           ... on Component {
             id
             name

@@ -13,7 +13,7 @@
         <!-- Type Section -->
         <div class="info-section">
           <div class="section-header-row">
-            <div class="section-header">Type</div>
+            <div class="section-header">Type:</div>
             <div class="section-content inline-content">
               <div class="badge type-badge" v-if="issue.type" :class="'type-' + issue.type.name.toLowerCase()">
                 <img class="type-icon" :src="getTypeIconPath(issue.type.name)" alt="" />
@@ -35,22 +35,48 @@
             </div>
           </div>
         </div>
+
+        <!-- Labels Section -->
+        <div class="info-section" v-if="issue.labels && issue.labels.nodes.length > 0">
+          <div class="section-header-row">
+            <div class="section-header">Labels:</div>
+            <div class="section-content inline-content">
+              <div v-for="(label, index) in issue.labels.nodes" :key="index" class="badge label-badge">
+                {{ label.name }}
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Affects Section -->
         <div class="info-section" v-if="issue.affects && issue.affects.nodes.length > 0">
-          <div class="section-header">Components & Projects</div>
+          <div class="section-header">Affected Entities</div>
           <div class="section-content">
-            <div v-for="(entity, index) in issue.affects.nodes" :key="index" class="badge entity-badge"
-              :class="getEntityClass(entity)">
-              {{ getEntityName(entity) }}
+            <!-- Group items by type with inline layout -->
+            <div v-for="(group, groupType) in groupedAffectedEntities" :key="groupType" class="affected-group">
+              <div class="affected-group-inline">
+                <div class="affected-group-header">{{ groupType }}:</div>
+                <div class="affected-items-inline">
+                  <div v-for="(entity, index) in group" :key="index" class="badge entity-badge"
+                    :class="getEntityClass(entity)">
+                    {{ getEntityName(entity) }}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
         <!-- Priority Section -->
         <div class="info-section" v-if="issue.priority">
-          <div class="section-header">Priority</div>
-          <div class="section-content">
-            <div class="badge priority-badge">{{ issue.priority.name }}</div>
+          <div class="section-header-row">
+            <div class="section-header">Priority:</div>
+            <div class="section-content inline-content">
+              <div class="badge priority-badge">
+                <img class="priority-icon" :src="getPriorityIconPath()" alt="" />
+                {{ issue.priority.name }}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -108,23 +134,6 @@
             </div>
           </div>
         </div>
-
-        <!-- Additional Metadata Section -->
-        <div class="info-section" v-if="issue.estimatedTime !== undefined || issue.hasPermission !== undefined">
-          <div class="section-header">Additional Info</div>
-          <div class="section-content">
-            <div class="meta-row" v-if="issue.estimatedTime !== undefined">
-              <div class="meta-label">Estimated Time:</div>
-              <div class="meta-value">{{ issue.estimatedTime || 'Not estimated' }}</div>
-            </div>
-            <div class="meta-row" v-if="issue.hasPermission !== undefined">
-              <div class="meta-label">Has READ Permission:</div>
-              <div class="meta-value permission-value" :class="{ 'has-permission': issue.hasPermission }">
-                {{ issue.hasPermission ? 'Yes' : 'No' }}
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
     <div v-else-if="error" class="error-state">
@@ -163,6 +172,39 @@ export default {
     },
     hasRelations() {
       return this.hasIncomingRelations || this.hasOutgoingRelations;
+    },
+    groupedAffectedEntities() {
+      if (!this.issue || !this.issue.affects || !this.issue.affects.nodes) {
+        return {};
+      }
+
+      // Group affected entities by their type
+      const grouped = {
+        'Components': [],
+        'Component Versions': [],
+        'Interfaces': [],
+        'Interface Parts': [],
+        'Projects': []
+      };
+
+      for (const entity of this.issue.affects.nodes) {
+        if (entity.__typename === 'Component') {
+          grouped['Components'].push(entity);
+        } else if (entity.__typename === 'ComponentVersion') {
+          grouped['Component Versions'].push(entity);
+        } else if (entity.__typename === 'Interface') {
+          grouped['Interfaces'].push(entity);
+        } else if (entity.__typename === 'InterfacePart') {
+          grouped['Interface Parts'].push(entity);
+        } else if (entity.__typename === 'Project') {
+          grouped['Projects'].push(entity);
+        }
+      }
+
+      // Remove empty groups
+      return Object.fromEntries(
+        Object.entries(grouped).filter(([_, items]) => items.length > 0)
+      );
     }
   },
   methods: {
@@ -192,32 +234,37 @@ export default {
       }
     },
     getEntityClass(entity) {
-      if (entity.__typename === 'Component') {
-        return 'component-badge';
-      } else if (entity.__typename === 'ComponentVersion') {
-        return 'component-version-badge';
-      } else if (entity.__typename === 'Project') {
-        return 'project-badge';
-      } else if (entity.__typename === 'Interface') {
-        return 'interface-badge';
-      } else if (entity.__typename === 'InterfacePart') {
-        return 'interface-part-badge';
+      switch (entity.__typename) {
+        case 'Component':
+          return 'component-badge';
+        case 'ComponentVersion':
+          return 'component-version-badge';
+        case 'Project':
+          return 'project-badge';
+        case 'Interface':
+          return 'interface-badge';
+        case 'InterfacePart':
+          return 'interface-part-badge';
+        default:
+          return 'generic-entity-badge';
       }
-      return '';
     },
+
     getEntityName(entity) {
-      if (entity.__typename === 'Component') {
-        return entity.name;
-      } else if (entity.__typename === 'ComponentVersion') {
-        return `${entity.component.name} ${entity.version}`;
-      } else if (entity.__typename === 'Project') {
-        return entity.name;
-      } else if (entity.__typename === 'Interface') {
-        return `Interface ${entity.id.substring(0, 8)}`;
-      } else if (entity.__typename === 'InterfacePart') {
-        return entity.name;
+      switch (entity.__typename) {
+        case 'Component':
+          return entity.name;
+        case 'ComponentVersion':
+          return `${entity.component.name}: version ${entity.version}`;
+        case 'Project':
+          return entity.name;
+        case 'Interface':
+          return `Interface ${entity.id.substring(0, 8)}`;
+        case 'InterfacePart':
+          return entity.name;
+        default:
+          return `${entity.__typename || 'Unknown'}: ${entity.id}`;
       }
-      return `${entity.__typename || 'Unknown'}: ${entity.id}`;
     },
 
     getTypeIconPath(typeName) {
@@ -243,6 +290,9 @@ export default {
         default:
           return new URL("../../resources/icons/bug-black.png", import.meta.url).href;
       }
+    },
+    getPriorityIconPath() {
+      return new URL("../../resources/icons/priority-icon-white.png", import.meta.url).href;
     }
   },
   mounted() {
@@ -306,16 +356,18 @@ export default {
   font-family: var(--vscode-font-family);
   font-size: var(--vscode-font-size);
   line-height: 1.5;
-  padding: 0;
-  margin: 0;
+  padding: 0px;
+  margin: 0px;
   height: 100%;
+  width: 100%;
 }
 
 .issue-container {
   display: flex;
   flex-direction: column;
-  padding: 16px;
-  gap: 8px;
+  padding: 5px 5px 0px 10px;
+  gap: 5px;
+  box-sizing: border-box;
 }
 
 /* Header */
@@ -358,12 +410,14 @@ export default {
   font-size: 0.95em;
   color: var(--vscode-foreground);
   margin-bottom: 8px;
+  margin-left: 5px;
 }
 
 .section-content {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  margin-left: 5px;
 }
 
 /* Badge styling */
@@ -424,8 +478,18 @@ export default {
 }
 
 .priority-badge {
-  background-color: var(--vscode-debugTokenExpression-string, #ce9178);
-  color: var(--vscode-foreground);
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-weight: normal;
+  background-color: rgba(0, 0, 0, 0.2);
+  color: white;
+}
+
+.priority-icon {
+  width: 16px;
+  height: 16px;
+  opacity: 0.9;
+  margin-right: 6px;
 }
 
 .interface-badge,
@@ -501,21 +565,6 @@ export default {
   background-color: var(--vscode-list-hoverBackground);
 }
 
-/* Meta information */
-.meta-row {
-  display: flex;
-  font-size: 0.9em;
-}
-
-.meta-label {
-  min-width: 150px;
-  font-weight: 500;
-}
-
-.permission-value.has-permission {
-  color: var(--vscode-debugIcon-startForeground, #89d185);
-}
-
 /* Empty and error states */
 .empty-state,
 .error-state {
@@ -551,5 +600,86 @@ export default {
 
 .inline-content {
   margin-bottom: 0;
+}
+
+.affected-group {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.affected-group-inline {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.affected-group-header {
+  font-size: 0.85em;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--vscode-descriptionForeground);
+}
+
+.affected-items-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.affected-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Make sure all entity badge types have consistent styling */
+.entity-badge {
+  display: inline-flex;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.9em;
+  background-color: rgba(0, 0, 0, 0.2);
+  color: white;
+  white-space: nowrap;
+}
+
+.component-badge {
+  color: #64b5f6;
+}
+
+.component-version-badge {
+  color: #4fc3f7;
+}
+
+.project-badge {
+  color: #81c784;
+}
+
+.interface-badge {
+  color: #ffb74d;
+}
+
+.interface-part-badge {
+  color: #ff8a65;
+}
+
+.generic-entity-badge {
+  color: #bdbdbd;
+  /* Gray for unknown types */
+}
+
+.label-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.9em;
+  background-color: rgba(0, 0, 0, 0.2);
+  color: white;
+  white-space: nowrap;
 }
 </style>
