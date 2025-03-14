@@ -15,7 +15,7 @@
           <div class="section-header-row">
             <div class="section-header">Type</div>
             <div class="section-content inline-content">
-              <div class="badge type-badge" v-if="issue.type">
+              <div class="badge type-badge" v-if="issue.type" :class="'type-' + issue.type.name.toLowerCase()">
                 <img class="type-icon" :src="getTypeIconPath(issue.type.name)" alt="" />
                 {{ issue.type.name }}
               </div>
@@ -230,8 +230,8 @@ export default {
             : new URL("../../resources/icons/bug-red.png", import.meta.url).href;
         case "Feature":
           return Boolean(isOpen)
-            ? new URL("../../resources/icons/magnifier-green.png", import.meta.url).href
-            : new URL("../../resources/icons/magnifier-red.png", import.meta.url).href;
+            ? new URL("../../resources/icons/lightbulb-feature-green.png", import.meta.url).href
+            : new URL("../../resources/icons/lightbulb-feature-red.png", import.meta.url).href;
         case "Misc":
           return Boolean(isOpen)
             ? new URL("../../resources/icons/exclamation-green.png", import.meta.url).href
@@ -378,14 +378,13 @@ export default {
 .type-badge {
   display: inline-flex;
   align-items: center;
-  padding: 4px 8px;
-  border-radius: 4px;
+  padding: 4px 12px;
+  border-radius: 12px;
   font-size: 0.9em;
-  background-color: rgba(50, 50, 50, 0.6);
-  /* Dark transparent background */
-  color: #9cdcfe;
-  /* Light blue text for types */
+  background-color: rgba(0, 0, 0, 0.2);
+  color: #2ea043;
   gap: 6px;
+  color: white;
 }
 
 .type-icon {

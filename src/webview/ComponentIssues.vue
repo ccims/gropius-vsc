@@ -60,8 +60,8 @@ export default {
             : new URL("../../resources/icons/exclamation-red.png", import.meta.url).href;
         case "Feature":
           return Boolean(isOpen)
-            ? new URL("../../resources/icons/magnifier-green.png", import.meta.url).href
-            : new URL("../../resources/icons/magnifier-red.png", import.meta.url).href;
+            ? new URL("../../resources/icons/lightbulb-feature-green.png", import.meta.url).href
+            : new URL("../../resources/icons/lightbulb-feature-red.png", import.meta.url).href;
         case "Task":
           return Boolean(isOpen)
             ? new URL("../../resources/icons/exclamation-green.png", import.meta.url).href
