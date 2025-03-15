@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"path": "test-multiroot-workspace/same-component-versions"
+		},
+		{
+			"path": "test-multiroot-workspace/direct-version-mapping"
+		},
+		{
+			"path": "test-multiroot-workspace/multi-component-root"
+		},
+		{
+			"path": "test-multiroot-workspace/unmapped-root"
+		}
+	],
+	"settings": {}
+}

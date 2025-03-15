@@ -1,0 +1,7 @@
+mappings:
+  - path: "/frontend"
+    project: "3a24498b-5134-4c27-a15c-a1b03514b81d" # project
+    component: "4fbb3af5-4f20-4feb-9ad7-0194c6f96f86" # component frontend, that has multiple versions used in the same project
+  - path: "/backend"
+    project: "58b67c2d-5c6d-4aa4-8e8d-524cf0a31877" # another project
+    component: "a4493d7e-5764-4537-9d27-f330aa8464d3" # component used in this project

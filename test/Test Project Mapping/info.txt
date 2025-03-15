@@ -1,0 +1,29 @@
+test-multiroot-workspace/
+│
+├── unmapped-root/                   # Root with no Gropius mapping
+│   ├── src/
+│   └── .git/
+│
+├── direct-version-mapping/          # Root mapped directly to one component version
+│   ├── src/
+│   ├── .git/
+│   └── .gropius.yaml                # Direct version mapping config (using ComponentVersionID)
+│
+├── multi-component-root/            # Root with multiple component versions in different folders, ProjectID + ComponentID -> example with 2 frontend versions in the same project
+│   ├── frontend/
+│   │   └── src/
+│   ├── backend/
+│   │   └── src/
+│   ├── docs/                        # Unmapped folder within a mapped root
+│   ├── .git/
+│   └── .gropius.yaml                # Multiple mappings config
+│
+├── same-component-versions/         # Root with multiple versions of same component
+│   ├── v1/
+│   │   └── src/
+│   ├── v2/
+│   │   └── src/
+│   ├── .git/
+│   └── .gropius.yaml                # Same component, different versions (ComponentVersionID mapping)
+│
+└── .gropius-workspace.yaml          # Workspace-level configuration

@@ -1,0 +1,10 @@
+version: "1.0"
+rootFolders:
+  - name: "unmapped-root"
+    configPath: "./unmapped-root/.gropius.yaml"
+  - name: "direct-version-mapping"
+    configPath: "./direct-version-mapping/.gropius.yaml"
+  - name: "multi-component-root"
+    configPath: "./multi-component-root/.gropius.yaml"
+  - name: "same-component-versions"
+    configPath: "./same-component-versions/.gropius.yaml"

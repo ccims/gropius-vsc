@@ -60,6 +60,10 @@
       {
         "command": "extension.rebuildVue",
         "title": "Rebuild Vue Bundles"
+      },
+      {
+        "command": "extension.createArtefactTemplate",
+        "title": "Gropius: Create Artifact Template" 
       }
     ]
   },

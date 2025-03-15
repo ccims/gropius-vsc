@@ -1,0 +1,5 @@
+mappings:
+  - path: "/v1"
+    componentVersion: "23d966fc-73e0-4f67-a9da-90540dfcfa26" # a version of Some Frontend Component
+  - path: "/v2"
+    componentVersion: "57555bbf-3b86-41ed-80cb-774b46e65954" # another version of Some Frontend Component

@@ -1,0 +1,3 @@
+mappings:
+  - path: "/"
+    componentVersion: "2cca8a6b-b60a-4a07-beef-7b86ebf7b304"  # ID of Example Microservice Component
