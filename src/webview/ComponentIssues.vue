@@ -4,45 +4,24 @@
     <div class="filter-container">
       <!-- Search Box -->
       <div class="search-box">
-        <input 
-          type="text" 
-          v-model="searchQuery" 
-          placeholder="Search issues..." 
-          class="search-input"
-        />
+        <input type="text" v-model="searchQuery" placeholder="Search issues..." class="search-input" />
         <span v-if="searchQuery" class="clear-search" @click="clearSearch">×</span>
       </div>
-      
+
       <!-- Sort Button -->
       <div class="sort-dropdown" ref="sortDropdown">
-        <button @click="toggleSortMenu" class="sort-button">
+        <button @click="toggleSortOrder" class="sort-button">
           <span class="sort-icon">≡</span>
-          <span class="sort-label">{{ currentSortLabel }}</span>
         </button>
-        
-        <!-- Sort Menu -->
-        <div v-if="showSortMenu" class="sort-menu">
-          <div 
-            v-for="option in sortOptions" 
-            :key="option.value" 
-            @click="setSort(option.value)"
-            class="sort-item"
-            :class="{ 'selected': sortBy === option.value }"
-          >
-            <span v-if="sortBy === option.value" class="checkmark">✓</span>
-            {{ option.label }}
-          </div>
-        </div>
       </div>
 
       <!-- Status Toggle -->
       <div class="status-toggle">
-        <button class="status-button" :class="{ 'active': statusFilter === 'all' || statusFilter === 'open' }"
-          @click="setStatusFilter('open')">
+        <button class="status-button" :class="{ 'active': statusFilter === 'open' }" @click="setStatusFilter('open')">
           <span class="status-indicator open"></span>
           Open
         </button>
-        <button class="status-button" :class="{ 'active': statusFilter === 'all' || statusFilter === 'closed' }"
+        <button class="status-button" :class="{ 'active': statusFilter === 'closed' }"
           @click="setStatusFilter('closed')">
           <span class="status-indicator closed"></span>
           Closed
@@ -52,12 +31,7 @@
 
     <!-- Issues List -->
     <ul v-if="filteredIssues.length" class="issues-list">
-      <li 
-        v-for="issue in filteredIssues" 
-        :key="issue.id" 
-        class="issue-item"
-        @click="openIssueDetails(issue.id)"
-      >
+      <li v-for="issue in filteredIssues" :key="issue.id" class="issue-item" @click="openIssueDetails(issue.id)">
         <div class="issue-title-line">
           <img :src="getIconPath(issue.type.name, issue.state.isOpen)" class="issue-icon" alt="Issue Icon" />
           <span class="issue-name">{{ issue.title }}</span>
@@ -88,15 +62,11 @@ export default {
     return {
       issues: [],
       searchQuery: '',
-      statusFilter: 'all', // 'all', 'open', or 'closed'
-      sortBy: 'title', // Default to alphabetical sort
+      statusFilter: null, // null, 'open', or 'closed'
+      sortOrder: 'asc', // 'asc' or 'desc'
       showFilterMenu: false,
-      sortOptions: [
-        { label: 'Alphabetical', value: 'title' },
-        { label: 'Type', value: 'type' }
-      ]
     };
-  }, 
+  },
   computed: {
     currentSortLabel() {
       const option = this.sortOptions.find(opt => opt.value === this.sortBy);
@@ -104,36 +74,31 @@ export default {
     },
     filteredIssues() {
       let result = [...this.issues];
-      
+
       // Apply status filter
-      if (this.statusFilter !== 'all') {
-        const isOpen = this.statusFilter === 'open';
-        result = result.filter(issue => issue.state.isOpen === isOpen);
+      if (this.statusFilter === 'open') {
+        result = result.filter(issue => issue.state.isOpen === true);
+      } else if (this.statusFilter === 'closed') {
+        result = result.filter(issue => issue.state.isOpen === false);
       }
-      
+
       // Apply search filter
       if (this.searchQuery.trim()) {
         const query = this.searchQuery.toLowerCase();
         result = result.filter(issue => {
           return issue.title.toLowerCase().includes(query) ||
-                 (issue.type && issue.type.name.toLowerCase().includes(query));
+            (issue.type && issue.type.name.toLowerCase().includes(query));
         });
       }
-      
+
       // Apply sorting
       result.sort((a, b) => {
-        switch(this.sortBy) {
-          case 'title':
-            return a.title.localeCompare(b.title);
-          case 'type':
-            return a.type.name.localeCompare(b.type.name);
-          default:
-            return a.title.localeCompare(b.title);
-        }
+        const comparison = a.title.localeCompare(b.title);
+        return this.sortOrder === 'asc' ? comparison : -comparison;
       });
-      
+
       return result;
-    }
+    },
   },
   mounted() {
     if (typeof acquireVsCodeApi !== "undefined") {
@@ -145,8 +110,8 @@ export default {
     if (state) {
       this.issues = state.issues || [];
       this.searchQuery = state.searchQuery || '';
-      this.statusFilter = state.statusFilter || 'all';
-      this.sortBy = state.sortBy || 'title';
+      this.statusFilter = state.statusFilter || null;
+      this.sortOrder = state.sortOrder || 'asc';
     }
     if (vscode) {
       vscode.postMessage({ command: "vueAppReady" });
@@ -186,6 +151,20 @@ export default {
             : new URL("../../resources/icons/exclamation-red.png", import.meta.url).href;
       }
     },
+    setStatusFilter(status) {
+      this.statusFilter = this.statusFilter === status ? null : status;
+      this.saveState();
+    },
+
+    toggleSortOrder() {
+      this.sortOrder = this.sortOrder === 'asc' ? 'desc' : 'asc';
+      this.saveState();
+    },
+
+    resetStatusFilter() {
+      this.statusFilter = null;
+      this.saveState();
+    },
     openIssueDetails(issueId) {
       console.log("ComponentIssues.vue: Opening issue details for issue id:", issueId);
       // Send a message with command "issueClicked" and the correct issue id
@@ -193,40 +172,40 @@ export default {
     }
   },
   etStatusFilter(status) {
-      if (this.statusFilter === status) {
-        this.statusFilter = 'all';
-      } else {
-        this.statusFilter = status;
-      }
-      this.saveState();
-    },
-    toggleSortMenu() {
-      this.showSortMenu = !this.showSortMenu;
-    },
-    setSort(sortValue) {
-      this.sortBy = sortValue;
-      this.showSortMenu = false;
-      this.saveState();
-    },
-    clearSearch() {
-      this.searchQuery = '';
-      this.saveState();
-    },
-    handleClickOutside(event) {
-      if (this.$refs.sortDropdown && !this.$refs.sortDropdown.contains(event.target)) {
-        this.showSortMenu = false;
-      }
-    },
-    saveState() {
-      if (vscode) {
-        vscode.setState({ 
-          issues: this.issues,
-          searchQuery: this.searchQuery,
-          statusFilter: this.statusFilter,
-          sortBy: this.sortBy
-        });
-      }
+    if (this.statusFilter === status) {
+      this.statusFilter = 'all';
+    } else {
+      this.statusFilter = status;
     }
+    this.saveState();
+  },
+  toggleSortMenu() {
+    this.showSortMenu = !this.showSortMenu;
+  },
+  setSort(sortValue) {
+    this.sortBy = sortValue;
+    this.showSortMenu = false;
+    this.saveState();
+  },
+  clearSearch() {
+    this.searchQuery = '';
+    this.saveState();
+  },
+  handleClickOutside(event) {
+    if (this.$refs.sortDropdown && !this.$refs.sortDropdown.contains(event.target)) {
+      this.showSortMenu = false;
+    }
+  },
+  saveState() {
+    if (vscode) {
+      vscode.setState({
+        issues: this.issues,
+        searchQuery: this.searchQuery,
+        statusFilter: this.statusFilter,
+        sortOrder: this.sortOrder
+      });
+    }
+  }
 
 };
 </script>
@@ -253,7 +232,8 @@ export default {
 /* Search Box */
 .search-box {
   position: relative;
-  flex-grow: 1;
+  flex-grow: 0.6;
+  min-width: 150px;
 }
 
 .search-input {
@@ -322,7 +302,7 @@ export default {
   max-height: 300px;
   overflow-y: auto;
   margin-top: 4px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 .sort-item {
@@ -402,7 +382,7 @@ export default {
 
 .issue-item {
   padding: 8px 10px;
-  border-bottom: 1px solid var(--vscode-panel-border, rgba(255,255,255,0.1));
+  border-bottom: 1px solid var(--vscode-panel-border, rgba(255, 255, 255, 0.1));
   cursor: pointer;
 }
 
