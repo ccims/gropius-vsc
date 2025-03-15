@@ -10,27 +10,27 @@
       <!-- Main Content Sections -->
       <div class="issue-sections">
 
-        <!-- Type Section -->
-        <div class="info-section">
-          <div class="section-header-row">
-            <div class="section-header">Type:</div>
-            <div class="section-content inline-content">
-              <div class="badge type-badge" v-if="issue.type" :class="'type-' + issue.type.name.toLowerCase()">
-                <img class="type-icon" :src="getTypeIconPath(issue.type.name)" alt="" />
-                {{ issue.type.name }}
+        <!-- Type and State Section -->
+        <div class="info-section horizontal-section">
+          <div class="section-group">
+            <div class="section-header-row">
+              <div class="section-header">Type:</div>
+              <div class="section-content inline-content">
+                <div class="badge type-badge" v-if="issue.type">
+                  <img class="type-icon" :src="getTypeIconPath(issue.type.name)" alt="" />
+                  {{ issue.type.name }}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-
-        <!-- State Section -->
-        <div class="info-section">
-          <div class="section-header-row">
-            <div class="section-header">State:</div>
-            <div class="section-content inline-content">
-              <div class="badge state-badge"
-                :class="{ 'state-open': issue.state && issue.state.isOpen, 'state-completed': issue.state && !issue.state.isOpen && issue.state.name === 'Completed', 'state-not-planned': issue.state && !issue.state.isOpen && issue.state.name === 'Not Planned' }">
-                {{ issue.state ? issue.state.name : 'Unknown' }}
+          <div class="section-group">
+            <div class="section-header-row">
+              <div class="section-header">State:</div>
+              <div class="section-content inline-content">
+                <div class="badge state-badge"
+                  :class="{ 'state-open': issue.state && issue.state.isOpen, 'state-completed': issue.state && !issue.state.isOpen && issue.state.name === 'Completed', 'state-not-planned': issue.state && !issue.state.isOpen && issue.state.name === 'Not Planned' }">
+                  {{ issue.state ? issue.state.name : 'Unknown' }}
+                </div>
               </div>
             </div>
           </div>
@@ -103,9 +103,10 @@
         <div class="info-section" v-if="issue.body">
           <div class="section-header">Description</div>
           <div class="section-content description-content">
-            <div class="description-text">{{ issue.body.body || 'No description provided.' }}</div>
+            <div class="description-text" v-html="markdownToHtml(issue.body.body)"></div>
           </div>
         </div>
+
 
         <!-- Related Issues Section -->
         <div class="info-section" v-if="hasRelations">
@@ -147,6 +148,7 @@
 </template>
 
 <script>
+import { marked } from 'marked';
 let vscode;
 
 export default {
@@ -293,6 +295,10 @@ export default {
     },
     getPriorityIconPath() {
       return new URL("../../resources/icons/priority-icon-white.png", import.meta.url).href;
+    },
+    markdownToHtml(markdown) {
+      if (!markdown) return 'No description provided.';
+      return marked(markdown);
     }
   },
   mounted() {

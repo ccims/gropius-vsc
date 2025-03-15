@@ -117,7 +117,7 @@ ul {
 .issue-sections {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0px;
 }
 
 .info-section {
@@ -125,7 +125,7 @@ ul {
   flex-direction: column;
   background-color: var(--vscode-editor-background);
   border-bottom: 1px solid var(--vscode-editor-lineHighlightBorder, rgba(255, 255, 255, 0.1));
-  padding: 12px 0;
+  padding: 6px 0;
 }
 
 .section-header {
@@ -133,14 +133,14 @@ ul {
   font-size: 0.95em;
   color: var(--vscode-foreground);
   margin-bottom: 8px;
-  margin-left: 0;
+  margin-left: 10px;
 }
 
 .section-content {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-left: 0;
+  margin-left: 10px;
 }
 
 /* Badge styling */
@@ -380,3 +380,48 @@ ul {
   flex-wrap: wrap;
   gap: 6px;
 }
+
+/* Markdown styling - description section */
+.description-text {
+  white-space: normal;
+  padding: 4px 0;
+}
+
+.description-text h1, 
+.description-text h2, 
+.description-text h3 {
+  margin-top: 16px;
+  margin-bottom: 8px;
+}
+
+.description-text ul, 
+.description-text ol {
+  margin-left: 20px;
+  margin-bottom: 16px;
+}
+
+.description-text code {
+  font-family: var(--vscode-editor-font-family);
+  background-color: rgba(0, 0, 0, 0.2);
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+.description-text pre {
+  background-color: rgba(0, 0, 0, 0.2);
+  padding: 12px;
+  border-radius: 4px;
+  overflow-x: auto;
+}
+
+/* Horizontal section for placing items side by side */
+.horizontal-section {
+  flex-direction: row !important;
+  justify-content: flex-start;
+  gap: 24px;
+}
+
+.section-group {
+  flex: 0 0 auto;
+}
+
