@@ -109,15 +109,16 @@ export function activate(context: vscode.ExtensionContext) {
         // Create the input object
         const input = {
           file: filePath,
-          from,
-          to,
+          from: from,
+          to: to,
           template: templateId,
-          templatedFields: [{
-            name: "name",
-            value: name
-          }],
-          trackable: issueId,
-          version: "1.0"
+          templatedFields: [
+            {
+              name: "name", 
+              value: name
+            }
+          ],
+          trackable: issueId
         };
         
         console.log("[extension.createArtifact] Mutation input:", JSON.stringify(input, null, 2));
