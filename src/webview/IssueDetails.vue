@@ -36,6 +36,19 @@
           </div>
         </div>
 
+        <!-- Priority Section -->
+        <div class="info-section" v-if="issue.priority">
+          <div class="section-header-row">
+            <div class="section-header">Priority:</div>
+            <div class="section-content inline-content">
+              <div class="badge priority-badge">
+                <img class="priority-icon" :src="getPriorityIconPath()" alt="" />
+                {{ issue.priority.name }}
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Labels Section -->
         <div class="info-section" v-if="issue.labels && issue.labels.nodes.length > 0">
           <div class="section-header-row">
@@ -48,10 +61,14 @@
           </div>
         </div>
 
-        <!-- Affects Section -->
+        <!-- Affected Entities Section -->
         <div class="info-section" v-if="issue.affects && issue.affects.nodes.length > 0">
-          <div class="section-header">Affected Entities</div>
-          <div class="section-content">
+          <div class="section-header" @click="toggleSection('affectedEntities')"
+            style="cursor: pointer; display: flex; justify-content: space-between;">
+            <span>Affected Entities</span>
+            <span class="toggle-icon">{{ expandedSections.affectedEntities ? '▼' : '▶' }}</span>
+          </div>
+          <div class="section-content" v-if="expandedSections.affectedEntities">
             <!-- Group items by type with inline layout -->
             <div v-for="(group, groupType) in groupedAffectedEntities" :key="groupType" class="affected-group">
               <div class="affected-group-inline">
@@ -67,23 +84,26 @@
           </div>
         </div>
 
-        <!-- Priority Section -->
-        <div class="info-section" v-if="issue.priority">
-          <div class="section-header-row">
-            <div class="section-header">Priority:</div>
-            <div class="section-content inline-content">
-              <div class="badge priority-badge">
-                <img class="priority-icon" :src="getPriorityIconPath()" alt="" />
-                {{ issue.priority.name }}
-              </div>
-            </div>
+        <!-- Description Section -->
+        <div class="info-section" v-if="issue.body">
+          <div class="section-header" @click="toggleSection('description')"
+            style="cursor: pointer; display: flex; justify-content: space-between;">
+            <span>Description</span>
+            <span class="toggle-icon">{{ expandedSections.description ? '▼' : '▶' }}</span>
+          </div>
+          <div class="section-content description-content" v-if="expandedSections.description">
+            <div class="description-text markdown-content" v-html="markdownToHtml(issue.body.body)"></div>
           </div>
         </div>
 
-        <!-- Creation/Update Info -->
+        <!-- Dates Section -->
         <div class="info-section dates-section">
-          <div class="section-header">Dates</div>
-          <div class="section-content">
+          <div class="section-header" @click="toggleSection('dates')"
+            style="cursor: pointer; display: flex; justify-content: space-between;">
+            <span>Dates</span>
+            <span class="toggle-icon">{{ expandedSections.dates ? '▼' : '▶' }}</span>
+          </div>
+          <div class="section-content" v-if="expandedSections.dates">
             <div class="date-row">
               <div class="date-label">Created:</div>
               <div class="date-value">{{ formatDate(issue.createdAt) }}</div>
@@ -99,19 +119,14 @@
           </div>
         </div>
 
-        <!-- Description Section -->
-        <div class="info-section" v-if="issue.body">
-          <div class="section-header">Description</div>
-          <div class="section-content description-content">
-            <div class="description-text" v-html="markdownToHtml(issue.body.body)"></div>
-          </div>
-        </div>
-
-
         <!-- Related Issues Section -->
         <div class="info-section" v-if="hasRelations">
-          <div class="section-header">Related Issues</div>
-          <div class="section-content">
+          <div class="section-header" @click="toggleSection('relatedIssues')"
+            style="cursor: pointer; display: flex; justify-content: space-between;">
+            <span>Related Issues</span>
+            <span class="toggle-icon">{{ expandedSections.relatedIssues ? '▼' : '▶' }}</span>
+          </div>
+          <div class="section-content" v-if="expandedSections.relatedIssues">
             <!-- Incoming Relations -->
             <div v-if="hasIncomingRelations" class="relations-group">
               <div class="relations-subheader">Issues that affect this issue:</div>
@@ -135,7 +150,6 @@
             </div>
           </div>
         </div>
-
         <!-- Add this section after your other details sections -->
         <div class="info-section artifacts-section">
           <div class="section-header-row">
@@ -149,7 +163,7 @@
               <div v-for="(artifact, index) in artifacts" :key="index" class="artifact-item">
                 <div class="artifact-name">{{ artifact.name }}</div>
                 <div class="artifact-file">{{ getFileName(artifact.file) }} (Lines {{ artifact.from }}-{{ artifact.to
-                  }})</div>
+                }})</div>
               </div>
             </div>
             <div v-else class="no-artifacts">
@@ -178,7 +192,13 @@ export default {
   data() {
     return {
       issue: null,
-      error: null
+      error: null,
+      expandedSections: {
+        affectedEntities: false,
+        description: false,
+        dates: false,
+        relatedIssues: false
+      }
     };
   },
   computed: {
@@ -279,7 +299,7 @@ export default {
         case 'Component':
           return entity.name;
         case 'ComponentVersion':
-          return `${entity.component.name}: version ${entity.version}`;
+          return `${entity.component.name} (v${entity.version})`;
         case 'Project':
           return entity.name;
         case 'Interface':
@@ -320,7 +340,20 @@ export default {
     },
     markdownToHtml(markdown) {
       if (!markdown) return 'No description provided.';
-      return marked(markdown);
+      try {
+        return marked.parse(markdown, {
+          gfm: true,  // GitHub Flavored Markdown
+          breaks: true,
+          headerIds: false,
+          mangle: false
+        });
+      } catch (error) {
+        console.error("Error rendering markdown:", error);
+        return markdown || 'No description provided.';
+      }
+    },
+    toggleSection(sectionName) {
+      this.expandedSections[sectionName] = !this.expandedSections[sectionName];
     }
   },
   mounted() {
