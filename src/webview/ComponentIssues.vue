@@ -19,12 +19,26 @@
       <div class="status-toggle">
         <button class="status-button" :class="{ 'active': statusFilter === 'open' }" @click="setStatusFilter('open')">
           <span class="status-indicator open"></span>
-          Open
+
         </button>
         <button class="status-button" :class="{ 'active': statusFilter === 'closed' }"
           @click="setStatusFilter('closed')">
           <span class="status-indicator closed"></span>
-          Closed
+
+        </button>
+      </div>
+
+      <!-- Type Toggle -->
+      <div class="type-filter">
+        <button class="type-button" :class="{ 'active': typeFilter === 'Bug' }" @click="setTypeFilter('Bug')">
+          <img :src="getTypeIconPath('Bug', typeFilter === 'Bug')" class="type-icon" alt="Bug" />
+        </button>
+        <button class="type-button" :class="{ 'active': typeFilter === 'Feature' }" @click="setTypeFilter('Feature')">
+          <img :src="getTypeIconPath('Feature', typeFilter === 'Feature')" class="type-icon" alt="Feature" />
+        </button>
+        <button class="type-button" :class="{ 'active': typeFilter === 'Misc/Task' }"
+          @click="setTypeFilter('Misc/Task')">
+          <img :src="getTypeIconPath('Misc', typeFilter === 'Misc/Task')" class="type-icon" alt="Misc/Task" />
         </button>
       </div>
     </div>
@@ -65,6 +79,7 @@ export default {
       statusFilter: null, // null, 'open', or 'closed'
       sortOrder: 'asc', // 'asc' or 'desc'
       showFilterMenu: false,
+      typeFilter: null,
     };
   },
   computed: {
@@ -80,6 +95,17 @@ export default {
         result = result.filter(issue => issue.state.isOpen === true);
       } else if (this.statusFilter === 'closed') {
         result = result.filter(issue => issue.state.isOpen === false);
+      }
+
+      // Apply type filter
+      if (this.typeFilter === 'Bug') {
+        result = result.filter(issue => issue.type.name === 'Bug');
+      } else if (this.typeFilter === 'Feature') {
+        result = result.filter(issue => issue.type.name === 'Feature');
+      } else if (this.typeFilter === 'Misc/Task') {
+        result = result.filter(issue =>
+          issue.type.name === 'Misc' || issue.type.name === 'Task'
+        );
       }
 
       // Apply search filter
@@ -112,6 +138,7 @@ export default {
       this.searchQuery = state.searchQuery || '';
       this.statusFilter = state.statusFilter || null;
       this.sortOrder = state.sortOrder || 'asc';
+      this.typeFilter = state.typeFilter || null;
     }
     if (vscode) {
       vscode.postMessage({ command: "vueAppReady" });
@@ -151,8 +178,23 @@ export default {
             : new URL("../../resources/icons/exclamation-red.png", import.meta.url).href;
       }
     },
+    getTypeIconPath(type) {
+      switch (type) {
+        case "Bug":
+          return new URL("../../resources/icons/bug-white.png", import.meta.url).href;
+        case "Feature":
+          return new URL("../../resources/icons/lightbulb-feature-white.png", import.meta.url).href;
+        case "Misc":
+        case "Task":
+          return new URL("../../resources/icons/exclamation-white.png", import.meta.url).href;
+      }
+    },
     setStatusFilter(status) {
       this.statusFilter = this.statusFilter === status ? null : status;
+      this.saveState();
+    },
+    setTypeFilter(type) {
+      this.typeFilter = this.typeFilter === type ? null : type;
       this.saveState();
     },
 
@@ -202,6 +244,7 @@ export default {
         issues: this.issues,
         searchQuery: this.searchQuery,
         statusFilter: this.statusFilter,
+        typeFilter: this.typeFilter,
         sortOrder: this.sortOrder
       });
     }
@@ -223,17 +266,25 @@ export default {
 /* Filter Controls */
 .filter-container {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  flex-wrap: nowrap;
+  gap: 4px;
   margin-bottom: 12px;
   align-items: center;
+  width: calc(100% - 16px);
+  padding-right: 16px;
 }
 
 /* Search Box */
 .search-box {
-  position: relative;
-  flex-grow: 0.6;
-  min-width: 150px;
+  flex: 1 1 auto;
+  min-width: 100px;
+  max-width: none; 
+}
+
+.sort-dropdown,
+.status-toggle,
+.type-filter {
+  flex-shrink: 0;
 }
 
 .search-input {
@@ -247,6 +298,7 @@ export default {
   font-size: 12px;
   height: 24px;
   box-sizing: border-box;
+  max-width: none;
 }
 
 .search-input:focus {
@@ -328,7 +380,8 @@ export default {
 
 /* Status Toggle */
 .status-toggle {
-  display: flex;
+  display: inline-flex;
+  align-items: center;
   border-radius: 4px;
   overflow: hidden;
   background-color: var(--vscode-button-secondaryBackground, #2d2d2d);
@@ -346,14 +399,15 @@ export default {
   gap: 4px;
   font-size: 12px;
   height: 24px;
+  opacity: 0.6;
+  transition: opacity 0.2s, background-color 0.2s;
 }
 
-.status-button:hover {
-  background-color: var(--vscode-button-secondaryHoverBackground, #3d3d3d);
-}
-
+.status-button:hover,
 .status-button.active {
+  background-color: var(--vscode-button-secondaryHoverBackground, #3d3d3d);
   color: var(--vscode-foreground);
+  opacity: 1;
 }
 
 .status-indicator {
@@ -428,5 +482,47 @@ export default {
 
 .clear-button:hover {
   background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+/* Type Filter Styles */
+.type-filter {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+  background-color: var(--vscode-button-secondaryBackground, #2d2d2d);
+  border-radius: 4px;
+  border: 1px solid var(--vscode-button-border, transparent);
+  overflow: hidden;
+}
+
+.type-button {
+  background: none;
+  border: none;
+  padding: 4px 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  height: 24px;
+  opacity: 0.6;
+  /* Slightly reduced opacity for inactive state */
+  transition: opacity 0.2s, background-color 0.2s;
+}
+
+.type-button:hover,
+.type-button.active {
+  background-color: var(--vscode-button-secondaryHoverBackground, #3d3d3d);
+  opacity: 1;
+}
+
+.type-icon {
+  width: 16px;
+  height: 16px;
+  filter: brightness(1) grayscale(100%);
+  /* Keep icons white/grayscale */
+}
+
+.type-button.active .type-icon {
+  filter: brightness(1) grayscale(0%);
+  /* Full color when active */
 }
 </style>
