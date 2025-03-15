@@ -150,18 +150,20 @@
             </div>
           </div>
         </div>
-        <!-- Add this section after your other details sections -->
-        <div class="info-section artifacts-section">
-          <div class="section-header-row">
-            <div class="section-header">Artifacts</div>
-            <button class="create-artifact-button" @click="createArtifact">
-              Create Artifact
-            </button>
+
+        <!-- Artifacts Section -->
+        <div class="info-section">
+          <div class="section-header" @click="toggleSection('artifacts')"
+            style="cursor: pointer; display: flex; justify-content: space-between;">
+            <span>Artifacts</span>
+            <span class="toggle-icon">{{ expandedSections.artifacts ? '▼' : '▶' }}</span>
           </div>
-          <div class="section-content">
-            <div v-if="artifacts && artifacts.length > 0" class="artifacts-list">
-              <div v-for="(artifact, index) in artifacts" :key="index" class="artifact-item">
-                <div class="artifact-name">{{ artifact.name }}</div>
+          <div class="section-content" v-if="expandedSections.artifacts">
+            <button class="create-artifact-button" @click="createArtifact">Create Artifact</button>
+
+            <div v-if="issue.artifacts && issue.artifacts.length > 0" class="artifacts-list">
+              <div v-for="artifact in issue.artifacts" :key="artifact.id" class="artifact-item">
+                <div class="artifact-name">{{ getArtifactName(artifact) }}</div>
                 <div class="artifact-file">{{ getFileName(artifact.file) }} (Lines {{ artifact.from }}-{{ artifact.to
                 }})</div>
               </div>
@@ -171,6 +173,7 @@
             </div>
           </div>
         </div>
+
       </div>
     </div>
     <div v-else-if="error" class="error-state">
@@ -197,7 +200,8 @@ export default {
         affectedEntities: false,
         description: false,
         dates: false,
-        relatedIssues: false
+        relatedIssues: false,
+        artifacts: false
       }
     };
   },
@@ -354,6 +358,45 @@ export default {
     },
     toggleSection(sectionName) {
       this.expandedSections[sectionName] = !this.expandedSections[sectionName];
+    },
+    createArtifact() {
+      if (!this.issue || !this.issue.id) {
+        console.error("No issue selected");
+        return;
+      }
+
+      if (vscode) {
+        vscode.postMessage({
+          command: 'createArtifact',
+          issueId: this.issue.id
+        });
+      } 
+    },
+
+    getFileName(filePath) {
+      if (!filePath) return 'Unknown file';
+      try {
+        // Extract filename from URI
+        const uri = new URL(filePath);
+        const pathParts = uri.pathname.split('/');
+        return pathParts[pathParts.length - 1];
+      } catch (e) {
+        // Fallback for non-URI paths
+        const parts = filePath.split('/');
+        return parts[parts.length - 1];
+      }
+    },
+
+    getArtifactName(artifact) {
+      if (!artifact) return 'Unknown';
+
+      // Try to find name in templated fields
+      if (artifact.templatedFields && artifact.templatedFields.length) {
+        const nameField = artifact.templatedFields.find(field => field.name === 'name');
+        if (nameField) return nameField.value;
+      }
+
+      return `Artifact ${artifact.id.substring(0, 8)}`;
     }
   },
   mounted() {

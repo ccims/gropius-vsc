@@ -29,6 +29,46 @@ query MyQuery {
 }
 `;
 
+export const CREATE_ARTIFACT_MUTATION = `
+mutation CreateArtefact($input: CreateArtefactInput!) {
+  createArtefact(input: $input) {
+    artefact {
+      id
+      file
+      from
+      to
+      version
+      templatedFields {
+        name
+        value
+      }
+    }
+  }
+}
+`;
+
+export const GET_ARTIFACTS_FOR_ISSUE = `
+query GetArtifactsForIssue($issueId: ID!) {
+  node(id: $issueId) {
+    ... on Issue {
+      artefacts {
+        nodes {
+          id
+          file
+          from
+          to
+          version
+          templatedFields {
+            name
+            value
+          }
+        }
+      }
+    }
+  }
+}
+`;
+
 export const GET_ISSUES_OF_COMPONENT_VERSION_QUERY = `
 query GetIssueIDOfComponentVersion($id: ID!) {
   node(id: $id) {

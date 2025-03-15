@@ -10,7 +10,9 @@ import {
   GET_ISSUES_OF_COMPONENT_VERSION_QUERY,
   GET_ISSUE_DETAILS,
   FETCH_COMPONENT_VERSION_BY_ID_QUERY,
-  GET_COMPONENT_VERSIONS_IN_PROJECT_QUERY
+  GET_COMPONENT_VERSIONS_IN_PROJECT_QUERY,
+  CREATE_ARTIFACT_MUTATION,
+  GET_ARTIFACTS_FOR_ISSUE
 } from "./queries";
 
 // Create a single, global API client instance
@@ -54,7 +56,7 @@ export function activate(context: vscode.ExtensionContext) {
       componentIssuesProvider.revealView();
     })
   );
-  
+
 
   // 3) Register the "Issue Details" view
   const issueDetailsProvider = new IssueDetailsProvider(context.extensionUri);
@@ -62,12 +64,76 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.window.registerWebviewViewProvider(IssueDetailsProvider.viewType, issueDetailsProvider)
   );
 
+  // Creating Artefacts
   context.subscriptions.push(
-    vscode.commands.registerCommand('extension.createArtifact', 
-      async (issueId?: string, trackableId?: string) => {
-        // Implementation will go here
+    vscode.commands.registerCommand('extension.createArtifact', async (issueId) => {
+      console.log("[extension.createArtifact] Called with issueId:", issueId);
+      
+      // Get the active text editor
+      const editor = vscode.window.activeTextEditor;
+      if (!editor) {
+        vscode.window.showWarningMessage('No active editor found. Please open a file and select code.');
+        return;
       }
-    )
+  
+      // Get selection range
+      const selection = editor.selection;
+      const from = selection.start.line + 1; // 1-based line numbers
+      const to = selection.end.line + 1;
+      const filePath = editor.document.uri.toString();
+  
+      // Fetch available artifact templates
+      try {
+        await globalApiClient.authenticate();
+        
+        // Since we don't know if you have a query for templates, let's prompt for the template ID
+        const templateId = await vscode.window.showInputBox({
+          prompt: 'Enter artifact template ID',
+          placeHolder: 'Template ID'
+        });
+        
+        if (!templateId) {return;}
+  
+        // Prompt for artifact name
+        const name = await vscode.window.showInputBox({
+          prompt: 'Enter artifact name',
+          placeHolder: 'Name'
+        });
+        
+        if (!name) {return;}
+  
+        // Execute the create artifact mutation
+        const result = await globalApiClient.executeQuery(CREATE_ARTIFACT_MUTATION, {
+          input: {
+            file: filePath,
+            from,
+            to,
+            template: templateId,
+            templatedFields: [{
+              name: "name",
+              value: name
+            }],
+            trackable: issueId,
+            version: "1.0"
+          }
+        });
+        
+        console.log("[extension.createArtifact] Mutation result:", result);
+        
+        if (result.data?.createArtefact?.artefact) {
+          vscode.window.showInformationMessage(`Artifact "${name}" created successfully.`);
+          
+          // Refresh the issue details to show the new artifact
+          issueDetailsProvider.refreshCurrentIssue();
+        } else {
+          vscode.window.showErrorMessage('Failed to create artifact.');
+          console.error("[extension.createArtifact] Unexpected response:", result);
+        }
+      } catch (error) {
+        vscode.window.showErrorMessage(`Error creating artifact: ${error instanceof Error ? error.message : String(error)}`);
+        console.error("[extension.createArtifact] Error:", error);
+      }
+    })
   );
 
   // 4) Register the "Graphs" view
@@ -96,7 +162,7 @@ export function activate(context: vscode.ExtensionContext) {
     issueDetailsProvider.updateIssueDetails(issueId);
     issueDetailsProvider.revealView();
   });
-  
+
 
   // Optional: command to open the Graph Editor for a project ID
   context.subscriptions.push(
@@ -440,7 +506,7 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
  */
 export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "componentIssues";
-  
+
   // Store the last fetched issues and the last selected version ID
   private lastIssues: any[] | null = null;
   private lastVersionId: string | null = null;
@@ -450,7 +516,7 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly apiClient: APIClient
-  ) {}
+  ) { }
 
   public resolveWebviewView(
     webviewView: vscode.WebviewView,
@@ -593,8 +659,7 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
       }
     } catch (error: any) {
       vscode.window.showErrorMessage(
-        `Failed to fetch component version issues: ${
-          error instanceof Error ? error.message : String(error)
+        `Failed to fetch component version issues: ${error instanceof Error ? error.message : String(error)
         }`
       );
       this.lastIssues = [];
@@ -635,7 +700,13 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
   private _view?: vscode.WebviewView;
   private lastIssueId: string | null = null;
 
-  constructor(private readonly _extensionUri: vscode.Uri) {}
+  public refreshCurrentIssue(): void {
+    if (this._view && this.lastIssueId) {
+      this.updateIssueDetails(this.lastIssueId);
+    }
+  }
+
+  constructor(private readonly _extensionUri: vscode.Uri) { }
 
   public resolveWebviewView(
     webviewView: vscode.WebviewView,
@@ -650,7 +721,7 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
     };
     webviewView.webview.html = this.getHtmlForWebview(webviewView.webview);
     console.log("[IssueDetailsProvider] Webview HTML set");
-    
+
     // When the view is (re)opened, if a last issue was selected, re-fetch its details.
     if (this.lastIssueId) {
       this.updateIssueDetails(this.lastIssueId);
@@ -667,6 +738,10 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
         console.log(`[IssueDetailsProvider] Opening related issue: ${message.issueId}`);
         // Execute the command to show this issue
         vscode.commands.executeCommand('extension.showIssueDetails', message.issueId);
+      } else if (message.command === "createArtifact") {
+        console.log(`[IssueDetailsProvider] Creating artifact for issue: ${message.issueId}`);
+        // Execute the command to create an artifact
+        vscode.commands.executeCommand('extension.createArtifact', message.issueId);
       }
     });
   }
@@ -695,40 +770,45 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
       return;
     }
     console.log(`[IssueDetailsProvider] updateIssueDetails called with issueId: ${issueId}`);
-    // Save the last issue id for persistence.
     this.lastIssueId = issueId;
-    
+
     globalApiClient.authenticate()
       .then(() => {
-        return globalApiClient.executeQuery(GET_ISSUE_DETAILS, { id: issueId });
+        return Promise.all([
+          globalApiClient.executeQuery(GET_ISSUE_DETAILS, { id: issueId }),
+          globalApiClient.executeQuery(GET_ARTIFACTS_FOR_ISSUE, { issueId: issueId })
+        ]);
       })
-      .then(data => {
-        console.log("[IssueDetailsProvider] Received data:", data);
-        
-        // The query now directly returns the issue at data.node
-        if (data.data && data.data.node) {
-          console.log("[IssueDetailsProvider] Issue fetched successfully:", data.data.node);
-          this._view?.webview.postMessage({ 
-            command: 'displayIssue', 
-            issue: data.data.node 
+      .then(([issueData, artifactsData]) => {
+        console.log("[IssueDetailsProvider] Received issue data:", issueData);
+        console.log("[IssueDetailsProvider] Received artifacts data:", artifactsData);
+
+        if (issueData.data && issueData.data.node) {
+          // Add artifacts to the issue data
+          const issueWithArtifacts = {
+            ...issueData.data.node,
+            artifacts: artifactsData.data?.node?.artefacts?.nodes || []
+          };
+
+          this._view?.webview.postMessage({
+            command: 'displayIssue',
+            issue: issueWithArtifacts
           });
         } else {
           console.warn(`[IssueDetailsProvider] No issue found for id ${issueId}`);
-          this._view?.webview.postMessage({ 
-            command: 'displayIssue', 
+          this._view?.webview.postMessage({
+            command: 'displayIssue',
             issue: null,
             error: 'Issue not found'
           });
         }
-        
-        console.log("[IssueDetailsProvider] Posted displayIssue message");
       })
       .catch(error => {
-        console.error("[IssueDetailsProvider] Error fetching issue:", error);
+        console.error("[IssueDetailsProvider] Error fetching data:", error);
         const errorMessage = error instanceof Error ? error.message : String(error);
-        
-        this._view?.webview.postMessage({ 
-          command: 'displayIssue', 
+
+        this._view?.webview.postMessage({
+          command: 'displayIssue',
           issue: null,
           error: `Error fetching issue: ${errorMessage}`
         });
@@ -911,4 +991,4 @@ export class GraphsProvider implements vscode.WebviewViewProvider {
   }
 }
 
-export function deactivate() {}
+export function deactivate() { }
