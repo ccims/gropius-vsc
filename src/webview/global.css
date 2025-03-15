@@ -84,6 +84,8 @@ ul {
   margin: 0 !important;
   height: 100%;
   width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 .issue-container {
@@ -92,6 +94,9 @@ ul {
   padding: 5px 5px 5px 0px;
   gap: 5px;
   box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .issue-header {
@@ -128,12 +133,24 @@ ul {
   padding: 6px 0;
 }
 
+.info-section[v-if="issue.body"] {
+  padding-top: 4px;   
+  padding-bottom: 4px; 
+}
+
+.info-section[v-if="issue.body"] .section-header {
+  margin-bottom: 4px; 
+}
+
 .section-header {
   font-weight: 600;
   font-size: 0.95em;
   color: var(--vscode-foreground);
   margin-bottom: 8px;
   margin-left: 10px;
+  padding-right: 10px; 
+  white-space: nowrap;
+  min-width: auto;
 }
 
 .section-content {
@@ -141,6 +158,7 @@ ul {
   flex-wrap: wrap;
   gap: 8px;
   margin-left: 10px;
+  padding-right: 10px; 
 }
 
 /* Badge styling */
@@ -160,7 +178,7 @@ ul {
   font-size: 0.9em;
   background-color: rgba(0, 0, 0, 0.2);
   color: white;
-  gap: 6px;
+  gap: 3px;
 }
 
 .type-icon {
@@ -174,6 +192,10 @@ ul {
   border-radius: 12px;
   font-weight: normal;
   background-color: rgba(0, 0, 0, 0.2);
+  white-space: nowrap; 
+  gap: 3px;
+  min-width: fit-content;
+  height: 24px;
 }
 
 .state-open {
@@ -265,11 +287,22 @@ ul {
 /* Description */
 .description-content {
   display: block;
+  padding-right: 10px;
 }
 
 .description-text {
   white-space: pre-wrap;
-  padding: 4px 0;
+  padding: 0;
+  margin-bottom: 0;
+}
+
+.description-text p {
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+.description-text > *:last-child {
+  margin-bottom: 0;
 }
 
 /* Relations */
@@ -334,7 +367,8 @@ ul {
 .section-header-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 5px;
+  padding-right: 10px;
 }
 
 .section-header {
@@ -344,6 +378,13 @@ ul {
 
 .inline-content {
   margin-bottom: 0;
+}
+
+.section-content.inline-content {
+  margin-left: 0; 
+  padding-left: 0; 
+  flex: 1;
+  min-width: 80px;
 }
 
 /* Affected entities */
@@ -418,10 +459,79 @@ ul {
 .horizontal-section {
   flex-direction: row !important;
   justify-content: flex-start;
-  gap: 24px;
+  gap: 14px;
+  flex-wrap: wrap;
 }
 
 .section-group {
   flex: 0 0 auto;
 }
 
+/* Give more space to state badge */
+.section-group:nth-child(2) {
+  min-width: 100px; /* Ensure enough width for "Completed" */
+}
+
+.section-group:first-child {
+  flex: 0 0 auto;
+  max-width: 40%; 
+}
+
+/* Artifacts section */
+.artifacts-section .section-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.create-artifact-button {
+  background-color: rgba(78, 78, 78, 0.8);
+  color: var(--vscode-button-foreground, white);
+  border: none;
+  border-radius: 12px;
+  padding: 4px 10px;
+  font-size: 0.9em;
+  cursor: pointer;
+  height: 24px;
+  white-space: nowrap;
+  transition: background-color 0.2s ease;
+}
+
+.create-artifact-button:hover {
+  background-color: #0e70c0;
+}
+
+.create-artifact-button:active {
+  background-color: #0e70c0; 
+  transform: scale(0.97); 
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2); 
+}
+
+.artifacts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.artifact-item {
+  padding: 8px;
+  background-color: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  border-left: 3px solid var(--vscode-button-background, #0e639c);
+}
+
+.artifact-name {
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.artifact-file {
+  font-size: 0.9em;
+  color: var(--vscode-descriptionForeground);
+}
+
+.no-artifacts {
+  font-style: italic;
+  color: var(--vscode-descriptionForeground);
+}

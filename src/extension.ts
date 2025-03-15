@@ -62,6 +62,14 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.window.registerWebviewViewProvider(IssueDetailsProvider.viewType, issueDetailsProvider)
   );
 
+  context.subscriptions.push(
+    vscode.commands.registerCommand('extension.createArtifact', 
+      async (issueId?: string, trackableId?: string) => {
+        // Implementation will go here
+      }
+    )
+  );
+
   // 4) Register the "Graphs" view
   const graphsProvider = new GraphsProvider(context, globalApiClient);
   context.subscriptions.push(

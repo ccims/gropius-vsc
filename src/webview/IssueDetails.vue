@@ -135,6 +135,28 @@
             </div>
           </div>
         </div>
+
+        <!-- Add this section after your other details sections -->
+        <div class="info-section artifacts-section">
+          <div class="section-header-row">
+            <div class="section-header">Artifacts</div>
+            <button class="create-artifact-button" @click="createArtifact">
+              Create Artifact
+            </button>
+          </div>
+          <div class="section-content">
+            <div v-if="artifacts && artifacts.length > 0" class="artifacts-list">
+              <div v-for="(artifact, index) in artifacts" :key="index" class="artifact-item">
+                <div class="artifact-name">{{ artifact.name }}</div>
+                <div class="artifact-file">{{ getFileName(artifact.file) }} (Lines {{ artifact.from }}-{{ artifact.to
+                  }})</div>
+              </div>
+            </div>
+            <div v-else class="no-artifacts">
+              No artifacts linked to this issue.
+            </div>
+          </div>
+        </div>
       </div>
     </div>
     <div v-else-if="error" class="error-state">
