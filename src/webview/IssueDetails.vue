@@ -163,9 +163,14 @@
 
             <div v-if="issue.artifacts && issue.artifacts.length > 0" class="artifacts-list">
               <div v-for="artifact in issue.artifacts" :key="artifact.id" class="artifact-item">
-                <div class="artifact-name">{{ getArtifactName(artifact) }}</div>
-                <div class="artifact-file">{{ getFileName(artifact.file) }} (Lines {{ artifact.from }}-{{ artifact.to
-                }})</div>
+                <div class="artifact-content">
+                  <div class="artifact-file">
+                    {{ getFileName(artifact.file) }}
+                    <span class="line-numbers" v-if="artifact.from && artifact.to">
+                      (Lines {{ artifact.from }}-{{ artifact.to }})
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
             <div v-else class="no-artifacts">
@@ -360,17 +365,11 @@ export default {
       this.expandedSections[sectionName] = !this.expandedSections[sectionName];
     },
     createArtifact() {
-      if (!this.issue || !this.issue.id) {
-        console.error("No issue selected");
-        return;
-      }
-
       if (vscode) {
         vscode.postMessage({
-          command: 'createArtifact',
-          issueId: this.issue.id
+          command: 'createArtifact'
         });
-      } 
+      }
     },
 
     getFileName(filePath) {
@@ -390,12 +389,19 @@ export default {
     getArtifactName(artifact) {
       if (!artifact) return 'Unknown';
 
-      // Try to find name in templated fields
+      // Use the filename as the display name
+      let fileName = this.getFileName(artifact.file);
+      if (fileName && fileName !== 'Unknown file') {
+        return fileName;
+      }
+
+      // Fallback to templated fields if available
       if (artifact.templatedFields && artifact.templatedFields.length) {
         const nameField = artifact.templatedFields.find(field => field.name === 'name');
         if (nameField) return nameField.value;
       }
 
+      // Last resort fallback
       return `Artifact ${artifact.id.substring(0, 8)}`;
     }
   },

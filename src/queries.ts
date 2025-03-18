@@ -69,6 +69,18 @@ query GetArtifactsForIssue($issueId: ID!) {
 }
 `;
 
+export const ADD_ARTIFACT_TO_ISSUE_MUTATION = `
+mutation AddArtefactToIssue($input: AddArtefactToIssueInput!) {
+  addArtefactToIssue(input: $input) {
+    addedArtefactEvent {
+      addedArtefact {
+        id
+      }
+    }
+  }
+}
+`;
+
 export const GET_ISSUES_OF_COMPONENT_VERSION_QUERY = `
 query GetIssueIDOfComponentVersion($id: ID!) {
   node(id: $id) {

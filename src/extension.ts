@@ -12,7 +12,8 @@ import {
   FETCH_COMPONENT_VERSION_BY_ID_QUERY,
   GET_COMPONENT_VERSIONS_IN_PROJECT_QUERY,
   CREATE_ARTIFACT_MUTATION,
-  GET_ARTIFACTS_FOR_ISSUE
+  GET_ARTIFACTS_FOR_ISSUE,
+  ADD_ARTIFACT_TO_ISSUE_MUTATION
 } from "./queries";
 
 // Create a single, global API client instance
@@ -68,88 +69,86 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand('extension.createArtifact', async (issueId) => {
       console.log("[extension.createArtifact] Called with issueId:", issueId);
-      
+
       // Get the active text editor
       const editor = vscode.window.activeTextEditor;
       if (!editor) {
         vscode.window.showWarningMessage('No active editor found. Please open a file and select code.');
         return;
       }
-  
+
       // Get selection range
       const selection = editor.selection;
       const from = selection.start.line + 1; // 1-based line numbers
       const to = selection.end.line + 1;
       const filePath = editor.document.uri.toString();
-      
-      console.log("[extension.createArtifact] Selected range:", { from, to, filePath });
-  
+
+      // Get the component ID for the current file
+      // TODO: This needs to be implemented - for now we'll ask the user
+      const componentId = await vscode.window.showInputBox({
+        prompt: 'Enter the component ID that owns this file',
+        placeHolder: 'Component ID'
+      });
+
+      if (!componentId) { return; }
+
       // Prompt for template ID
       const templateId = await vscode.window.showInputBox({
         prompt: 'Enter artifact template ID',
         placeHolder: 'Template ID'
       });
-      
-      if (!templateId) {return;}
-      console.log("[extension.createArtifact] Using template ID:", templateId);
-  
-      // Prompt for artifact name
-      const name = await vscode.window.showInputBox({
-        prompt: 'Enter artifact name',
-        placeHolder: 'Name'
-      });
-      
-      if (!name) {return;}
-      console.log("[extension.createArtifact] Artifact name:", name);
-  
+
+      if (!templateId) { return; }
+
       try {
         // Authenticate
         await globalApiClient.authenticate();
-        
-        // Create the input object
-        const input = {
-          file: filePath,
-          from: from,
-          to: to,
-          template: templateId,
-          templatedFields: [
-            {
-              name: "name", 
-              value: name
-            }
-          ],
-          trackable: issueId
-        };
-        
-        console.log("[extension.createArtifact] Mutation input:", JSON.stringify(input, null, 2));
-        
-        // Execute the GraphQL mutation
-        const result = await globalApiClient.executeQuery(CREATE_ARTIFACT_MUTATION, {
-          input
+
+        // 1. Create the artifact
+        const createResult = await globalApiClient.executeQuery(CREATE_ARTIFACT_MUTATION, {
+          input: {
+            file: filePath,
+            from: from,
+            to: to,
+            template: templateId,
+            templatedFields: [],
+            trackable: componentId
+          }
         });
-        
-        console.log("[extension.createArtifact] Mutation result:", JSON.stringify(result, null, 2));
-        
-        if (result.data?.createArtefact?.artefact) {
-          vscode.window.showInformationMessage(`Artifact "${name}" created successfully.`);
+
+        if (!createResult.data?.createArtefact?.artefact) {
+          if (createResult.errors) {
+            vscode.window.showErrorMessage(`Error: ${createResult.errors[0].message}`);
+          } else {
+            vscode.window.showErrorMessage('Failed to create artifact.');
+          }
+          return;
+        }
+
+        const artifactId = createResult.data.createArtefact.artefact.id;
+
+        // 2. Link the artifact to the issue
+        const linkResult = await globalApiClient.executeQuery(ADD_ARTIFACT_TO_ISSUE_MUTATION, {
+          input: {
+            issue: issueId,
+            artefact: artifactId
+          }
+        });
+
+        if (linkResult.data?.addArtefactToIssue?.addedArtefactEvent) {
+          vscode.window.showInformationMessage(`Artifact created and linked to issue successfully.`);
           
           // Refresh the issue details to show the new artifact
           if (issueDetailsProvider) {
             issueDetailsProvider.refreshCurrentIssue();
           }
         } else {
-          // Check for errors in the response
-          if (result.errors) {
-            console.error("[extension.createArtifact] GraphQL errors:", result.errors);
-            vscode.window.showErrorMessage(`Error: ${result.errors[0].message}`);
-          } else {
-            vscode.window.showErrorMessage('Failed to create artifact.');
-            console.error("[extension.createArtifact] Unexpected response:", result);
-          }
+          console.error("[extension.createArtifact] Link result:", JSON.stringify(linkResult, null, 2));
+          vscode.window.showWarningMessage('Artifact created but could not be linked to the issue.');
         }
       } catch (error) {
-        console.error("[extension.createArtifact] Error creating artifact:", error);
-        vscode.window.showErrorMessage(`Error creating artifact: ${error instanceof Error ? error.message : String(error)}`);
+        console.error("[extension.createArtifact] Error:", error);
+        vscode.window.showErrorMessage(`Error: ${error instanceof Error ? error.message : String(error)}`);
       }
     })
   );
@@ -157,27 +156,27 @@ export function activate(context: vscode.ExtensionContext) {
   // Command to create an artifact template 
   // TODO: delete later, as only needed during development for testing
   // TODO: delete command from package.json
-context.subscriptions.push(
-  vscode.commands.registerCommand('extension.createArtefactTemplate', async () => {
-    try {
-      // Prompt for template name
-      const templateName = await vscode.window.showInputBox({
-        prompt: 'Enter a name for the artifact template',
-        placeHolder: 'Template Name'
-      });
-      
-      if (!templateName) {return;}
-      
-      // Prompt for description (optional)
-      const description = await vscode.window.showInputBox({
-        prompt: 'Enter a description (optional)',
-        placeHolder: 'Description'
-      }) || "";
-      
-      await globalApiClient.authenticate();
-      
-      // Execute the mutation
-      const result = await globalApiClient.executeQuery(`
+  context.subscriptions.push(
+    vscode.commands.registerCommand('extension.createArtefactTemplate', async () => {
+      try {
+        // Prompt for template name
+        const templateName = await vscode.window.showInputBox({
+          prompt: 'Enter a name for the artifact template',
+          placeHolder: 'Template Name'
+        });
+
+        if (!templateName) { return; }
+
+        // Prompt for description (optional)
+        const description = await vscode.window.showInputBox({
+          prompt: 'Enter a description (optional)',
+          placeHolder: 'Description'
+        }) || "";
+
+        await globalApiClient.authenticate();
+
+        // Execute the mutation
+        const result = await globalApiClient.executeQuery(`
         mutation CreateArtefactTemplate($input: CreateArtefactTemplateInput!) {
           createArtefactTemplate(input: $input) {
             artefactTemplate {
@@ -187,29 +186,29 @@ context.subscriptions.push(
           }
         }
       `, {
-        input: {
-          name: templateName,
-          description: description
+          input: {
+            name: templateName,
+            description: description
+          }
+        });
+
+        if (result.data?.createArtefactTemplate?.artefactTemplate) {
+          const template = result.data.createArtefactTemplate.artefactTemplate;
+          vscode.window.showInformationMessage(`Template "${template.name}" created with ID: ${template.id}`);
+
+          // Copy the ID to clipboard for convenience
+          vscode.env.clipboard.writeText(template.id);
+          vscode.window.showInformationMessage('Template ID copied to clipboard');
+        } else {
+          vscode.window.showErrorMessage('Failed to create template');
+          console.error("Unexpected response:", result);
         }
-      });
-      
-      if (result.data?.createArtefactTemplate?.artefactTemplate) {
-        const template = result.data.createArtefactTemplate.artefactTemplate;
-        vscode.window.showInformationMessage(`Template "${template.name}" created with ID: ${template.id}`);
-        
-        // Copy the ID to clipboard for convenience
-        vscode.env.clipboard.writeText(template.id);
-        vscode.window.showInformationMessage('Template ID copied to clipboard');
-      } else {
-        vscode.window.showErrorMessage('Failed to create template');
-        console.error("Unexpected response:", result);
+      } catch (error) {
+        vscode.window.showErrorMessage(`Error creating template: ${error instanceof Error ? error.message : String(error)}`);
+        console.error("Error:", error);
       }
-    } catch (error) {
-      vscode.window.showErrorMessage(`Error creating template: ${error instanceof Error ? error.message : String(error)}`);
-      console.error("Error:", error);
-    }
-  })
-);
+    })
+  );
 
   // 4) Register the "Graphs" view
   const graphsProvider = new GraphsProvider(context, globalApiClient);
@@ -814,9 +813,9 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
         // Execute the command to show this issue
         vscode.commands.executeCommand('extension.showIssueDetails', message.issueId);
       } else if (message.command === "createArtifact") {
-        console.log(`[IssueDetailsProvider] Creating artifact for issue: ${message.issueId}`);
+        console.log(`[IssueDetailsProvider] Creating artifact`);
         // Execute the command to create an artifact
-        vscode.commands.executeCommand('extension.createArtifact', message.issueId);
+        vscode.commands.executeCommand('extension.createArtifact');
       }
     });
   }
