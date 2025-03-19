@@ -159,22 +159,35 @@
             <span class="toggle-icon">{{ expandedSections.artifacts ? '▼' : '▶' }}</span>
           </div>
           <div class="section-content" v-if="expandedSections.artifacts">
-            <button class="create-artifact-button" @click="createArtifact">Create Artifact</button>
+            <button class="create-artifact-button" @click="createArtifact"
+              title="Create a new artifact from the active editor">
+              <span class="button-icon">+</span> Create Artifact
+            </button>
 
             <div v-if="issue.artifacts && issue.artifacts.length > 0" class="artifacts-list">
               <div v-for="artifact in issue.artifacts" :key="artifact.id" class="artifact-item">
                 <div class="artifact-content">
                   <div class="artifact-file">
-                    {{ getFileName(artifact.file) }}
+                    <strong>{{ getFileName(artifact.file) }}</strong>
                     <span class="line-numbers" v-if="artifact.from && artifact.to">
                       (Lines {{ artifact.from }}-{{ artifact.to }})
                     </span>
+                  </div>
+                  <div class="artifact-version" v-if="artifact.version">
+                    Version: {{ artifact.version }}
+                  </div>
+                  <div class="artifact-fields" v-if="artifact.templatedFields && artifact.templatedFields.length > 0">
+                    <div v-for="field in artifact.templatedFields" :key="field.name" class="artifact-field">
+                      <span class="field-name">{{ field.name }}:</span> {{ field.value }}
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
             <div v-else class="no-artifacts">
-              No artifacts linked to this issue.
+              <p>No artifacts linked to this issue.</p>
+              <p class="artifact-hint">Open a file in the editor, select code, and click "Create Artifact" to add one.
+              </p>
             </div>
           </div>
         </div>
@@ -365,9 +378,15 @@ export default {
       this.expandedSections[sectionName] = !this.expandedSections[sectionName];
     },
     createArtifact() {
+      if (!this.issue || !this.issue.id) {
+        console.error("No issue selected");
+        return;
+      }
+
       if (vscode) {
         vscode.postMessage({
-          command: 'createArtifact'
+          command: 'createArtifact',
+          issueId: this.issue.id
         });
       }
     },

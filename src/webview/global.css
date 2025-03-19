@@ -550,113 +550,114 @@ ul {
 }
 
 /* Artifacts section */
-.artifacts-section .section-header-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.create-artifact-button {
-  background-color: rgba(78, 78, 78, 0.8);
-  color: var(--vscode-button-foreground, white);
-  border: none;
-  border-radius: 12px;
-  padding: 4px 10px;
-  font-size: 0.9em;
-  cursor: pointer;
-  height: 24px;
-  white-space: nowrap;
-  transition: background-color 0.2s ease;
-}
-
-.create-artifact-button:hover {
-  background-color: #0e70c0;
-}
-
-.create-artifact-button:active {
-  background-color: #0e70c0; 
-  transform: scale(0.97); 
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2); 
-}
-
 .artifacts-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
   width: 100%;
+  margin-top: 10px;
 }
 
 .artifact-item {
-  padding: 8px;
-  background-color: rgba(0, 0, 0, 0.1);
+  padding: 10px 12px;
+  background-color: var(--vscode-editor-background, rgba(30, 30, 30, 0.3));
   border-radius: 4px;
   border-left: 3px solid var(--vscode-button-background, #0e639c);
+  transition: background-color 0.2s ease;
 }
 
-.artifact-name {
-  font-weight: bold;
-  margin-bottom: 4px;
+.artifact-item:hover {
+  background-color: var(--vscode-list-hoverBackground, rgba(40, 40, 40, 0.5));
+}
+
+.artifact-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .artifact-file {
-  font-size: 0.9em;
+  font-size: 0.95em;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.artifact-file strong {
+  color: var(--vscode-foreground);
+}
+
+.line-numbers {
+  font-size: 0.85em;
   color: var(--vscode-descriptionForeground);
+  background-color: rgba(0, 0, 0, 0.2);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.artifact-version {
+  font-size: 0.85em;
+  color: var(--vscode-descriptionForeground);
+}
+
+.artifact-fields {
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.artifact-field {
+  font-size: 0.85em;
+  color: var(--vscode-foreground);
+  opacity: 0.9;
+  padding: 2px 0;
+}
+
+.field-name {
+  font-weight: bold;
+  color: var(--vscode-descriptionForeground);
+  margin-right: 4px;
 }
 
 .no-artifacts {
   font-style: italic;
   color: var(--vscode-descriptionForeground);
+  margin-top: 10px;
+  text-align: center;
+  padding: 12px;
+  background-color: rgba(30, 30, 30, 0.2);
+  border-radius: 4px;
 }
 
-/* Collapsible sections */
-.collapsible-section {
-  border-radius: 3px;
-  overflow: hidden;
-  margin-bottom: 4px;
+.artifact-hint {
+  font-size: 0.85em;
+  margin-top: 6px;
+  opacity: 0.8;
 }
 
-.collapsible-header {
+.create-artifact-button {
+  background-color: var(--vscode-button-background, #0e639c);
+  color: var(--vscode-button-foreground, white);
+  border: none;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 0.9em;
   cursor: pointer;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 10px;
-  border-radius: 3px;
-  background-color: rgba(30, 30, 30, 0.6);
+  margin-bottom: 4px;
+  align-self: flex-start;
   transition: background-color 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
-.collapsible-header:hover {
-  background-color: rgba(40, 40, 40, 0.8);
+.create-artifact-button:hover {
+  background-color: var(--vscode-button-hoverBackground, #1177bb);
 }
 
-.section-header-title {
-  font-weight: 600;
-  font-size: 0.95em;
-  color: white;
+.button-icon {
+  font-size: 14px;
+  font-weight: bold;
 }
-
-.section-toggle-icon {
-  font-size: 12px;
-  transform: rotate(0deg);
-  transition: transform 0.2s ease;
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.section-toggle-icon.section-expanded {
-  transform: rotate(90deg);
-}
-
-.collapsible-content {
-  padding: 8px 10px;
-  background-color: rgba(20, 20, 20, 0.3);
-  border-bottom-left-radius: 3px;
-  border-bottom-right-radius: 3px;
-}
-
-.toggle-icon {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.7);
-  margin-left: 8px;
-}
-
