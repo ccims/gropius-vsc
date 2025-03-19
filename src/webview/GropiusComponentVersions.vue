@@ -1,8 +1,15 @@
 <template>
+      <!-- Show workspace graph -->
+      <div class="showGraph">
+        <button class="graph-button" @click="openWorkspaceGraph">
+          Graph
+        </button>
+       </div>
     <div class="gropius-component-versions">
         <div v-if="loading" class="loading">
             <p>Loading component versions...</p>
         </div>
+        
         <div v-else-if="treeItems.length === 0" class="empty-state">
             <p>No component versions found. Please check your folder mappings.</p>
         </div>
@@ -155,6 +162,13 @@ export default defineComponent({
             (event.target as HTMLImageElement).style.display = 'none';
         };
 
+        const openWorkspaceGraph = () => {
+            console.log("Arbeitsbereichsgraph starten");
+            if (vscode) {
+                vscode.postMessage({ command: "showWorkspaceGraph" });
+            }
+        };
+
         onMounted(() => {
             // Request component version data from the extension
             vscode.postMessage({ command: 'getComponentVersions' });
@@ -183,10 +197,12 @@ export default defineComponent({
             hoveredItem,
             clickedVersion,
             handleVersionClick,
-            activeVersion
+            activeVersion,
+            openWorkspaceGraph
         };
     }
 });
+
 </script>
 
 <style>

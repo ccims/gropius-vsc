@@ -1,3 +1,5 @@
+import exp from "constants";
+
 export const FETCH_COMPONENT_VERSIONS_QUERY = `
 query MyQuery {
   components {
@@ -451,4 +453,61 @@ export const FETCH_PROJECT_GRAPH_QUERY = `
       }
     }
   }
+`;
+/**
+ * Query for the workspace graph.
+ * Fetches Componentversion, Component or Project refering to the given id
+ */
+export const FETCH_WORKSPACE_GRAPH_QUERY = `{
+  query getAllForWorkspace($givenID: ID!) {
+    node(id: $givenID) {
+      ... on ComponentVersion {
+        id
+        component {
+          id
+          name
+        }
+        version
+      }
+      ... on Component {
+        id
+        name
+      }
+      ... on Project {
+        id
+        name
+      }
+    }
+  }`;
+
+/**
+ * Query to fetch all components concerning one issue for the issue graph
+ */
+export const FETCH_ISSUES_GRAPH_QUERY = `{
+  query MyQuery($in: [ID!] = ["d2bb5c86-aa45-41cb-802a-37f1ce487ddb", "3adbeeb7-ccaf-46fb-a7a5-13686d1b98ea"]) {
+   components(filter: {issues: {any: {id: {in: $in}}}}) {
+     nodes {
+       id
+       name
+      }
+  }
+ }
+}`;
+
+/**
+ * Temp Query to get all workspace components
+ */
+export const FETCH_ALL_WORKSPACE_COMPONENTS = `
+  query MyQuery($in: [ID!] = "") {
+  components(filter: {id: {in: $in}}) {
+    nodes {
+      id
+      name
+      template {
+        id
+        name
+      }
+    }
+  }
+}
 `;

@@ -12,8 +12,12 @@ import {
   FETCH_COMPONENT_VERSION_BY_ID_QUERY,
   GET_COMPONENT_VERSIONS_IN_PROJECT_QUERY,
   CREATE_ARTIFACT_MUTATION,
-  GET_ARTIFACTS_FOR_ISSUE
+  GET_ARTIFACTS_FOR_ISSUE,
+  FETCH_WORKSPACE_GRAPH_QUERY,
+  FETCH_ISSUES_GRAPH_QUERY,
+  FETCH_ALL_WORKSPACE_COMPONENTS
 } from "./queries";
+import { ConsoleLogger } from "sprotty";
 
 // Create a single, global API client instance
 const globalApiClient = new APIClient(API_URL, CLIENT_ID, CLIENT_SECRET);
@@ -54,6 +58,13 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('extension.showComponentVersionIssues', async (componentVersionId: string): Promise<void> => {
       await componentIssuesProvider.updateVersionIssues(componentVersionId);
       componentIssuesProvider.revealView();
+    })
+  );
+
+  // Command that opens the workspace graph editor
+  context.subscriptions.push(
+    vscode.commands.registerCommand('extension.showWorkspaceGraph', async () : Promise<void> => {
+      await componentIssuesProvider.openWorkspaceGraphEditor();
     })
   );
 
@@ -211,6 +222,13 @@ context.subscriptions.push(
   })
 );
 
+// Command that opens the graph editor for issues
+context.subscriptions.push(
+  vscode.commands.registerCommand('extension.showIssueGraph', async () : Promise<void> => {
+    await issueDetailsProvider.openIssueGraphEditor();
+  })
+);
+
   // 4) Register the "Graphs" view
   const graphsProvider = new GraphsProvider(context, globalApiClient);
   context.subscriptions.push(
@@ -262,6 +280,8 @@ context.subscriptions.push(
       });
     })
   );
+
+
 }
 
 /**
@@ -311,8 +331,105 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
           // Call the command to show issues for this component version
           vscode.commands.executeCommand('extension.showComponentVersionIssues', message.data.componentVersionId);
           break;
+        case 'showWorkspaceGraph':
+          // Opens the workspace graph for the given workspace
+          console.log("Start workspaceGraph");
+          this.openWorkspaceGraphEditor();
       }
     });
+  }
+  
+  /**
+   * Opens the graph editor.
+   * Loads the workspace graph.
+   * 
+   */
+  public async openWorkspaceGraphEditor() {
+    const panel = vscode.window.createWebviewPanel(
+      "graphEditor",
+      "Graph Editor",
+      vscode.ViewColumn.One,
+      {
+        enableScripts: true,
+        localResourceRoots: [
+          vscode.Uri.joinPath(this._context.extensionUri, "out", "webview")
+        ]
+      }
+    );
+
+    const scriptUri = panel.webview.asWebviewUri(
+      vscode.Uri.joinPath(this._context.extensionUri, "out", "webview", "graphWorkspace.js")
+    );
+    panel.webview.html = this.getGraphEditorHtml(scriptUri);
+
+    panel.webview.onDidReceiveMessage((message: any): void => {
+      if (message.type === "ready") {
+        (async () => {
+          try {
+            await this.apiClient.authenticate();
+            const workspaceData = await this.fetchWorkspaceGraphData();
+            panel.webview.postMessage({
+              type: "projectData",
+              data: workspaceData
+            });
+          } catch (error) {
+            vscode.window.showErrorMessage(`Data fetch failed: ${error}`);
+          }
+        })();
+      }
+      return;
+    });
+
+    panel.reveal(vscode.ViewColumn.One);
+  }
+  /**
+   * Todo: in... all found components or smth different
+   * @returns 
+   */
+  private async fetchWorkspaceGraphData(): Promise<any> {
+    try {
+      await this.apiClient.authenticate();
+      const response = await this.apiClient.executeQuery(FETCH_ALL_WORKSPACE_COMPONENTS, { in: ["1a0606aa-5330-4ab9-a993-7bd552cefac8"] });
+      console.log("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
+      console.log("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
+      console.log(response.data);
+      console.log("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
+      console.log("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
+      return response.data;
+    } catch (error) {
+      throw new Error(
+        `Failed to fetch workspace graph: ${error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    }
+  }
+  getGraphEditorHtml(scriptUri: vscode.Uri): string {
+    return /* html */ `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Graph Editor</title>
+        <style>
+          html, body {
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+          }
+          #app {
+            height: 100vh;
+            width: 100%;
+          }
+        </style>
+      </head>
+      <body>
+        <div id="app"></div>
+        <script src="${scriptUri}"></script>
+      </body>
+      </html>
+    `;
   }
 
   // Refresh the component versions data
@@ -578,8 +695,11 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
  * - Fetches all components with FETCH_COMPONENT_VERSIONS_QUERY
  * - Finds the matching component
  * - Sends its issues via "updateComponentIssues"
+ * - Starts workspace graph
  */
 export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
+  
+  
   public static readonly viewType = "componentIssues";
 
   // Store the last fetched issues and the last selected version ID
@@ -619,12 +739,106 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
     webviewView.webview.onDidReceiveMessage((message: any): void => {
       if (message.command === "vueAppReady") {
         // Do nothing until a component is selected.
+        console.log("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
       } else if (message.command === "issueClicked") {
         console.log("ComponentIssuesProvider received issueClicked with id:", message.issueId);
         vscode.commands.executeCommand('extension.showIssueDetails', message.issueId);
+      } else if (message.command === "showWorkspaceGraph") {
+        //Todo: open IssueGraphEditor here
+        console.log("Command showWorkspaceGraph was used");
+        this.openWorkspaceGraphEditor();
       }
       return;
     });
+  }
+  
+  /**
+   * Opens the graph editor.
+   * Loads the issue graph.
+   * Todo: issue graph
+   */
+  public async openWorkspaceGraphEditor() {
+    const panel = vscode.window.createWebviewPanel(
+      "graphEditor",
+      "Graph Editor",
+      vscode.ViewColumn.One,
+      {
+        enableScripts: true,
+        localResourceRoots: [
+          vscode.Uri.joinPath(this.context.extensionUri, "out", "webview")
+        ]
+      }
+    );
+
+    const scriptUri = panel.webview.asWebviewUri(
+      vscode.Uri.joinPath(this.context.extensionUri, "out", "webview", "graphEditor.js")
+    );
+    panel.webview.html = this.getGraphEditorHtml(scriptUri);
+
+    panel.webview.onDidReceiveMessage((message: any): void => {
+      if (message.type === "ready") {
+        (async () => {
+          try {
+            await this.apiClient.authenticate();
+            const workspaceData = await this.fetchWorkspaceGraphData();
+            panel.webview.postMessage({
+              type: "projectData",
+              data: workspaceData
+            });
+          } catch (error) {
+            vscode.window.showErrorMessage(`Data fetch failed: ${error}`);
+          }
+        })();
+      }
+      return;
+    });
+
+    panel.reveal(vscode.ViewColumn.One);
+  }
+  /**
+   * Fetch the graph for specific issue
+   * Todo: Statt lastIssues -> SelectedIssue
+   * @returns 
+   */
+  private async fetchWorkspaceGraphData(): Promise<any> {
+    try {
+      await this.apiClient.authenticate();
+      const response = await this.apiClient.executeQuery(FETCH_ISSUES_GRAPH_QUERY, { in: this.lastIssues });
+      return response.data;
+    } catch (error) {
+      throw new Error(
+        `Failed to fetch project graph: ${error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    }
+  }
+  getGraphEditorHtml(scriptUri: vscode.Uri): string {
+    return /* html */ `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Graph Editor</title>
+        <style>
+          html, body {
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+          }
+          #app {
+            height: 100vh;
+            width: 100%;
+          }
+        </style>
+      </head>
+      <body>
+        <div id="app"></div>
+        <script src="${scriptUri}"></script>
+      </body>
+      </html>
+    `;
   }
 
   private getHtmlForWebview(webview: vscode.Webview): string {
@@ -771,6 +985,9 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
  * - Handles issue selection and view persistence
  */
 class IssueDetailsProvider implements vscode.WebviewViewProvider {
+  openIssueGraphEditor() {
+    throw new Error("Method not implemented.");
+  }
   public static readonly viewType = 'issueDetails';
   private _view?: vscode.WebviewView;
   private lastIssueId: string | null = null;
@@ -984,6 +1201,12 @@ export class GraphsProvider implements vscode.WebviewViewProvider {
     }
   }
 
+  /**
+   * Opens the graph editor.
+   * Loads graph for the projectId
+   * @param projectId : Corresponding project
+   */
+
   public async openGraphEditor(projectId: string): Promise<void> {
     const panel = vscode.window.createWebviewPanel(
       "graphEditor",
@@ -1008,6 +1231,7 @@ export class GraphsProvider implements vscode.WebviewViewProvider {
           try {
             await this.apiClient.authenticate();
             const projectData = await this.fetchProjectGraphData(projectId);
+            console.log(projectData);
             panel.webview.postMessage({
               type: "projectData",
               data: projectData
@@ -1022,7 +1246,11 @@ export class GraphsProvider implements vscode.WebviewViewProvider {
 
     panel.reveal(vscode.ViewColumn.One);
   }
-
+/**
+ * Fetches all available projects
+ * @param projectId 
+ * @returns 
+ */
   private async fetchProjectGraphData(projectId: string): Promise<any> {
     try {
       await this.apiClient.authenticate();

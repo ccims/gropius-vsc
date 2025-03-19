@@ -26,6 +26,8 @@ const props = defineProps({
 const editorId = ref(`graph-editor-${uuidv4()}`);
 const modelSource = shallowRef<CustomModelSource>();
 const projectData = ref<any>(null);
+const workspaceData = ref<any>(null);
+const issueData = ref<any>(null);
 const showIssueRelations = ref(true);
 
 class CustomModelSource extends GraphModelSource {
@@ -248,6 +250,12 @@ function handleMessage(event: MessageEvent) {
   if (message.type === 'projectData') {
     projectData.value = message.data;
     updateGraph(message.data);
+  } else if (message.type === "workspaceData") {
+    workspaceData.value = message.data;
+    //TODO: update graph with workspace data
+  } else if (message.type === "issueData") {
+    issueData.value = message.data;
+    // TODO: update graph with issue data
   }
 }
 

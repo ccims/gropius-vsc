@@ -41,6 +41,13 @@
           <img :src="getTypeIconPath('Misc', typeFilter === 'Misc/Task')" class="type-icon" alt="Misc/Task" />
         </button>
       </div>
+
+      <!-- Show workspace graph -->
+       <div class="showGraph">
+        <button class="graph-button" @click="openIssueGraph">
+          Graph
+        </button>
+       </div>
     </div>
 
     <!-- Issues List -->
@@ -211,9 +218,16 @@ export default {
       console.log("ComponentIssues.vue: Opening issue details for issue id:", issueId);
       // Send a message with command "issueClicked" and the correct issue id
       vscode.postMessage({ command: "issueClicked", issueId });
+    },
+    // Graph  
+  openIssueGraph() {
+    console.log("Start issue graph");
+    if(vscode){
+      vscode.postMessage({ command: "showIssueGraph"});
     }
+  }
   },
-  etStatusFilter(status) {
+  setStatusFilter(status) {
     if (this.statusFilter === status) {
       this.statusFilter = 'all';
     } else {
@@ -248,7 +262,7 @@ export default {
         sortOrder: this.sortOrder
       });
     }
-  }
+  },
 
 };
 </script>
@@ -283,7 +297,8 @@ export default {
 
 .sort-dropdown,
 .status-toggle,
-.type-filter {
+.type-filter,
+.showGraph {
   flex-shrink: 0;
 }
 
@@ -524,5 +539,27 @@ export default {
 .type-button.active .type-icon {
   filter: brightness(1) grayscale(0%);
   /* Full color when active */
+}
+
+/* Workspace graph */
+
+.showGraph {
+  position:relative;
+}
+.graph-button {
+  background-color: var(--vscode-button-secondaryBackground, #2d2d2d);
+  color: var(--vscode-button-secondaryForeground, #cccccc);
+  border: none;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+}
+.graph-button:hover{
+  background-color: var(--vscode-button-secondaryHoverBackground, #3d3d3d);
 }
 </style>
