@@ -11,9 +11,10 @@ import {
   GET_ISSUE_DETAILS,
   FETCH_COMPONENT_VERSION_BY_ID_QUERY,
   GET_COMPONENT_VERSIONS_IN_PROJECT_QUERY,
-  CREATE_ARTIFACT_MUTATION,
-  GET_ARTIFACTS_FOR_ISSUE,
-  ADD_ARTIFACT_TO_ISSUE_MUTATION
+  GET_ARTIFACTS_FOR_ISSUE,         
+  CREATE_ARTIFACT_MUTATION,        
+  ADD_ARTIFACT_TO_ISSUE_MUTATION,  
+  GET_ARTIFACT_TEMPLATES_QUERY 
 } from "./queries";
 
 // Create a single, global API client instance
@@ -65,7 +66,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.window.registerWebviewViewProvider(IssueDetailsProvider.viewType, issueDetailsProvider)
   );
 
-  // Create Artefacts
+  // Create Artifacts command
   context.subscriptions.push(
     vscode.commands.registerCommand('extension.createArtifact', async (issueId) => {
       console.log("[extension.createArtifact] Called with issueId:", issueId);
@@ -97,12 +98,10 @@ export function activate(context: vscode.ExtensionContext) {
 
         // Extract all trackable components and projects the issue affects
         const affectedTrackables = issueDetailsResult.data.node.affects.nodes
-          .filter((node: any) => node.__typename === 'Component' || node.__typename === 'ComponentVersion' || node.__typename === 'Project')
+          .filter((node: any) => node.__typename === 'Component' || node.__typename === 'Project')
           .map((node: any) => ({
             id: node.id,
-            name: node.__typename === 'Component' ? node.name :
-              node.__typename === 'ComponentVersion' ? `${node.component.name} (v${node.version})` :
-                node.name,
+            name: node.__typename === 'Component' ? node.name : node.name,
             type: node.__typename
           }));
 
@@ -120,35 +119,26 @@ export function activate(context: vscode.ExtensionContext) {
           const trackableItems = affectedTrackables.map((t: any) => ({
             label: t.name,
             description: t.type,
-            detail: t.id,
-            id: t.id
+            detail: t.id
           }));
 
-          selectedTrackable = await vscode.window.showQuickPick(trackableItems, {
+          const selectedItem = await vscode.window.showQuickPick(trackableItems, {
             placeHolder: 'Select which component or project this artifact belongs to'
-          });
+          }) as vscode.QuickPickItem | undefined;
 
-          if (!selectedTrackable) {
+          if (!selectedItem) {
             return; // User cancelled
           }
+
+          selectedTrackable = {
+            id: selectedItem.detail || '',
+            name: selectedItem.label || '',
+            type: selectedItem.description || ''
+          };
         }
 
         // 2. Fetch available artifact templates
-        const templatesResult = await globalApiClient.executeQuery(`
-        query GetArtefactTemplates {
-          artefactTemplates {
-            nodes {
-              id
-              name
-              description
-              templateFieldSpecifications {
-                name
-                value
-              }
-            }
-          }
-        }
-      `);
+        const templatesResult = await globalApiClient.executeQuery(GET_ARTIFACT_TEMPLATES_QUERY);
 
         if (!templatesResult.data?.artefactTemplates?.nodes || templatesResult.data.artefactTemplates.nodes.length === 0) {
           vscode.window.showErrorMessage('No artifact templates available.');
@@ -159,27 +149,28 @@ export function activate(context: vscode.ExtensionContext) {
         const templateItems = templatesResult.data.artefactTemplates.nodes.map((template: any) => ({
           label: template.name,
           description: template.description || '',
-          detail: template.id,
-          id: template.id
+          detail: template.id
         }));
 
-        const selectedTemplate = await vscode.window.showQuickPick(templateItems, {
+        const selectedTemplateItem = await vscode.window.showQuickPick(templateItems, {
           placeHolder: 'Select an artifact template'
-        });
-
-        if (!selectedTemplate) {
+        }) as vscode.QuickPickItem | undefined;
+        
+        if (!selectedTemplateItem) {
           return; // User cancelled
         }
 
+        const selectedTemplateId = selectedTemplateItem.detail || '';
+
         // 4. Get any template field values if needed
-        const template = templatesResult.data.artefactTemplates.nodes.find(
-          (t: any) => t.id === selectedTemplate
+        const selectedTemplate = templatesResult.data.artefactTemplates.nodes.find(
+          (t: any) => t.id === selectedTemplateId
         );
 
         const templatedFields: any[] = [];
 
-        if (template && template.templateFieldSpecifications && template.templateFieldSpecifications.length > 0) {
-          for (const field of template.templateFieldSpecifications) {
+        if (selectedTemplate && selectedTemplate.templateFieldSpecifications && selectedTemplate.templateFieldSpecifications.length > 0) {
+          for (const field of selectedTemplate.templateFieldSpecifications) {
             const fieldValue = await vscode.window.showInputBox({
               prompt: `Enter value for ${field.name}`,
               placeHolder: field.value?.metadata?.description || `Value for ${field.name}`
@@ -196,20 +187,34 @@ export function activate(context: vscode.ExtensionContext) {
           }
         }
 
+        // Log the exact input we're sending
+        console.log("[extension.createArtifact] Creating artifact with input:", {
+          file: filePath,
+          from,
+          to,
+          template: selectedTemplateId,
+          templatedFields,
+          trackable: selectedTrackable.id
+        });
+
         // 5. Create the artifact
         const createResult = await globalApiClient.executeQuery(CREATE_ARTIFACT_MUTATION, {
           input: {
             file: filePath,
-            from: from,
-            to: to,
-            template: selectedTemplate,
-            templatedFields: templatedFields,
+            from,
+            to,
+            template: selectedTemplateId,
+            templatedFields,
             trackable: selectedTrackable.id
           }
         });
 
+        // Log the full result for debugging
+        console.log("[extension.createArtifact] Full create result:", JSON.stringify(createResult, null, 2));
+
         if (!createResult.data?.createArtefact?.artefact) {
           if (createResult.errors) {
+            console.log("[extension.createArtifact] Full error:", JSON.stringify(createResult.errors, null, 2));
             vscode.window.showErrorMessage(`Error creating artifact: ${createResult.errors[0].message}`);
           } else {
             vscode.window.showErrorMessage('Failed to create artifact.');
@@ -227,7 +232,7 @@ export function activate(context: vscode.ExtensionContext) {
           }
         });
 
-        console.log("Full link result:", JSON.stringify(linkResult, null, 2));
+        console.log("[extension.createArtifact] Full link result:", JSON.stringify(linkResult, null, 2));
 
         if (linkResult.data?.addArtefactToIssue?.addedArtefactEvent) {
           vscode.window.showInformationMessage(`Artifact created and linked to issue successfully.`);
@@ -236,6 +241,9 @@ export function activate(context: vscode.ExtensionContext) {
           if (issueDetailsProvider) {
             issueDetailsProvider.refreshCurrentIssue();
           }
+        } else if (linkResult.errors) {
+          console.error("[extension.createArtifact] Link error:", JSON.stringify(linkResult.errors, null, 2));
+          vscode.window.showWarningMessage(`Artifact created but could not be linked to the issue: ${linkResult.errors[0].message}`);
         } else {
           console.error("[extension.createArtifact] Link result:", JSON.stringify(linkResult, null, 2));
           vscode.window.showWarningMessage('Artifact created but could not be linked to the issue.');
@@ -247,62 +255,6 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  // Command to create an artifact template 
-  // TODO: delete later, as only needed during development for testing
-  // TODO: delete command from package.json
-  context.subscriptions.push(
-    vscode.commands.registerCommand('extension.createArtefactTemplate', async () => {
-      try {
-        // Prompt for template name
-        const templateName = await vscode.window.showInputBox({
-          prompt: 'Enter a name for the artifact template',
-          placeHolder: 'Template Name'
-        });
-
-        if (!templateName) { return; }
-
-        // Prompt for description (optional)
-        const description = await vscode.window.showInputBox({
-          prompt: 'Enter a description (optional)',
-          placeHolder: 'Description'
-        }) || "";
-
-        await globalApiClient.authenticate();
-
-        // Execute the mutation
-        const result = await globalApiClient.executeQuery(`
-        mutation CreateArtefactTemplate($input: CreateArtefactTemplateInput!) {
-          createArtefactTemplate(input: $input) {
-            artefactTemplate {
-              id
-              name
-            }
-          }
-        }
-      `, {
-          input: {
-            name: templateName,
-            description: description
-          }
-        });
-
-        if (result.data?.createArtefactTemplate?.artefactTemplate) {
-          const template = result.data.createArtefactTemplate.artefactTemplate;
-          vscode.window.showInformationMessage(`Template "${template.name}" created with ID: ${template.id}`);
-
-          // Copy the ID to clipboard for convenience
-          vscode.env.clipboard.writeText(template.id);
-          vscode.window.showInformationMessage('Template ID copied to clipboard');
-        } else {
-          vscode.window.showErrorMessage('Failed to create template');
-          console.error("Unexpected response:", result);
-        }
-      } catch (error) {
-        vscode.window.showErrorMessage(`Error creating template: ${error instanceof Error ? error.message : String(error)}`);
-        console.error("Error:", error);
-      }
-    })
-  );
 
   // 4) Register the "Graphs" view
   const graphsProvider = new GraphsProvider(context, globalApiClient);

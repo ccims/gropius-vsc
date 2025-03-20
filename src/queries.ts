@@ -1,3 +1,75 @@
+export const GET_ARTIFACTS_FOR_ISSUE = `
+query GetArtifactsForIssue($issueId: ID!) {
+  node(id: $issueId) {
+    ... on Issue {
+      artefacts {
+        nodes {
+          id
+          file
+          from
+          to
+          version
+          templatedFields {
+            name
+            value
+          }
+        }
+      }
+    }
+  }
+}
+`;
+
+export const CREATE_ARTIFACT_MUTATION = `
+mutation CreateArtefact($input: CreateArtefactInput!) {
+  createArtefact(input: $input) {
+    artefact {
+      id
+      file
+      from
+      to
+      version
+      templatedFields {
+        name
+        value
+      }
+      trackable {
+        id
+        name
+      }
+    }
+  }
+}
+`;
+
+export const ADD_ARTIFACT_TO_ISSUE_MUTATION = `
+mutation AddArtefactToIssue($input: AddArtefactToIssueInput!) {
+  addArtefactToIssue(input: $input) {
+    addedArtefactEvent {
+      addedArtefact {
+        id
+      }
+    }
+  }
+}
+`;
+
+export const GET_ARTIFACT_TEMPLATES_QUERY = `
+query GetArtefactTemplates {
+  artefactTemplates {
+    nodes {
+      id
+      name
+      description
+      templateFieldSpecifications {
+        name
+        value
+      }
+    }
+  }
+}
+`;
+
 export const FETCH_COMPONENT_VERSIONS_QUERY = `
 query MyQuery {
   components {
@@ -23,58 +95,6 @@ query MyQuery {
             isOpen
           }
         }
-      }
-    }
-  }
-}
-`;
-
-export const CREATE_ARTIFACT_MUTATION = `
-mutation CreateArtefact($input: CreateArtefactInput!) {
-  createArtefact(input: $input) {
-    artefact {
-      id
-      file
-      from
-      to
-      version
-      templatedFields {
-        name
-        value
-      }
-    }
-  }
-}
-`;
-
-export const GET_ARTIFACTS_FOR_ISSUE = `
-query GetArtifactsForIssue($issueId: ID!) {
-  node(id: $issueId) {
-    ... on Issue {
-      artefacts {
-        nodes {
-          id
-          file
-          from
-          to
-          version
-          templatedFields {
-            name
-            value
-          }
-        }
-      }
-    }
-  }
-}
-`;
-
-export const ADD_ARTIFACT_TO_ISSUE_MUTATION = `
-mutation AddArtefactToIssue($input: AddArtefactToIssueInput!) {
-  addArtefactToIssue(input: $input) {
-    addedArtefactEvent {
-      addedArtefact {
-        id
       }
     }
   }

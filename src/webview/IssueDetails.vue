@@ -377,33 +377,7 @@ export default {
     toggleSection(sectionName) {
       this.expandedSections[sectionName] = !this.expandedSections[sectionName];
     },
-    createArtifact() {
-      if (!this.issue || !this.issue.id) {
-        console.error("No issue selected");
-        return;
-      }
 
-      if (vscode) {
-        vscode.postMessage({
-          command: 'createArtifact',
-          issueId: this.issue.id
-        });
-      }
-    },
-
-    getFileName(filePath) {
-      if (!filePath) return 'Unknown file';
-      try {
-        // Extract filename from URI
-        const uri = new URL(filePath);
-        const pathParts = uri.pathname.split('/');
-        return pathParts[pathParts.length - 1];
-      } catch (e) {
-        // Fallback for non-URI paths
-        const parts = filePath.split('/');
-        return parts[parts.length - 1];
-      }
-    },
 
     getArtifactName(artifact) {
       if (!artifact) return 'Unknown';
@@ -422,6 +396,43 @@ export default {
 
       // Last resort fallback
       return `Artifact ${artifact.id.substring(0, 8)}`;
+    },
+    createArtifact() {
+      if (!this.issue || !this.issue.id) {
+        console.error("No issue selected");
+        return;
+      }
+
+      console.log("[IssueDetails.vue] Creating artifact for issue:", this.issue.id);
+      if (vscode) {
+        vscode.postMessage({
+          command: 'createArtifact',
+          issueId: this.issue.id
+        });
+      }
+    },
+
+    getFileName(filePath) {
+      if (!filePath) return 'Unknown file';
+
+      try {
+        // Try to handle file:// URLs correctly
+        if (filePath.startsWith('file:///')) {
+          const decodedPath = decodeURIComponent(filePath);
+          // Get just the filename from the path
+          const parts = decodedPath.split('/');
+          return parts[parts.length - 1];
+        }
+
+        // Handle regular URLs
+        const uri = new URL(filePath);
+        const pathParts = uri.pathname.split('/');
+        return pathParts[pathParts.length - 1];
+      } catch (e) {
+        // Fallback for non-URI paths
+        const parts = filePath.split('/');
+        return parts[parts.length - 1];
+      }
     }
   },
   mounted() {
