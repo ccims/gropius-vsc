@@ -11,14 +11,18 @@ import {
   GET_ISSUE_DETAILS,
   FETCH_COMPONENT_VERSION_BY_ID_QUERY,
   GET_COMPONENT_VERSIONS_IN_PROJECT_QUERY,
-  GET_ARTIFACTS_FOR_ISSUE,         
-  CREATE_ARTIFACT_MUTATION,        
-  ADD_ARTIFACT_TO_ISSUE_MUTATION,  
-  GET_ARTIFACT_TEMPLATES_QUERY 
+  GET_ARTIFACTS_FOR_ISSUE,
+  CREATE_ARTIFACT_MUTATION,
+  ADD_ARTIFACT_TO_ISSUE_MUTATION,
+  GET_ARTIFACT_TEMPLATES_QUERY
 } from "./queries";
+import path from "path";
 
 // Create a single, global API client instance
 const globalApiClient = new APIClient(API_URL, CLIENT_ID, CLIENT_SECRET);
+
+// Create the artifact decorator manager (code highlighting)
+let artifactDecoratorManager: ArtifactDecoratorManager;
 
 /**
  * Interface for component tree items in the Gropius Component Versions provider
@@ -37,8 +41,13 @@ interface ComponentTreeItem {
  * Registers all providers and commands in VS Code
  */
 export function activate(context: vscode.ExtensionContext) {
+
+  // Initialize the artifact decorator manager
+  artifactDecoratorManager = new ArtifactDecoratorManager(context);
+
   // 1) Register the Gropius Component Versions view
   const gropiusComponentVersionsProvider = new GropiusComponentVersionsProvider(context, globalApiClient);
+
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
       GropiusComponentVersionsProvider.viewType,
@@ -66,7 +75,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.window.registerWebviewViewProvider(IssueDetailsProvider.viewType, issueDetailsProvider)
   );
 
-  // Create Artifacts command
+  // Command to create Artifacts 
   context.subscriptions.push(
     vscode.commands.registerCommand('extension.createArtifact', async (issueId) => {
       console.log("[extension.createArtifact] Called with issueId:", issueId);
@@ -155,7 +164,7 @@ export function activate(context: vscode.ExtensionContext) {
         const selectedTemplateItem = await vscode.window.showQuickPick(templateItems, {
           placeHolder: 'Select an artifact template'
         }) as vscode.QuickPickItem | undefined;
-        
+
         if (!selectedTemplateItem) {
           return; // User cancelled
         }
@@ -251,6 +260,59 @@ export function activate(context: vscode.ExtensionContext) {
       } catch (error) {
         console.error("[extension.createArtifact] Error:", error);
         vscode.window.showErrorMessage(`Error: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    })
+  );
+
+  // Command to open and highlight a file for an artifact
+  context.subscriptions.push(
+    vscode.commands.registerCommand('extension.openArtifactFile', async (artifactData) => {
+      console.log(`[extension.openArtifactFile] Opening file: ${artifactData.file}`);
+      
+      try {
+        // Convert the file URI string to a vscode.Uri object
+        const fileUri = vscode.Uri.parse(artifactData.file);
+        
+        // Check if file exists in workspace
+        let fileExists = false;
+        try {
+          await vscode.workspace.fs.stat(fileUri);
+          fileExists = true;
+        } catch (error) {
+          // File doesn't exist or isn't accessible
+          fileExists = false;
+        }
+        
+        if (!fileExists) {
+          vscode.window.showWarningMessage(`File not found in workspace: ${fileUri.fsPath}`);
+          return;
+        }
+        
+        // Open the document in the editor
+        const document = await vscode.workspace.openTextDocument(fileUri);
+        const editor = await vscode.window.showTextDocument(document);
+        
+        // If we have valid line numbers, scroll to that position
+        if (artifactData.from && artifactData.to) {
+          // Convert to 0-based line numbers for VSCode API
+          const startLine = Math.max(0, artifactData.from - 1);
+          const endLine = Math.max(0, artifactData.to - 1);
+          
+          // Create a range for the relevant lines
+          const range = new vscode.Range(
+            new vscode.Position(startLine, 0),
+            new vscode.Position(endLine, document.lineAt(endLine).text.length)
+          );
+          
+          // Reveal the range in the editor
+          editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+          
+          // Set the selection but don't highlight
+          editor.selection = new vscode.Selection(range.start, range.start);
+        }
+      } catch (error) {
+        console.error(`[extension.openArtifactFile] Error opening file: ${error}`);
+        vscode.window.showErrorMessage(`Error opening artifact file: ${error instanceof Error ? error.message : String(error)}`);
       }
     })
   );
@@ -862,6 +924,10 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
         console.log(`[IssueDetailsProvider] Creating artifact for issue: ${message.issueId}`);
         // Execute the command to create an artifact
         vscode.commands.executeCommand('extension.createArtifact', message.issueId);
+      } else if (message.command === "openArtifactFile") {
+        console.log(`[IssueDetailsProvider] Opening artifact file:`, message.artifactData);
+        // Execute the command to open the artifact file
+        vscode.commands.executeCommand('extension.openArtifactFile', message.artifactData);
       }
     });
   }
@@ -909,6 +975,24 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
             ...issueData.data.node,
             artifacts: artifactsData.data?.node?.artefacts?.nodes || []
           };
+
+          // Register artifacts for decoration in open editors
+          if (issueWithArtifacts.artifacts && issueWithArtifacts.artifacts.length > 0) {
+            // Clear previous artifacts first
+            artifactDecoratorManager.clearAllArtifacts();
+
+            // Register all artifacts
+            for (const artifact of issueWithArtifacts.artifacts) {
+              if (artifact.file && artifact.from && artifact.to) {
+                artifactDecoratorManager.registerArtifact(
+                  artifact.id,
+                  artifact.file,
+                  artifact.from,
+                  artifact.to
+                );
+              }
+            }
+          }
 
           this._view?.webview.postMessage({
             command: 'displayIssue',
@@ -1111,4 +1195,182 @@ export class GraphsProvider implements vscode.WebviewViewProvider {
   }
 }
 
-export function deactivate() { }
+/**
+ * Manages decorations for artifacts in open text editors
+ */
+class ArtifactDecoratorManager {
+  private decorationTypes: Map<string, vscode.TextEditorDecorationType> = new Map();
+  private artifactRanges: Map<string, { uri: vscode.Uri, ranges: vscode.Range[], artifactIds: string[] }> = new Map();
+
+  constructor(private context: vscode.ExtensionContext) {
+    // Listen for editor changes to apply decorations
+    vscode.window.onDidChangeActiveTextEditor(this.onActiveEditorChanged, this, context.subscriptions);
+
+    // Apply decorations to the active editor right away
+    if (vscode.window.activeTextEditor) {
+      this.onActiveEditorChanged(vscode.window.activeTextEditor);
+    }
+  }
+
+  /**
+   * Register an artifact to be highlighted in editors
+   */
+  public registerArtifact(artifactId: string, fileUri: string, from: number, to: number): void {
+    try {
+      const uri = vscode.Uri.parse(fileUri);
+      const uriString = uri.toString();
+  
+      // Convert 1-based line numbers to 0-based
+      const startLine = Math.max(0, from - 1);
+      const endLine = Math.max(0, to - 1);
+  
+      // Create ranges for just the first and last lines
+      const ranges = [];
+      
+      // First line
+      ranges.push(new vscode.Range(
+        new vscode.Position(startLine, 0),
+        new vscode.Position(startLine, Number.MAX_SAFE_INTEGER)
+      ));
+      
+      // Last line (only if different from first line)
+      if (startLine !== endLine) {
+        ranges.push(new vscode.Range(
+          new vscode.Position(endLine, 0),
+          new vscode.Position(endLine, Number.MAX_SAFE_INTEGER)
+        ));
+      }
+  
+      // Store or update the artifact range for this file
+      if (!this.artifactRanges.has(uriString)) {
+        this.artifactRanges.set(uriString, {
+          uri,
+          ranges: ranges,
+          artifactIds: [artifactId]
+        });
+      } else {
+        const fileData = this.artifactRanges.get(uriString)!;
+        fileData.ranges.push(...ranges);
+        fileData.artifactIds.push(artifactId);
+        fileData.artifactIds.push(artifactId); // Add twice if we have two ranges
+      }
+  
+      // Apply decorations if the file is open
+      this.applyDecorationsToOpenEditors();
+    } catch (error) {
+      console.error(`[ArtifactDecoratorManager] Error registering artifact: ${error}`);
+    }
+  }
+
+  /**
+   * Remove an artifact registration
+   */
+  public unregisterArtifact(artifactId: string): void {
+    // Find all files that contain this artifact
+    for (const [uriString, fileData] of this.artifactRanges.entries()) {
+      const index = fileData.artifactIds.indexOf(artifactId);
+      if (index >= 0) {
+        // Remove the artifact and its range
+        fileData.artifactIds.splice(index, 1);
+        fileData.ranges.splice(index, 1);
+
+        // If no more artifacts for this file, remove the entry
+        if (fileData.artifactIds.length === 0) {
+          this.artifactRanges.delete(uriString);
+        }
+      }
+    }
+
+    // Reapply decorations
+    this.applyDecorationsToOpenEditors();
+  }
+
+  /**
+   * Clear all artifact registrations
+   */
+  public clearAllArtifacts(): void {
+    this.artifactRanges.clear();
+    this.disposeAllDecorations();
+  }
+
+  /**
+   * Called when the active editor changes
+   */
+  private onActiveEditorChanged(editor: vscode.TextEditor | undefined): void {
+    if (!editor) {
+      return;
+    }
+
+    // Apply decorations to the new active editor
+    this.applyDecorationsToEditor(editor);
+  }
+
+  /**
+   * Apply decorations to all open editors
+   */
+  private applyDecorationsToOpenEditors(): void {
+    vscode.window.visibleTextEditors.forEach(editor => {
+      this.applyDecorationsToEditor(editor);
+    });
+  }
+
+  private applyDecorationsToEditor(editor: vscode.TextEditor): void {
+    const uriString = editor.document.uri.toString();
+  
+    // Check if we have artifacts for this file
+    if (!this.artifactRanges.has(uriString)) {
+      return;
+    }
+  
+    // Get the ranges for this file
+    const fileData = this.artifactRanges.get(uriString)!;
+  
+    // Create decoration type if needed
+    if (!this.decorationTypes.has(uriString)) {
+      const extensionPath = this.context.extensionPath;
+      const iconPath = path.join(extensionPath, 'resources', 'icons', 'highlighter.png');
+      
+      console.log("[ArtifactDecoratorManager] Using icon path:", iconPath);
+      
+      const decorationType = vscode.window.createTextEditorDecorationType({
+        // Remove the background color and border properties
+        overviewRulerColor: new vscode.ThemeColor('editorOverviewRuler.findMatchForeground'),
+        overviewRulerLane: vscode.OverviewRulerLane.Center,
+        gutterIconPath: iconPath,
+        gutterIconSize: '100%'
+      });
+      
+      this.decorationTypes.set(uriString, decorationType);
+    }
+  
+    // Apply the decorations after a short delay to ensure the editor is ready
+    setTimeout(() => {
+      const decorationType = this.decorationTypes.get(uriString)!;
+      editor.setDecorations(decorationType, fileData.ranges);
+    }, 100);
+  }
+
+  /**
+   * Dispose all decoration types
+   */
+  private disposeAllDecorations(): void {
+    for (const decorationType of this.decorationTypes.values()) {
+      decorationType.dispose();
+    }
+    this.decorationTypes.clear();
+  }
+
+  /**
+   * Dispose all resources
+   */
+  public dispose(): void {
+    this.disposeAllDecorations();
+  }
+}
+
+export function deactivate() {
+  // Clean up the decorator manager
+  if (artifactDecoratorManager) {
+    artifactDecoratorManager.dispose();
+  }
+}

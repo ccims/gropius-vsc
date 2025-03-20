@@ -165,7 +165,8 @@
             </button>
 
             <div v-if="issue.artifacts && issue.artifacts.length > 0" class="artifacts-list">
-              <div v-for="artifact in issue.artifacts" :key="artifact.id" class="artifact-item">
+              <div v-for="artifact in issue.artifacts" :key="artifact.id" class="artifact-item"
+                @click="openArtifactFile(artifact)">
                 <div class="artifact-content">
                   <div class="artifact-file">
                     <strong>{{ getFileName(artifact.file) }}</strong>
@@ -433,6 +434,27 @@ export default {
         const parts = filePath.split('/');
         return parts[parts.length - 1];
       }
+    },
+
+    openArtifactFile(artifact) {
+      if (!artifact || !artifact.file) {
+        console.error("Cannot open artifact: missing file path");
+        return;
+      }
+
+      console.log("[IssueDetails.vue] Opening artifact file:", artifact.file);
+
+      if (vscode) {
+        vscode.postMessage({
+          command: 'openArtifactFile',
+          artifactData: {
+            file: artifact.file,
+            from: artifact.from,
+            to: artifact.to,
+            id: artifact.id
+          }
+        });
+      }
     }
   },
   mounted() {
@@ -489,3 +511,19 @@ export default {
 };
 
 </script>
+
+<style>
+.artifact-item {
+  padding: 8px;
+  margin-bottom: 8px;
+  border-radius: 4px;
+  background-color: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.artifact-item:hover {
+  background-color: var(--vscode-list-hoverBackground);
+}
+</style>
