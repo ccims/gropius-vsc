@@ -45,8 +45,8 @@
       <!-- Component Version Filter Button -->
       <div class="version-filter">
         <button class="version-filter-button" :class="{ 'active': componentVersionFilter }" @click="toggleVersionFilter"
-          title="Show component issues only (hides version-specific issues)">
-          <span class="filter-icon">C</span>
+          title="Filter issues to show only those affecting the selected version">
+          <span class="filter-icon">V</span>
         </button>
       </div>
 
@@ -92,7 +92,9 @@ export default {
       showFilterMenu: false,
       typeFilter: null,
       componentVersionFilter: false,
-      issueSourceMap: {}, // Map to track if an issue is component-specific or version-specific
+      issueSourceMap: {},
+      selectedVersionId: null,
+      affectedIssueIds: new Set(),
     };
   },
   computed: {
@@ -103,9 +105,9 @@ export default {
     filteredIssues() {
       let result = [...this.issues];
 
-      // Apply component version filter
-      if (this.componentVersionFilter) {
-        result = result.filter(issue => !this.issueSourceMap[issue.id]?.versionOnly);
+      // When filter is ON, show only issues affected by the selected version
+      if (this.componentVersionFilter && this.selectedVersionId) {
+        result = result.filter(issue => this.affectedIssueIds.has(issue.id));
       }
 
       // Apply status filter
@@ -162,23 +164,38 @@ export default {
       vscode.postMessage({ command: "vueAppReady" });
     }
     window.addEventListener("message", (event) => {
-      const message = event.data;
-      if (message && message.command === "updateComponentIssues") {
-        this.issues = message.data;
+  const message = event.data;
+  if (message && message.command === "updateComponentIssues") {
+    this.issues = message.data;
 
-        // Reset the issue source map
-        this.issueSourceMap = {};
+    // Reset the issue source map
+    this.issueSourceMap = {};
 
-        // If we have metadata about issue sources, update the map
-        if (message.metadata && message.metadata.versionOnlyIssues) {
-          message.metadata.versionOnlyIssues.forEach(issueId => {
-            this.issueSourceMap[issueId] = { versionOnly: true };
-          });
-        }
+    // If we have metadata about issue sources, update the map
+    if (message.metadata && message.metadata.versionOnlyIssues) {
+      message.metadata.versionOnlyIssues.forEach(issueId => {
+        this.issueSourceMap[issueId] = { versionOnly: true };
+      });
+    }
 
-        this.saveState();
+    // Store the selected version ID
+    if (message.metadata) {
+      if (message.metadata.selectedVersionId) {
+        this.selectedVersionId = message.metadata.selectedVersionId;
+      } else {
+        this.selectedVersionId = null;
       }
-    });
+      
+      // Update affected issue IDs set
+      this.affectedIssueIds = new Set(message.metadata.affectedIssueIds || []);
+    }
+
+    // When selecting a new component/version, turn off the filter by default
+    this.componentVersionFilter = false;
+
+    this.saveState();
+  }
+});
 
     // Close filter menu when clicking outside
     document.addEventListener('click', this.handleClickOutside);
@@ -242,10 +259,13 @@ export default {
       vscode.postMessage({ command: "issueClicked", issueId });
     },
     toggleVersionFilter() {
+      console.log("Filter before:", this.componentVersionFilter);
       this.componentVersionFilter = !this.componentVersionFilter;
+      console.log("Filter after:", this.componentVersionFilter);
+      console.log("Selected version:", this.selectedVersionId);
+      console.log("Affected issues count:", this.affectedIssueIds.size);
       this.saveState();
     },
-
     toggleSortMenu() {
       this.showSortMenu = !this.showSortMenu;
     },
@@ -564,18 +584,20 @@ export default {
 .version-filter-button {
   background: none;
   border: none;
-  padding: 4px 8px;
+  padding: 4px;
   color: var(--vscode-descriptionForeground);
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 12px;
+  justify-content: center;
+  width: 24px;
   height: 24px;
   opacity: 0.6;
   transition: opacity 0.2s, background-color 0.2s;
   background-color: var(--vscode-button-secondaryBackground, #2d2d2d);
   border-radius: 4px;
+  font-weight: bold;
+  font-size: 12px;
 }
 
 .version-filter-button:hover,
