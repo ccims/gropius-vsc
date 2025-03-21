@@ -11,8 +11,8 @@
                 <!-- Wrap both the node and its description in a single container -->
                 <div class="node-container" @mouseenter="hoveredItem = item" @mouseleave="hoveredItem = null">
                     <div class="tree-node" :class="{ 'has-children': item.children && item.children.length > 0 }"
-                        @click="toggleExpand(item)">
-                        <span class="icon" v-if="item.children && item.children.length > 0">
+                        @click="handleNodeClick(item)">
+                        <span class=" icon" v-if="item.children && item.children.length > 0">
                             {{ item.expanded ? '▾' : '▸' }}
                         </span>
                         <img v-else class="custom-icon" :src="customIconPath" alt="Component"
@@ -42,7 +42,7 @@
                     <div class="tree-item" v-for="(child, childIndex) in item.children" :key="childIndex">
                         <!-- Same pattern for child nodes -->
                         <div class="node-container" @mouseenter="hoveredItem = child" @mouseleave="hoveredItem = null">
-                            <div class="tree-node child-node">
+                            <div class="tree-node child-node" @click="handleNodeClick(child)">
                                 <img class="custom-icon" :src="customIconPath" alt="Component"
                                     @error="handleImageError" />
 
@@ -108,6 +108,8 @@ export default defineComponent({
         const clickedVersion = ref<string | null>(null);
         const clickFeedbackTimer = ref<number | null>(null);
 
+        const activeComponent = ref<string | null | undefined>(null);
+
         // Handle version tag click
         const handleVersionClick = (item: TreeItem, version: string, index: number) => {
 
@@ -144,6 +146,17 @@ export default defineComponent({
             }
         };
 
+        const handleNodeClick = (item: TreeItem) => {
+            // If the item has children, toggle expansion
+            if (item.children && item.children.length > 0) {
+                toggleExpand(item);
+            }
+            // Otherwise, handle as component click
+            else if (item.id) {
+                handleComponentClick(item);
+            }
+        };
+
         // Function to toggle the expanded state of a tree item
         const toggleExpand = (item: TreeItem) => {
             item.expanded = !item.expanded;
@@ -153,6 +166,26 @@ export default defineComponent({
             console.error('Failed to load icon:', customIconPath.value);
             // Use a fallback icon if the image fails to load
             (event.target as HTMLImageElement).style.display = 'none';
+        };
+
+        // handle component clicks
+        const handleComponentClick = (item: TreeItem) => {
+            // Set the active component
+            activeComponent.value = item.id;
+
+            // Clear the active version
+            activeVersion.value = null;
+
+            // Call the command to show issues for this component
+            if (item.id) {
+                vscode.postMessage({
+                    command: 'showComponentIssues',
+                    data: {
+                        componentName: item.name,
+                        componentId: item.id
+                    }
+                });
+            }
         };
 
         onMounted(() => {
@@ -183,7 +216,10 @@ export default defineComponent({
             hoveredItem,
             clickedVersion,
             handleVersionClick,
-            activeVersion
+            activeVersion,
+            activeComponent,
+            handleComponentClick,
+            handleNodeClick
         };
     }
 });

@@ -41,6 +41,15 @@
           <img :src="getTypeIconPath('Misc', typeFilter === 'Misc/Task')" class="type-icon" alt="Misc/Task" />
         </button>
       </div>
+
+      <!-- Component Version Filter Button -->
+      <div class="version-filter">
+        <button class="version-filter-button" :class="{ 'active': componentVersionFilter }" @click="toggleVersionFilter"
+          title="Show component issues only (hides version-specific issues)">
+          <span class="filter-icon">C</span>
+        </button>
+      </div>
+
     </div>
 
     <!-- Issues List -->
@@ -49,6 +58,8 @@
         <div class="issue-title-line">
           <img :src="getIconPath(issue.type.name, issue.state.isOpen)" class="issue-icon" alt="Issue Icon" />
           <span class="issue-name">{{ issue.title }}</span>
+          <span v-if="issueSourceMap[issue.id]?.versionOnly" class="version-badge"
+            title="This issue affects only this version">V</span>
         </div>
       </li>
     </ul>
@@ -80,6 +91,8 @@ export default {
       sortOrder: 'asc', // 'asc' or 'desc'
       showFilterMenu: false,
       typeFilter: null,
+      componentVersionFilter: false,
+      issueSourceMap: {}, // Map to track if an issue is component-specific or version-specific
     };
   },
   computed: {
@@ -89,6 +102,11 @@ export default {
     },
     filteredIssues() {
       let result = [...this.issues];
+
+      // Apply component version filter
+      if (this.componentVersionFilter) {
+        result = result.filter(issue => !this.issueSourceMap[issue.id]?.versionOnly);
+      }
 
       // Apply status filter
       if (this.statusFilter === 'open') {
@@ -147,6 +165,17 @@ export default {
       const message = event.data;
       if (message && message.command === "updateComponentIssues") {
         this.issues = message.data;
+
+        // Reset the issue source map
+        this.issueSourceMap = {};
+
+        // If we have metadata about issue sources, update the map
+        if (message.metadata && message.metadata.versionOnlyIssues) {
+          message.metadata.versionOnlyIssues.forEach(issueId => {
+            this.issueSourceMap[issueId] = { versionOnly: true };
+          });
+        }
+
         this.saveState();
       }
     });
@@ -211,42 +240,39 @@ export default {
       console.log("ComponentIssues.vue: Opening issue details for issue id:", issueId);
       // Send a message with command "issueClicked" and the correct issue id
       vscode.postMessage({ command: "issueClicked", issueId });
-    }
-  },
-  etStatusFilter(status) {
-    if (this.statusFilter === status) {
-      this.statusFilter = 'all';
-    } else {
-      this.statusFilter = status;
-    }
-    this.saveState();
-  },
-  toggleSortMenu() {
-    this.showSortMenu = !this.showSortMenu;
-  },
-  setSort(sortValue) {
-    this.sortBy = sortValue;
-    this.showSortMenu = false;
-    this.saveState();
-  },
-  clearSearch() {
-    this.searchQuery = '';
-    this.saveState();
-  },
-  handleClickOutside(event) {
-    if (this.$refs.sortDropdown && !this.$refs.sortDropdown.contains(event.target)) {
+    },
+    toggleVersionFilter() {
+      this.componentVersionFilter = !this.componentVersionFilter;
+      this.saveState();
+    },
+
+    toggleSortMenu() {
+      this.showSortMenu = !this.showSortMenu;
+    },
+    setSort(sortValue) {
+      this.sortBy = sortValue;
       this.showSortMenu = false;
-    }
-  },
-  saveState() {
-    if (vscode) {
-      vscode.setState({
-        issues: this.issues,
-        searchQuery: this.searchQuery,
-        statusFilter: this.statusFilter,
-        typeFilter: this.typeFilter,
-        sortOrder: this.sortOrder
-      });
+      this.saveState();
+    },
+    clearSearch() {
+      this.searchQuery = '';
+      this.saveState();
+    },
+    handleClickOutside(event) {
+      if (this.$refs.sortDropdown && !this.$refs.sortDropdown.contains(event.target)) {
+        this.showSortMenu = false;
+      }
+    },
+    saveState() {
+      if (vscode) {
+        vscode.setState({
+          issues: this.issues,
+          searchQuery: this.searchQuery,
+          statusFilter: this.statusFilter,
+          typeFilter: this.typeFilter,
+          sortOrder: this.sortOrder
+        });
+      }
     }
   }
 
@@ -278,7 +304,7 @@ export default {
 .search-box {
   flex: 1 1 auto;
   min-width: 100px;
-  max-width: none; 
+  max-width: none;
 }
 
 .sort-dropdown,
@@ -524,5 +550,61 @@ export default {
 .type-button.active .type-icon {
   filter: brightness(1) grayscale(0%);
   /* Full color when active */
+}
+
+.version-badge {
+  background-color: var(--vscode-badge-background, #4d4d4d);
+  color: var(--vscode-badge-foreground, #ffffff);
+  border-radius: 10px;
+  padding: 1px 6px;
+  font-size: 0.8em;
+  margin-left: 8px;
+}
+
+.version-filter-button {
+  background: none;
+  border: none;
+  padding: 4px 8px;
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  height: 24px;
+  opacity: 0.6;
+  transition: opacity 0.2s, background-color 0.2s;
+  background-color: var(--vscode-button-secondaryBackground, #2d2d2d);
+  border-radius: 4px;
+}
+
+.version-filter-button:hover,
+.version-filter-button.active {
+  background-color: var(--vscode-button-secondaryHoverBackground, #3d3d3d);
+  color: var(--vscode-foreground);
+  opacity: 1;
+}
+
+.version-filter {
+  margin-left: 4px;
+}
+
+.version-filter-button {
+  background: none;
+  border: none;
+  padding: 4px;
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  opacity: 0.6;
+  transition: opacity 0.2s, background-color 0.2s;
+  background-color: var(--vscode-button-secondaryBackground, #2d2d2d);
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 12px;
 }
 </style>

@@ -70,6 +70,29 @@ query GetArtefactTemplates {
 }
 `;
 
+export const GET_ISSUES_OF_COMPONENT_QUERY = `
+query GetIssuesOfComponent($id: ID!) {
+  node(id: $id) {
+    ... on Component {
+      id
+      name
+      issues {
+        nodes {
+          id
+          title
+          type {
+            name
+          }
+          state {
+            isOpen
+          }
+        }
+      }
+    }
+  }
+}
+`;
+
 export const FETCH_COMPONENT_VERSIONS_QUERY = `
 query MyQuery {
   components {

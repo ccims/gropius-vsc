@@ -14,7 +14,8 @@ import {
   GET_ARTIFACTS_FOR_ISSUE,
   CREATE_ARTIFACT_MUTATION,
   ADD_ARTIFACT_TO_ISSUE_MUTATION,
-  GET_ARTIFACT_TEMPLATES_QUERY
+  GET_ARTIFACT_TEMPLATES_QUERY,
+  GET_ISSUES_OF_COMPONENT_QUERY
 } from "./queries";
 import path from "path";
 
@@ -268,11 +269,11 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand('extension.openArtifactFile', async (artifactData) => {
       console.log(`[extension.openArtifactFile] Opening file: ${artifactData.file}`);
-      
+
       try {
         // Convert the file URI string to a vscode.Uri object
         const fileUri = vscode.Uri.parse(artifactData.file);
-        
+
         // Check if file exists in workspace
         let fileExists = false;
         try {
@@ -282,31 +283,31 @@ export function activate(context: vscode.ExtensionContext) {
           // File doesn't exist or isn't accessible
           fileExists = false;
         }
-        
+
         if (!fileExists) {
           vscode.window.showWarningMessage(`File not found in workspace: ${fileUri.fsPath}`);
           return;
         }
-        
+
         // Open the document in the editor
         const document = await vscode.workspace.openTextDocument(fileUri);
         const editor = await vscode.window.showTextDocument(document);
-        
+
         // If we have valid line numbers, scroll to that position
         if (artifactData.from && artifactData.to) {
           // Convert to 0-based line numbers for VSCode API
           const startLine = Math.max(0, artifactData.from - 1);
           const endLine = Math.max(0, artifactData.to - 1);
-          
+
           // Create a range for the relevant lines
           const range = new vscode.Range(
             new vscode.Position(startLine, 0),
             new vscode.Position(endLine, document.lineAt(endLine).text.length)
           );
-          
+
           // Reveal the range in the editor
           editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
-          
+
           // Set the selection but don't highlight
           editor.selection = new vscode.Selection(range.start, range.start);
         }
@@ -333,8 +334,10 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Command to show component issues for a given component ID
   context.subscriptions.push(
-    vscode.commands.registerCommand("extension.showComponentIssues", async (componentId: string): Promise<void> => {
+    vscode.commands.registerCommand("extension.showComponentIssues", async (data: any): Promise<void> => {
+      const componentId = typeof data === 'string' ? data : data.componentId;
       await componentIssuesProvider.updateIssues(componentId);
+      componentIssuesProvider.revealView(); 
     })
   );
 
@@ -763,25 +766,37 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
    */
   public async updateIssues(componentId: string): Promise<void> {
     try {
+      // Clear the last version ID since we're viewing component-specific issues
+      this.lastVersionId = null;
+      
       await this.apiClient.authenticate();
-      const response = await this.apiClient.executeQuery(FETCH_COMPONENT_VERSIONS_QUERY);
-      if (!response.data || !response.data.components) {
+      const result = await this.apiClient.executeQuery(
+        GET_ISSUES_OF_COMPONENT_QUERY,
+        { id: componentId }
+      );
+      
+      if (!result.data || !result.data.node) {
         throw new Error("No component data received.");
       }
-      const components: any[] = response.data.components.nodes;
-      const component = components.find((c: any) => c.id === componentId);
-      const issues = component ? component.issues.nodes : [];
-
+      
+      const issues = result.data.node.issues.nodes || [];
+      
       // Store in memory
       this.lastIssues = issues;
-
+      
       // If the view is open, post them immediately
       if (this._view) {
         this._view.webview.postMessage({
           command: "updateComponentIssues",
-          data: issues
+          data: issues,
+          metadata: {
+            versionOnlyIssues: [] // No version-only issues when viewing component issues
+          }
         });
       }
+      
+      // Also reveal the view
+      this.revealView();
     } catch (error: any) {
       vscode.window.showErrorMessage(
         `Failed to fetch component issues: ${error instanceof Error ? error.message : String(error)}`
@@ -800,44 +815,66 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
       this.lastVersionId = componentVersionId;
 
       await this.apiClient.authenticate();
-      const result = await this.apiClient.executeQuery(
+
+      // Get the component ID from the component version
+      const componentVersionResult  = await this.apiClient.executeQuery(
+        FETCH_COMPONENT_VERSION_BY_ID_QUERY,
+        { id: componentVersionId }
+      );
+
+      const componentId = componentVersionResult.data?.node?.component?.id;
+      if (!componentId) {
+        throw new Error("Could not find component ID for this version");
+      }
+
+      // Get all the components issues
+      const componentResult = await this.apiClient.executeQuery(
+        GET_ISSUES_OF_COMPONENT_QUERY,
+        { id: componentId }
+      );
+
+      // Get all issues specific to the component
+      const componentIssues = componentResult.data?.node?.issues?.nodes || [];
+
+      // Get the version-specific issues
+      const versionResult = await this.apiClient.executeQuery(
         GET_ISSUES_OF_COMPONENT_VERSION_QUERY,
         { id: componentVersionId }
       );
 
-      if (result.data?.node) {
-        const componentVersion = result.data.node;
-        const allIssues = [];
-        const aggregatedIssueGroups = componentVersion.aggregatedIssues.nodes || [];
+      const versionIssueGroups = versionResult.data?.node?.aggregatedIssues?.nodes || [];
+      const versionIssues: any[] = [];
 
-        for (const group of aggregatedIssueGroups) {
-          const issues = group.issues.nodes || [];
-          allIssues.push(...issues);
+      for (const group of versionIssueGroups) {
+        const issues = group.issues.nodes || [];
+        versionIssues.push(...issues);
+      }
+
+      // Combine all issues, remove duplicates
+      const allIssues = [...componentIssues];
+      const componentIssueIds = new Set(componentIssues.map((issue: any) => issue.id));
+      const versionOnlyIssues = [];
+
+      // Add version issues that aren't already in the component issues
+      for (const issue of versionIssues) {
+        if (!componentIssueIds.has(issue.id)) {
+          allIssues.push(issue);
+          versionOnlyIssues.push(issue.id);
         }
+      }
 
-        // Deduplicate issues based on ID
-        const uniqueIssues = allIssues.filter((issue, index, self) =>
-          index === self.findIndex((i) => i.id === issue.id)
-        );
+      // Update the issue list
+      this.lastIssues = allIssues;
 
-        console.log(`Found ${uniqueIssues.length} unique issues for version ${componentVersionId}`);
-        this.lastIssues = uniqueIssues;
-
-        // If the view is open, post the new issues
-        if (this._view) {
-          this._view.webview.postMessage({
-            command: "updateComponentIssues",
-            data: uniqueIssues
-          });
-        }
-      } else {
-        this.lastIssues = [];
-        if (this._view) {
-          this._view.webview.postMessage({
-            command: "updateComponentIssues",
-            data: []
-          });
-        }
+      // If the view is open, post the new issues
+      if (this._view) {
+        this._view.webview.postMessage({
+          command: "updateComponentIssues",
+          data: allIssues,
+          metadata: {
+            versionOnlyIssues: versionOnlyIssues
+          }
+        });
       }
     } catch (error: any) {
       vscode.window.showErrorMessage(
@@ -851,6 +888,40 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
           data: []
         });
       }
+    }
+  }
+
+  public async updateComponentIssues(componentId: string): Promise<void> {
+    try {
+      // Clear the last version ID
+      this.lastVersionId = null;
+      
+      await this.apiClient.authenticate();
+      
+      const result = await this.apiClient.executeQuery(
+        GET_ISSUES_OF_COMPONENT_QUERY,
+        { id: componentId }
+      );
+      
+      if (result.data?.node) {
+        const componentIssues = result.data.node.issues.nodes || [];
+        
+        // Update the issue list
+        this.lastIssues = componentIssues;
+        
+        // If the view is open, post the new issues
+        if (this._view) {
+          this._view.webview.postMessage({
+            command: "updateComponentIssues",
+            data: componentIssues,
+            metadata: {
+              versionOnlyIssues: [] // No version-only issues when viewing component issues
+            }
+          });
+        }
+      }
+    } catch (error: any) {
+      // Handle errors
     }
   }
 
@@ -1219,20 +1290,20 @@ class ArtifactDecoratorManager {
     try {
       const uri = vscode.Uri.parse(fileUri);
       const uriString = uri.toString();
-  
+
       // Convert 1-based line numbers to 0-based
       const startLine = Math.max(0, from - 1);
       const endLine = Math.max(0, to - 1);
-  
+
       // Create ranges for just the first and last lines
       const ranges = [];
-      
+
       // First line
       ranges.push(new vscode.Range(
         new vscode.Position(startLine, 0),
         new vscode.Position(startLine, Number.MAX_SAFE_INTEGER)
       ));
-      
+
       // Last line (only if different from first line)
       if (startLine !== endLine) {
         ranges.push(new vscode.Range(
@@ -1240,7 +1311,7 @@ class ArtifactDecoratorManager {
           new vscode.Position(endLine, Number.MAX_SAFE_INTEGER)
         ));
       }
-  
+
       // Store or update the artifact range for this file
       if (!this.artifactRanges.has(uriString)) {
         this.artifactRanges.set(uriString, {
@@ -1254,7 +1325,7 @@ class ArtifactDecoratorManager {
         fileData.artifactIds.push(artifactId);
         fileData.artifactIds.push(artifactId); // Add twice if we have two ranges
       }
-  
+
       // Apply decorations if the file is open
       this.applyDecorationsToOpenEditors();
     } catch (error) {
@@ -1316,22 +1387,22 @@ class ArtifactDecoratorManager {
 
   private applyDecorationsToEditor(editor: vscode.TextEditor): void {
     const uriString = editor.document.uri.toString();
-  
+
     // Check if we have artifacts for this file
     if (!this.artifactRanges.has(uriString)) {
       return;
     }
-  
+
     // Get the ranges for this file
     const fileData = this.artifactRanges.get(uriString)!;
-  
+
     // Create decoration type if needed
     if (!this.decorationTypes.has(uriString)) {
       const extensionPath = this.context.extensionPath;
       const iconPath = path.join(extensionPath, 'resources', 'icons', 'highlighter.png');
-      
+
       console.log("[ArtifactDecoratorManager] Using icon path:", iconPath);
-      
+
       const decorationType = vscode.window.createTextEditorDecorationType({
         // Remove the background color and border properties
         overviewRulerColor: new vscode.ThemeColor('editorOverviewRuler.findMatchForeground'),
@@ -1339,10 +1410,10 @@ class ArtifactDecoratorManager {
         gutterIconPath: iconPath,
         gutterIconSize: '100%'
       });
-      
+
       this.decorationTypes.set(uriString, decorationType);
     }
-  
+
     // Apply the decorations after a short delay to ensure the editor is ready
     setTimeout(() => {
       const decorationType = this.decorationTypes.get(uriString)!;
