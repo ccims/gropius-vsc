@@ -12,8 +12,10 @@
                 <div class="node-container" @mouseenter="hoveredItem = item" @mouseleave="hoveredItem = null">
                     <div class="tree-node" :class="{ 'has-children': item.children && item.children.length > 0 }"
                         @click="handleNodeClick(item)">
-                        <span class=" icon" v-if="item.children && item.children.length > 0">
-                            {{ item.expanded ? '▾' : '▸' }}
+                        <!-- Use the VS Code codicon for twisties -->
+                        <span class="codicon" v-if="item.children && item.children.length > 0">
+                            <span v-if="item.expanded" class="codicon-chevron-down"></span>
+                            <span v-else class="codicon-chevron-right"></span>
                         </span>
                         <img v-else class="custom-icon" :src="customIconPath" alt="Component"
                             @error="handleImageError" />
@@ -227,7 +229,7 @@ export default defineComponent({
 
 <style>
 .node-container {
-    margin-bottom: 4px;
+    margin-bottom: 0;
     cursor: pointer;
 }
 
@@ -236,6 +238,7 @@ export default defineComponent({
     margin: 0;
     font-family: var(--vscode-font-family);
     color: var(--vscode-foreground);
+    padding-left: 0;
 }
 
 .loading {
@@ -250,25 +253,42 @@ export default defineComponent({
 }
 
 .tree-item {
-    margin-bottom: 4px;
+    margin-bottom: 0px;
 }
 
 .tree-node {
     display: flex;
     align-items: center;
-    padding: 5px;
-    border-radius: 3px;
+    padding: 0 8px;
+    height: 22px;
+    line-height: 22px;
+    font-size: var(--vscode-font-size);
+    cursor: pointer;
 }
 
 .tree-node:hover {
     background-color: var(--vscode-list-hoverBackground);
 }
 
-.icon {
-    margin-right: 6px;
-    display: inline-block;
-    min-width: 16px;
+.codicon {
+    font-family: codicon;
+    font-size: 16px;
+    line-height: 22px;
+    width: 16px;
+    height: 22px;
     text-align: center;
+    margin-right: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.codicon-chevron-right:before {
+    content: "\ea6a";
+}
+
+.codicon-chevron-down:before {
+    content: "\ea69";
 }
 
 .custom-icon {
@@ -279,6 +299,9 @@ export default defineComponent({
 
 .node-name {
     flex-grow: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .version-tags {
@@ -311,16 +334,16 @@ export default defineComponent({
 }
 
 .children {
-    margin-left: 20px;
-    margin-top: 4px;
+    margin-left: 16px;
+    margin-top: 0px;
 }
 
 .child-node {
-    padding-left: 4px;
+    padding-left: 0px;
 }
 
 .has-children {
-    font-weight: bold;
+    font-weight: normal;
 }
 
 .version-tag.active {
