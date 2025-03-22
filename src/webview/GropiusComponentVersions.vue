@@ -13,9 +13,10 @@
                     <div class="tree-node" :class="{ 'has-children': item.children && item.children.length > 0 }"
                         @click="handleNodeClick(item)">
                         <!-- Use the VS Code codicon for twisties -->
-                        <span class="codicon" v-if="item.children && item.children.length > 0">
-                            <span v-if="item.expanded" class="codicon-chevron-down"></span>
-                            <span v-else class="codicon-chevron-right"></span>
+                        <span v-if="item.children && item.children.length > 0" class="twisty">
+                            <span v-if="item.expanded"
+                                class="codicon codicon-chevron-down explorer-arrow expanded"></span>
+                            <span v-else class="codicon codicon-chevron-right explorer-arrow collapsed"></span>
                         </span>
                         <img v-else class="custom-icon" :src="customIconPath" alt="Component"
                             @error="handleImageError" />
@@ -112,6 +113,7 @@ export default defineComponent({
 
         const activeComponent = ref<string | null | undefined>(null);
 
+
         // Handle version tag click
         const handleVersionClick = (item: TreeItem, version: string, index: number) => {
 
@@ -191,6 +193,7 @@ export default defineComponent({
         };
 
         onMounted(() => {
+            document.body.classList.add('vscode-codicon-host');
             // Request component version data from the extension
             vscode.postMessage({ command: 'getComponentVersions' });
 
@@ -228,6 +231,8 @@ export default defineComponent({
 </script>
 
 <style>
+@import "@vscode/codicons/dist/codicon.css";
+
 .node-container {
     margin-bottom: 0;
     cursor: pointer;
@@ -238,7 +243,6 @@ export default defineComponent({
     margin: 0;
     font-family: var(--vscode-font-family);
     color: var(--vscode-foreground);
-    padding-left: 0;
 }
 
 .loading {
@@ -270,17 +274,22 @@ export default defineComponent({
     background-color: var(--vscode-list-hoverBackground);
 }
 
+
 .codicon {
-    font-family: codicon;
+    font-family: 'codicon' !important;
     font-size: 16px;
-    line-height: 22px;
+    font-style: normal;
+    font-weight: normal;
+    display: inline-block;
+    text-decoration: none;
     width: 16px;
-    height: 22px;
-    text-align: center;
+    height: 16px;
+    line-height: 16px;
     margin-right: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    text-align: center;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    user-select: none;
 }
 
 .codicon-chevron-right:before {
@@ -313,12 +322,16 @@ export default defineComponent({
 .version-tag {
     background-color: var(--vscode-badge-background);
     color: var(--vscode-badge-foreground);
-    padding: 2px 6px;
-    border-radius: 10px;
-    font-size: 0.85em;
+    padding: 0 4px;
+    border-radius: 4px;
+    font-size: 0.75em;
     cursor: pointer;
     transition: all 0.2s ease;
     border: 1px solid transparent;
+    height: 16px;
+    line-height: 1.4;
+    display: inline-flex;
+    align-items: center;
 }
 
 .version-tag:hover {
@@ -382,5 +395,42 @@ export default defineComponent({
         opacity: 1;
         transform: translateY(0);
     }
+}
+
+.twisty .codicon {
+    font-family: "codicon" !important;
+}
+
+.explorer-arrow {
+    width: 16px;
+    height: 22px;
+    display: inline-block;
+    position: relative;
+}
+
+.explorer-arrow.collapsed::before {
+    content: ">";
+    position: absolute;
+    left: 2px;
+    top: 0;
+    font-size: 16px;
+    line-height: 22px;
+}
+
+.explorer-arrow.expanded::before {
+    content: "v";
+    position: absolute;
+    left: 2px;
+    top: -2px;
+    font-size: 16px;
+    line-height: 22px;
+}
+.twisty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 22px;
+    margin-right: 4px;
 }
 </style>
