@@ -164,38 +164,44 @@ export default {
       vscode.postMessage({ command: "vueAppReady" });
     }
     window.addEventListener("message", (event) => {
-  const message = event.data;
-  if (message && message.command === "updateComponentIssues") {
-    this.issues = message.data;
+      const message = event.data;
+      if (message && message.command === "updateComponentIssues") {
+        this.issues = message.data;
 
-    // Reset the issue source map
-    this.issueSourceMap = {};
+        // Reset the issue source map
+        this.issueSourceMap = {};
 
-    // If we have metadata about issue sources, update the map
-    if (message.metadata && message.metadata.versionOnlyIssues) {
-      message.metadata.versionOnlyIssues.forEach(issueId => {
-        this.issueSourceMap[issueId] = { versionOnly: true };
-      });
-    }
+        // If we have metadata about issue sources, update the map
+        if (message.metadata && message.metadata.versionOnlyIssues) {
+          message.metadata.versionOnlyIssues.forEach(issueId => {
+            this.issueSourceMap[issueId] = { versionOnly: true };
+          });
+        }
 
-    // Store the selected version ID
-    if (message.metadata) {
-      if (message.metadata.selectedVersionId) {
-        this.selectedVersionId = message.metadata.selectedVersionId;
-      } else {
-        this.selectedVersionId = null;
+        // Store the selected version ID
+        if (message.metadata) {
+          if (message.metadata.selectedVersionId) {
+            this.selectedVersionId = message.metadata.selectedVersionId;
+          } else {
+            this.selectedVersionId = null;
+          }
+
+          // Update affected issue IDs set
+          this.affectedIssueIds = new Set(message.metadata.affectedIssueIds || []);
+        }
+
+        // When selecting a new component/version, turn off the filter by default
+        this.componentVersionFilter = false;
+
+        this.saveState();
+      } else if (message && message.command === "issueUpdated") {
+        // If we receive notification that an issue has been updated,
+        // request a refresh of the entire list
+        if (vscode) {
+          vscode.postMessage({ command: "refreshRequested" });
+        }
       }
-      
-      // Update affected issue IDs set
-      this.affectedIssueIds = new Set(message.metadata.affectedIssueIds || []);
-    }
-
-    // When selecting a new component/version, turn off the filter by default
-    this.componentVersionFilter = false;
-
-    this.saveState();
-  }
-});
+    });
 
     // Close filter menu when clicking outside
     document.addEventListener('click', this.handleClickOutside);

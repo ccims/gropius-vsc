@@ -69,6 +69,13 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // Register command to refresh component issues
+  context.subscriptions.push(
+    vscode.commands.registerCommand('extension.refreshComponentIssues', () => {
+      componentIssuesProvider.refreshCurrentIssues();
+    })
+  );
+
 
   // 3) Register the "Issue Details" view
   const issueDetailsProvider = new IssueDetailsProvider(context.extensionUri);
@@ -700,6 +707,7 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
   // Store the last fetched issues and the last selected version ID
   private lastIssues: any[] | null = null;
   private lastVersionId: string | null = null;
+  private _viewVisibilityChangedDisposable?: vscode.Disposable;
 
   private _view?: vscode.WebviewView;
 
@@ -719,24 +727,28 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
     // Provide HTML for the webview
     webviewView.webview.html = this.getHtmlForWebview(webviewView.webview);
 
-    // When the view is resolved, force a re-fetch if a version was previously clicked.
-    if (this.lastVersionId) {
-      this.updateVersionIssues(this.lastVersionId);
-    } else if (this.lastIssues) {
-      // Alternatively, if we already have stored issues, post them.
-      webviewView.webview.postMessage({
-        command: "updateComponentIssues",
-        data: this.lastIssues
-      });
-    }
+    // Register visibility changed listener
+    this._viewVisibilityChangedDisposable?.dispose();
+    this._viewVisibilityChangedDisposable = webviewView.onDidChangeVisibility(() => {
+      if (webviewView.visible) {
+        console.log("[ComponentIssuesProvider] View became visible, refreshing issues");
+        this.refreshCurrentIssues();
+      }
+    });
+
+    // When the view is resolved, force a refresh regardless of previous state
+    this.refreshCurrentIssues();
 
     // Listen for messages from the Vue app
     webviewView.webview.onDidReceiveMessage((message: any): void => {
       if (message.command === "vueAppReady") {
-        // Do nothing until a component is selected.
+        this.refreshCurrentIssues();
       } else if (message.command === "issueClicked") {
         console.log("ComponentIssuesProvider received issueClicked with id:", message.issueId);
         vscode.commands.executeCommand('extension.showIssueDetails', message.issueId);
+      } else if (message.command === "refreshRequested") {
+        // Handle request to refresh issues data
+        this.refreshCurrentIssues();
       }
       return;
     });
@@ -810,6 +822,75 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
   }
 
   /**
+ * Refreshes the current set of issues by refetching them from the API.
+ */
+  public async refreshCurrentIssues(): Promise<void> {
+    console.log("[ComponentIssuesProvider] Refreshing current issues");
+    
+    try {
+      // Clear any cached issues first to ensure fresh data
+      if (this._view) {
+        // Start with a loading indicator
+        this._view.webview.postMessage({
+          command: "updateComponentIssues",
+          data: this.lastIssues || [],
+          isLoading: true
+        });
+      }
+      
+      // If we have a component version selected, refresh its issues
+      if (this.lastVersionId) {
+        console.log(`[ComponentIssuesProvider] Refreshing issues for version ID ${this.lastVersionId}`);
+        // Force a complete refresh by clearing the cache
+        this.lastIssues = null;
+        await this.updateVersionIssues(this.lastVersionId);
+        return;
+      }
+      
+      // If no version ID but we have component issues with component ID, use that
+      if (this.lastIssues && this.lastIssues.length > 0) {
+        // Try to find component ID from the first issue
+        const componentId = this.findComponentIdFromIssues(this.lastIssues);
+        if (componentId) {
+          console.log(`[ComponentIssuesProvider] Refreshing issues for component ID ${componentId}`);
+          // Force a complete refresh by clearing the cache
+          this.lastIssues = null;
+          await this.updateIssues(componentId);
+          return;
+        }
+      }
+      
+      console.log("[ComponentIssuesProvider] No version or component ID available for refresh");
+    } catch (error) {
+      console.error("[ComponentIssuesProvider] Error refreshing issues:", error);
+      vscode.window.showErrorMessage(`Failed to refresh issues: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  // Helper method to extract component ID from issues
+  private findComponentIdFromIssues(issues: any[]): string | null {
+    // Attempt different ways to find the component ID
+    for (const issue of issues) {
+      // Check if component ID is directly available
+      if (issue.component?.id) {
+        return issue.component.id;
+      }
+
+      // Check if component ID is available in affects relationship
+      if (issue.affects?.nodes) {
+        for (const node of issue.affects.nodes) {
+          if (node.__typename === 'Component' && node.id) {
+            return node.id;
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+
+  /**
    * Called by "extension.showComponentVersionIssues" with a version ID.
    * This method fetches the issues for the selected version, stores them,
    * and (if the view is open) posts them.
@@ -818,65 +899,65 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
     try {
       this.lastVersionId = componentVersionId;
 
-    await this.apiClient.authenticate();
+      await this.apiClient.authenticate();
 
-    // Get the component ID from the component version
-    const componentVersionResult = await this.apiClient.executeQuery(
-      FETCH_COMPONENT_VERSION_BY_ID_QUERY,
-      { id: componentVersionId }
-    );
+      // Get the component ID from the component version
+      const componentVersionResult = await this.apiClient.executeQuery(
+        FETCH_COMPONENT_VERSION_BY_ID_QUERY,
+        { id: componentVersionId }
+      );
 
-    const componentId = componentVersionResult.data?.node?.component?.id;
-    if (!componentId) {
-      throw new Error("Could not find component ID for this version");
-    }
-
-    // Get ALL component issues (same as clicking the component)
-    const componentResult = await this.apiClient.executeQuery(
-      GET_ISSUES_OF_COMPONENT_QUERY,
-      { id: componentId }
-    );
-
-    // Get all issues specific to the component
-    const componentIssues = componentResult.data?.node?.issues?.nodes || [];
-
-    // Mark which issues are affected by the selected version
-    const versionResult = await this.apiClient.executeQuery(
-      GET_ISSUES_OF_COMPONENT_VERSION_QUERY,
-      { id: componentVersionId }
-    );
-
-    // Extract all issue IDs that are affected by this version
-    const affectedIssueIds = new Set();
-    const versionIssueGroups = versionResult.data?.node?.aggregatedIssues?.nodes || [];
-    
-    for (const group of versionIssueGroups) {
-      const issues = group.issues.nodes || [];
-      for (const issue of issues) {
-        affectedIssueIds.add(issue.id);
+      const componentId = componentVersionResult.data?.node?.component?.id;
+      if (!componentId) {
+        throw new Error("Could not find component ID for this version");
       }
-    }
 
-    // Mark issues that are affected by the selected version
-    const allIssues = componentIssues.map((issue: { id: unknown; }) => ({
-      ...issue,
-      affectsSelectedVersion: affectedIssueIds.has(issue.id)
-    }));
+      // Get ALL component issues (same as clicking the component)
+      const componentResult = await this.apiClient.executeQuery(
+        GET_ISSUES_OF_COMPONENT_QUERY,
+        { id: componentId }
+      );
 
-    // Update the issue list
-    this.lastIssues = allIssues;
+      // Get all issues specific to the component
+      const componentIssues = componentResult.data?.node?.issues?.nodes || [];
 
-    // If the view is open, post the new issues
-    if (this._view) {
-      this._view.webview.postMessage({
-        command: "updateComponentIssues",
-        data: allIssues,
-        metadata: {
-          selectedVersionId: componentVersionId,
-          affectedIssueIds: Array.from(affectedIssueIds)
+      // Mark which issues are affected by the selected version
+      const versionResult = await this.apiClient.executeQuery(
+        GET_ISSUES_OF_COMPONENT_VERSION_QUERY,
+        { id: componentVersionId }
+      );
+
+      // Extract all issue IDs that are affected by this version
+      const affectedIssueIds = new Set();
+      const versionIssueGroups = versionResult.data?.node?.aggregatedIssues?.nodes || [];
+
+      for (const group of versionIssueGroups) {
+        const issues = group.issues.nodes || [];
+        for (const issue of issues) {
+          affectedIssueIds.add(issue.id);
         }
-      });
-    }
+      }
+
+      // Mark issues that are affected by the selected version
+      const allIssues = componentIssues.map((issue: { id: unknown; }) => ({
+        ...issue,
+        affectsSelectedVersion: affectedIssueIds.has(issue.id)
+      }));
+
+      // Update the issue list
+      this.lastIssues = allIssues;
+
+      // If the view is open, post the new issues
+      if (this._view) {
+        this._view.webview.postMessage({
+          command: "updateComponentIssues",
+          data: allIssues,
+          metadata: {
+            selectedVersionId: componentVersionId,
+            affectedIssueIds: Array.from(affectedIssueIds)
+          }
+        });
+      }
     } catch (error: any) {
       vscode.window.showErrorMessage(
         `Failed to fetch component version issues: ${error instanceof Error ? error.message : String(error)
@@ -1070,6 +1151,7 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
             command: 'displayIssue',
             issue: issueWithArtifacts
           });
+          vscode.commands.executeCommand('extension.refreshComponentIssues');
         } else {
           console.warn(`[IssueDetailsProvider] No issue found for id ${issueId}`);
           this._view?.webview.postMessage({
