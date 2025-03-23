@@ -1,3 +1,4 @@
+/* =================== Global CSS for Gropius VS Code Extension =================== */
 
 /* Common container styling to match VS Code Explorer */
 #app {
@@ -17,7 +18,7 @@ ul {
   padding: 0;
 }
 
-/* No border-bottom between items now */
+/* Component Item styling */
 .component-item {
   padding: 0;
 }
@@ -26,7 +27,7 @@ ul {
   border-bottom: none;
 }
 
-/* Entire clickable row */
+/* Clickable row styling in Explorer */
 .component-title-line {
   cursor: pointer;
   display: flex;
@@ -35,12 +36,10 @@ ul {
   box-sizing: border-box;
 }
 
-/* Hover effect: background color changes */
 .component-title-line:hover {
   background-color: var(--vscode-list-hoverBackground, #2a2d2e);
 }
 
-/* For the "name" portion of items */
 .component-name {
   font-weight: normal;
   overflow: hidden;
@@ -49,14 +48,12 @@ ul {
   flex: 1;
 }
 
-/* For the version parentheses, e.g. (v1), (v2) */
 .component-versions {
   margin-left: 8px;
   font-style: italic;
   color: var(--vscode-foreground, #cccccc);
 }
 
-/* Description or other text, smaller and lighter */
 .component-description {
   color: #999999;
   margin-left: 8px;
@@ -64,18 +61,20 @@ ul {
   font-size: 0.9rem;
 }
 
+/* Duplicate .component-title-line already defined above */
 .component-title-line {
   display: flex;
   align-items: center;
 }
 
+/* Issue Icon (legacy styling, not used with icon stacking) */
 .issue-icon {
   width: 16px;
   height: 16px;
   margin-right: 8px;
 }
 
-/* Issue Details Styling */
+/* =================== Issue Details Styling =================== */
 .issue-details {
   color: var(--vscode-foreground);
   font-family: var(--vscode-font-family);
@@ -100,14 +99,19 @@ ul {
   overflow-x: hidden;
 }
 
+/* -------- Issue Header (used in IssueDetails.vue) -------- */
+/* Combined previous and new styles for header layout */
 .issue-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding-bottom: 16px;
   margin-bottom: 8px;
   border-bottom: 1px solid var(--vscode-panel-border);
 }
 
 .issue-title {
-  margin: 0 0 0 0;
+  margin: 0;
   font-size: 1.3em;
   font-weight: 600;
 }
@@ -119,7 +123,7 @@ ul {
   color: var(--vscode-descriptionForeground);
 }
 
-/* Sections */
+/* =================== Sections =================== */
 .issue-sections {
   display: flex;
   flex-direction: column;
@@ -135,12 +139,12 @@ ul {
 }
 
 .info-section[v-if="issue.body"] {
-  padding-top: 4px;   
-  padding-bottom: 4px; 
+  padding-top: 4px;
+  padding-bottom: 4px;
 }
 
 .info-section[v-if="issue.body"] .section-header {
-  margin-bottom: 4px; 
+  margin-bottom: 4px;
 }
 
 .section-header {
@@ -149,7 +153,7 @@ ul {
   color: var(--vscode-foreground);
   margin-bottom: 8px;
   margin-left: 10px;
-  padding-right: 10px; 
+  padding-right: 10px;
   white-space: nowrap;
   min-width: auto;
 }
@@ -159,10 +163,10 @@ ul {
   flex-wrap: wrap;
   gap: 8px;
   margin-left: 10px;
-  padding-right: 10px; 
+  padding-right: 10px;
 }
 
-/* Badge styling */
+/* =================== Badge Styling =================== */
 .badge {
   display: inline-flex;
   align-items: center;
@@ -193,7 +197,7 @@ ul {
   border-radius: 12px;
   font-weight: normal;
   background-color: rgba(0, 0, 0, 0.2);
-  white-space: nowrap; 
+  white-space: nowrap;
   gap: 3px;
   min-width: fit-content;
 }
@@ -233,7 +237,7 @@ ul {
   white-space: nowrap;
 }
 
-/* Entity badges */
+/* =================== Entity Badges =================== */
 .entity-badge {
   display: inline-flex;
   padding: 4px 12px;
@@ -268,7 +272,7 @@ ul {
   color: #bdbdbd;
 }
 
-/* Date section */
+/* =================== Date Section =================== */
 .dates-section .section-content {
   flex-direction: column;
   gap: 4px;
@@ -284,7 +288,7 @@ ul {
   font-weight: 500;
 }
 
-/* Description */
+/* =================== Description =================== */
 .description-content {
   display: block;
   padding-right: 10px;
@@ -305,7 +309,7 @@ ul {
   margin-bottom: 0;
 }
 
-/* Relations */
+/* =================== Relations =================== */
 .relations-group {
   display: flex;
   flex-direction: column;
@@ -342,7 +346,7 @@ ul {
   background-color: var(--vscode-list-hoverBackground);
 }
 
-/* Empty and error states */
+/* =================== Empty and Error States =================== */
 .empty-state,
 .error-state {
   display: flex;
@@ -381,13 +385,13 @@ ul {
 }
 
 .section-content.inline-content {
-  margin-left: 0; 
-  padding-left: 0; 
+  margin-left: 0;
+  padding-left: 0;
   flex: 1;
   min-width: 80px;
 }
 
-/* Affected entities */
+/* =================== Affected Entities =================== */
 .affected-group {
   display: flex;
   flex-direction: column;
@@ -422,14 +426,13 @@ ul {
   gap: 6px;
 }
 
-/* Markdown styling - description section */
-/* Markdown styling */
+/* =================== Markdown Styling =================== */
 .markdown-content {
   color: var(--vscode-foreground);
   line-height: 1.5;
 }
 
-.markdown-content ul, 
+.markdown-content ul,
 .markdown-content ol {
   padding-left: 0.5em;
   margin: 0.5em 0;
@@ -447,9 +450,9 @@ ul {
   padding-left: 0;
 }
 
-.markdown-content h1, 
-.markdown-content h2, 
-.markdown-content h3, 
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
 .markdown-content h4 {
   margin-top: 1em;
   margin-bottom: 0.5em;
@@ -501,14 +504,14 @@ ul {
   padding: 4px 0;
 }
 
-.description-text h1, 
-.description-text h2, 
+.description-text h1,
+.description-text h2,
 .description-text h3 {
   margin-top: 16px;
   margin-bottom: 8px;
 }
 
-.description-text ul, 
+.description-text ul,
 .description-text ol {
   margin-left: 20px;
   margin-bottom: 16px;
@@ -528,7 +531,7 @@ ul {
   overflow-x: auto;
 }
 
-/* Horizontal section for placing items side by side */
+/* =================== Horizontal Section =================== */
 .horizontal-section {
   flex-direction: row !important;
   justify-content: flex-start;
@@ -540,17 +543,16 @@ ul {
   flex: 0 0 auto;
 }
 
-/* Give more space to state badge */
 .section-group:nth-child(2) {
   min-width: 100px; /* Ensure enough width for "Completed" */
 }
 
 .section-group:first-child {
   flex: 0 0 auto;
-  max-width: 40%; 
+  max-width: 40%;
 }
 
-/* Artifacts section */
+/* =================== Artifacts Section =================== */
 .artifacts-list {
   display: flex;
   flex-direction: column;
@@ -559,16 +561,19 @@ ul {
   margin-top: 10px;
 }
 
+/* Updated artifact-item styles */
 .artifact-item {
-  padding: 10px 12px;
-  background-color: var(--vscode-editor-background, rgba(30, 30, 30, 0.3));
+  padding: 8px;
+  margin-bottom: 8px;
   border-radius: 4px;
-  border-left: 3px solid var(--vscode-button-background, #0e639c);
-  transition: background-color 0.2s ease;
+  background-color: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  cursor: pointer;
+  transition: background-color 0.2s;
 }
 
 .artifact-item:hover {
-  background-color: var(--vscode-list-hoverBackground, rgba(40, 40, 40, 0.5));
+  background-color: var(--vscode-list-hoverBackground);
 }
 
 .artifact-content {
@@ -661,4 +666,27 @@ ul {
 .button-icon {
   font-size: 14px;
   font-weight: bold;
+}
+
+/* =================== IssueDetails.vue Icon Stack Styling =================== */
+/* Used to overlay the relation icons on top of the type icon */
+.icon-stack {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.base-icon,
+.overlay-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.overlay-icon {
+  position: absolute;
+  top: 0;
+  left: 0;
 }

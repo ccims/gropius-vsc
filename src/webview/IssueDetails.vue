@@ -98,7 +98,7 @@
             <div class="description-text markdown-content" v-html="markdownToHtml(issue.body.body)"></div>
           </div>
         </div>
-        
+
         <!-- Related Issues Section -->
         <div class="info-section" v-if="hasRelations">
           <div class="section-header" @click="toggleSection('relatedIssues')"
@@ -505,46 +505,3 @@ export default {
   }
 };
 </script>
-
-<style>
-.artifact-item {
-  padding: 8px;
-  margin-bottom: 8px;
-  border-radius: 4px;
-  background-color: var(--vscode-editor-background);
-  border: 1px solid var(--vscode-panel-border);
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.artifact-item:hover {
-  background-color: var(--vscode-list-hoverBackground);
-}
-
-.issue-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.icon-stack {
-  position: relative;
-  width: 24px;
-  height: 24px;
-  flex-shrink: 0;
-}
-
-.base-icon,
-.overlay-icon {
-  width: 24px;
-  height: 24px;
-  flex-shrink: 0;
-  object-fit: contain;
-}
-
-.overlay-icon {
-  position: absolute;
-  top: 0;
-  left: 0;
-}
-</style>
