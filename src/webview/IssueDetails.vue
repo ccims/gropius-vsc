@@ -8,7 +8,6 @@
           <img class="overlay-icon" :src="getRelationalIconPath()" alt="" />
         </div>
         <h2 class="issue-title">{{ issue.title }}</h2>
-        <div class="issue-id">ID: {{ issue.id }}</div>
       </div>
 
       <!-- Main Content Sections -->
@@ -99,30 +98,7 @@
             <div class="description-text markdown-content" v-html="markdownToHtml(issue.body.body)"></div>
           </div>
         </div>
-
-        <!-- Dates Section -->
-        <div class="info-section dates-section">
-          <div class="section-header" @click="toggleSection('dates')"
-            style="cursor: pointer; display: flex; justify-content: space-between;">
-            <span>Dates</span>
-            <span class="toggle-icon">{{ expandedSections.dates ? '▼' : '▶' }}</span>
-          </div>
-          <div class="section-content" v-if="expandedSections.dates">
-            <div class="date-row">
-              <div class="date-label">Created:</div>
-              <div class="date-value">{{ formatDate(issue.createdAt) }}</div>
-            </div>
-            <div class="date-row" v-if="issue.lastUpdatedAt">
-              <div class="date-label">Updated:</div>
-              <div class="date-value">{{ formatDate(issue.lastUpdatedAt) }}</div>
-            </div>
-            <div class="date-row" v-if="issue.body && issue.body.lastModifiedAt">
-              <div class="date-label">Description modified:</div>
-              <div class="date-value">{{ formatDate(issue.body.lastModifiedAt) }}</div>
-            </div>
-          </div>
-        </div>
-
+        
         <!-- Related Issues Section -->
         <div class="info-section" v-if="hasRelations">
           <div class="section-header" @click="toggleSection('relatedIssues')"
