@@ -103,11 +103,10 @@ ul {
 /* Combined previous and new styles for header layout */
 .issue-header {
   display: flex;
-  align-items: center;
+  align-items: center; /* Keeps icon and title on the same baseline */
   gap: 8px;
-  padding-bottom: 16px;
-  margin-bottom: 8px;
-  border-bottom: 1px solid var(--vscode-panel-border);
+  margin-bottom: 8px;  /* Spacing below the header */
+  border-bottom: none; /* Removes the horizontal line */
 }
 
 .issue-title {
