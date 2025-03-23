@@ -217,6 +217,7 @@ query GetIssueDetails($id: ID!) {
             title
           }
         }
+        totalCount
       }
       incomingRelations {
         nodes {
@@ -225,6 +226,7 @@ query GetIssueDetails($id: ID!) {
             title
           }
         }
+        totalCount
       }
     }
   }

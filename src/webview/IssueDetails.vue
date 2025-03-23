@@ -3,6 +3,10 @@
     <div v-if="issue" class="issue-container">
       <!-- Title Section -->
       <div class="issue-header">
+        <div class="icon-stack">
+          <img class="base-icon" :src="getTypeIconPath()" alt="" />
+          <img class="overlay-icon" :src="getRelationalIconPath()" alt="" />
+        </div>
         <h2 class="issue-title">{{ issue.title }}</h2>
         <div class="issue-id">ID: {{ issue.id }}</div>
       </div>
@@ -17,7 +21,7 @@
               <div class="section-header">Type:</div>
               <div class="section-content inline-content">
                 <div class="badge type-badge" v-if="issue.type">
-                  <img class="type-icon" :src="getTypeIconPath(issue.type.name)" alt="" />
+                  <img class="type-icon" :src="getTypeIconPath()" alt="" />
                   {{ issue.type.name }}
                 </div>
               </div>
@@ -334,10 +338,10 @@ export default {
       }
     },
 
-    getTypeIconPath(typeName) {
+    getTypeIconPath() {
       const isOpen = this.issue.state && this.issue.state.isOpen;
 
-      switch (typeName) {
+      switch (this.issue.type.name) {
         case "Bug":
           return Boolean(isOpen)
             ? new URL("../../resources/icons/bug-green.png", import.meta.url).href
@@ -358,6 +362,21 @@ export default {
           return new URL("../../resources/icons/bug-black.png", import.meta.url).href;
       }
     },
+
+    getRelationalIconPath() {
+      const hasIncoming = this.issue.incomingRelations && this.issue.incomingRelations.totalCount > 0;
+      const hasOutgoing = this.issue.outgoingRelations && this.issue.outgoingRelations.totalCount > 0;
+      
+      if (hasIncoming && hasOutgoing) {
+        return new URL("../../resources/icons/incoming-outgoing.png", import.meta.url).href;
+      } else if (hasIncoming) {
+        return new URL("../../resources/icons/incoming.png", import.meta.url).href;
+      } else if (hasOutgoing) {
+        return new URL("../../resources/icons/outgoing.png", import.meta.url).href;
+      }
+      return new URL("../../resources/icons/none.png", import.meta.url).href;
+    },
+
     getPriorityIconPath() {
       return new URL("../../resources/icons/priority-icon-white.png", import.meta.url).href;
     },
@@ -509,7 +528,6 @@ export default {
     }
   }
 };
-
 </script>
 
 <style>
@@ -525,5 +543,32 @@ export default {
 
 .artifact-item:hover {
   background-color: var(--vscode-list-hoverBackground);
+}
+
+.issue-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon-stack {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.base-icon,
+.overlay-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.overlay-icon {
+  position: absolute;
+  top: 0;
+  left: 0;
 }
 </style>
