@@ -176,6 +176,7 @@ query GetIssueDetails($id: ID!) {
             version
             component {
               name
+              id
             }
           }
           ... on Interface {

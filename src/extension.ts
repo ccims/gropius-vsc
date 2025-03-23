@@ -1081,6 +1081,8 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
         console.log(`[IssueDetailsProvider] Opening artifact file:`, message.artifactData);
         // Execute the command to open the artifact file
         vscode.commands.executeCommand('extension.openArtifactFile', message.artifactData);
+      } else if (message.command === 'openInExternalBrowser' && message.url) {
+        vscode.env.openExternal(vscode.Uri.parse(message.url));
       }
     });
   }

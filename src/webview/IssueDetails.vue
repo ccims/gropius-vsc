@@ -10,6 +10,11 @@
         <h2 class="issue-title">{{ issue.title }}</h2>
       </div>
 
+      <!-- "Open in Browser" Button -->
+      <button class="open-in-browser-button" @click="openInBrowser">
+        Open in Browser
+      </button>
+
       <!-- Main Content Sections -->
       <div class="issue-sections">
 
@@ -351,6 +356,45 @@ export default {
         return new URL("../../resources/icons/outgoing.png", import.meta.url).href;
       }
       return new URL("../../resources/icons/none.png", import.meta.url).href;
+    },
+
+    /**
+     * Returns the ID of the first relevant component for this issue.
+     * - If a node is a ComponentVersion, return node.component.id.
+     * - If a node is a direct Component, return node.id.
+     */
+    getComponentId() {
+      if (!this.issue?.affects?.nodes) return null;
+      for (const node of this.issue.affects.nodes) {
+        if (node.__typename === 'ComponentVersion' && node.component?.id) {
+          return node.component.id;
+        } else if (node.__typename === 'Component' && node.id) {
+          return node.id;
+        }
+      }
+      return null;
+    },
+
+    /**
+     * Constructs the URL and opens it in a new browser tab.
+     */
+    openInBrowser() {
+      const compId = this.getComponentId();
+      const issueId = this.issue?.id;
+      if (!compId || !issueId) {
+        console.warn("Cannot open in browser: missing compId or issueId");
+        return;
+      }
+      const url = `http://localhost:4200/components/${compId}/issues/${issueId}`;
+      
+      if (vscode) {
+        vscode.postMessage({
+          command: 'openInExternalBrowser',
+          url
+        });
+      } else {
+        console.error("vscode API not found in webview");
+      }
     },
 
     getPriorityIconPath() {
