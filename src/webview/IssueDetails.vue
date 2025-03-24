@@ -379,6 +379,8 @@ export default {
       const issueId = this.issue?.id;
       if (!compId || !issueId) {
         console.warn("Cannot open in browser: missing compId or issueId");
+        console.log("compId:" + compId);
+        console.log("issueId:" + issueId);
         return;
       }
       const url = `http://localhost:4200/components/${compId}/issues/${issueId}`;
@@ -529,6 +531,10 @@ export default {
       if (message && message.command === "displayIssue") {
         console.log("[IssueDetails.vue] Processing displayIssue message");
         this.issue = message.issue;
+        // Save the originComponentId from the provider
+        if (message.originComponentId) {
+          this.originComponentId = message.originComponentId;
+        }
         this.error = message.error || null;
 
         vscode.setState({

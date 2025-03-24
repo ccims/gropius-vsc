@@ -1085,10 +1085,9 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
     webviewView.webview.onDidReceiveMessage((message: any) => {
       if (message.command === "vueAppReady") {
         console.log("[IssueDetailsProvider] Vue app is ready");
-        // Only refresh if both lastIssueId and originComponentId are available.
         if (this.lastIssueId && this.originComponentId) {
           console.log("[IssueDetailsProvider] Refreshing issue details because originComponentId is set:", this.originComponentId);
-          this.updateIssueDetails(this.lastIssueId, this.originComponentId);
+          this.updateIssueDetails(this.lastIssueId);
         } else {
           console.log("[IssueDetailsProvider] Skipping updateIssueDetails because originComponentId is missing; leaving view empty.");
           this._view?.webview.postMessage({ command: 'displayIssue', issue: null });
@@ -1127,11 +1126,15 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
   }
 
   public updateIssueDetails(issueId: string, originComponentId?: string) {
-    if (originComponentId) {
-      this.originComponentId = originComponentId;
-      console.log("[IssueDetailsProvider] updateIssueDetails: Received originComponentId", originComponentId);
+    if (typeof originComponentId !== 'undefined') {
+      if (originComponentId) {
+        this.originComponentId = originComponentId;
+        console.log("[IssueDetailsProvider] updateIssueDetails: Received originComponentId", originComponentId);
+      } else {
+        console.log("[IssueDetailsProvider] updateIssueDetails: Received falsy originComponentId; keeping stored value:", this.originComponentId);
+      }
     } else {
-      console.log("[IssueDetailsProvider] updateIssueDetails: No originComponentId provided");
+      console.log("[IssueDetailsProvider] updateIssueDetails: No originComponentId provided; using stored value:", this.originComponentId);
     }
     this.lastIssueId = issueId;
     console.log("[IssueDetailsProvider] updateIssueDetails: Updating issue details for issueId", issueId);
