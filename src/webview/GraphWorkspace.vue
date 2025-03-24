@@ -118,24 +118,39 @@ function extractIssueRelations(componentVersion: any): any[] {
         return;
       }
       
-      const startId = componentVersion.id;
-      const endId = relation.end.relationPartner.id;
+      const startId = relation.start.id;
+      const endId = relation.end.id;
       const key = `${startId}-${endId}`;
       if (startId != endId) {
-      if (aggregatedRelations.has(key)) {
-        aggregatedRelations.get(key)!.count += aggregatedIssue.count;
-      } else {
-        aggregatedRelations.set(key, {
-          start: startId,
-          end: endId,
-          count: aggregatedIssue.count
-        });
+        if (aggregatedRelations.has(key)) {
+          aggregatedRelations.get(key)!.count += aggregatedIssue.count;
+        } else {
+          aggregatedRelations.set(key, {
+            start: startId,
+            end: endId,
+            count: aggregatedIssue.count
+          });
+        }
       }
-    }
     });
   });
 
+  //console.log("map values: " + aggregatedRelations.values());
+
+  aggregatedRelations.forEach((value, key) => {
+    console.log(`Key: ${key}, Value:`, value);
+  });
+
+
   const result = Array.from(aggregatedRelations.values());
+  for (const item of result) {
+   console.log("_____________________________________");
+   console.log("Start: " + item.start);
+   console.log("END: " + item.end);
+   console.log("count: " + item.count);
+   console.log("_____________________________________");
+  }
+
   console.log('Extracted issue relations:', JSON.stringify(result, null, 2));
   console.log("END extractIssueRelations 3");
   return result;
@@ -198,11 +213,33 @@ function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout 
     }
 });
 
+console.log("__________________________________________");
+console.log("Komponenten: ");
+graph.components.forEach((component ) => {
+  console.log("ID: " + component.id);
+  console.log("Name: " + component.name);
+  console.log("Version: " + component.version);
+  //console.log("Style: " + component.style);
+  console.log("Interface: " + component.interfaces);
+  console.log("ISSUES: ");
+  component.issueTypes.forEach((issue) => {
+    console.log("IssueID: " + issue.id);
+    console.log( "Issuename: " + issue.name);
+    console.log("issue count: " + issue.count);
+    //console.log("issue iconpath :" + issue.iconPath);
+    console.log( "isOpen: " + issue.isOpen);
+  });
+  //console.log("contextmenu: " + component.contextMenu);
+});
+console.log("ISSUE RELATIONS: ");
 graph.issueRelations.forEach((relation) => {
   console.log("IssueRelation START: " + relation.start);
   console.log("IssueRelation END: " + relation.end);
   console.log("IssueRelation COUNT: " + relation.count);
 });
+console.log("__________________________________________");
+
+console.log(JSON.stringify(graph));
 
 //graph.issueRelations.push(...[{start: "d2bb5c86-aa45-41cb-802a-37f1ce487ddb", end: "a3a3693b-3995-43dd-ae80-6136b27ebc39", count:1}, {start: "a3a3693b-3995-43dd-ae80-6136b27ebc39", end: "87c7a566-2ccd-4f1e-be77-d947ed417ea3", count:1}]);
 //graph.issueRelations.push(...[{start: "ca54dc74-5cad-438a-8606-3c11d4363b4f", end: "ca54dc74-5cad-438a-8606-3c11d4363b4f", count:1}, {start: "ca54dc74-5cad-438a-8606-3c11d4363b4f", end: "ca54dc74-5cad-438a-8606-3c11d4363b4f", count:1}]);

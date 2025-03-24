@@ -570,7 +570,17 @@ export const FETCH_ALL_WORKSPACE_COMPONENTS_AND_ISSUES = `query MyQuery($in: [ID
               outgoingRelations {
                 nodes {
                   end {
+                  id
                     relationPartner {
+                      id
+                    }
+                    type {
+                      id
+                    }
+                  }
+                  start {
+                    id
+                    type {
                       id
                     }
                   }
