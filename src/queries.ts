@@ -498,7 +498,7 @@ export const FETCH_ISSUES_GRAPH_QUERY = `{
  * Temp Query to get all workspace components
  */
 export const FETCH_ALL_WORKSPACE_COMPONENTS = `
-  query MyQuery($in: [ID!] = "") {
+  query MyQuery($in: [ID!]) {
   components(filter: {id: {in: $in}}) {
     nodes {
       id
@@ -506,6 +506,79 @@ export const FETCH_ALL_WORKSPACE_COMPONENTS = `
       template {
         id
         name
+      }
+    }
+  }
+}
+`;
+
+/**
+ * Fetch all Components of the given List
+ * List: Workspace components (versions)
+ * All comonents, with issues
+ * Issues concerning a hole component or a specific componentversion
+ * 
+ * For extracting: First check whether there are versions
+ * -> YES: take the issues of versions
+ * -> NO: take the issues for component
+ * --> If a issue is selected to the component and to a comonentversion it will affect all componentversions. Always if the whole component is affected it is for all componentversions 
+ * --> Thats why we do not have to differ.
+ * --> TEST this !
+ */
+export const FETCH_ALL_WORKSPACE_COMPONENTS_AND_ISSUES = `query MyQuery($in: [ID!]) {
+  components(filter: {id: {in: $in}}) {
+    nodes {
+      id
+      name
+      issues {
+        nodes {
+          id
+          title
+          aggregatedBy {
+            nodes {
+              id
+              issues {
+                nodes {
+                  id
+                  title
+                  type {
+                    name
+                    iconPath
+                  }
+                }
+              }
+              count
+              isOpen
+            }
+          }
+        }
+      }
+      versions {
+        nodes {
+          version
+          id
+          aggregatedIssues {
+            nodes {
+              count
+              isOpen
+              id
+              type {
+                id
+                name
+                iconPath
+              }
+            }
+          }
+        }
+      }
+      template {
+        shapeType
+        fill {
+          color
+        }
+        stroke {
+          color
+        }
       }
     }
   }

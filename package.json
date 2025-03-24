@@ -64,6 +64,10 @@
       {
         "command": "extension.createArtefactTemplate",
         "title": "Gropius: Create Artifact Template"
+      },
+      {
+        "command": "extension.showWorkspaceGraph",
+        "title": "Show Workspace Graph"
       }
     ]
   },

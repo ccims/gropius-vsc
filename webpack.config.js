@@ -8,12 +8,13 @@ module.exports = {
     mode: 'development',
     target: 'web',
     entry: {
-        graph: './src/webview/main.ts',
         gropiusComponentVersions: './src/webview/gropius-component-versions.ts',
         componentIssues: './src/webview/componentIssues.ts',
         issueDetails: './src/webview/issueDetails.ts',
         graphs: './src/webview/graphs.ts',
-        graphEditor: './src/webview/graph-editor.ts'
+        graphEditor: './src/webview/graph-editor.ts',
+        graphWorkspaceEditor: './src/webview/GraphWorkspace.ts',
+        graphIssueEditor: './src/webview/GraphIssueEditor.ts'
     },
     output: {
         path: path.resolve(__dirname, 'out', 'webview'),

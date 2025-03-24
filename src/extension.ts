@@ -15,7 +15,8 @@ import {
   GET_ARTIFACTS_FOR_ISSUE,
   FETCH_WORKSPACE_GRAPH_QUERY,
   FETCH_ISSUES_GRAPH_QUERY,
-  FETCH_ALL_WORKSPACE_COMPONENTS
+  FETCH_ALL_WORKSPACE_COMPONENTS,
+  FETCH_ALL_WORKSPACE_COMPONENTS_AND_ISSUES
 } from "./queries";
 import { ConsoleLogger } from "sprotty";
 
@@ -297,17 +298,17 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
   private isAuthenticated: boolean = false;
 
   constructor(
-    private readonly _context: vscode.ExtensionContext,
+    private readonly context: vscode.ExtensionContext,
     private readonly apiClient: APIClient
   ) {
-    this._extensionUri = _context.extensionUri;
+    this._extensionUri = context.extensionUri;
   }
 
   public resolveWebviewView(
     webviewView: vscode.WebviewView,
-    context: vscode.WebviewViewResolveContext,
+    _context: vscode.WebviewViewResolveContext,
     _token: vscode.CancellationToken
-  ) {
+  ): void {
     this._view = webviewView;
 
     webviewView.webview.options = {
@@ -344,38 +345,44 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
    * Loads the workspace graph.
    * 
    */
-  public async openWorkspaceGraphEditor() {
+  public async openWorkspaceGraphEditor(): Promise<void> {
+    console.log("Start openWorkspaceGraphEditor.");
     const panel = vscode.window.createWebviewPanel(
-      "graphEditor",
+      "graphWorkspaceEditor",
       "Graph Editor",
       vscode.ViewColumn.One,
       {
         enableScripts: true,
         localResourceRoots: [
-          vscode.Uri.joinPath(this._context.extensionUri, "out", "webview")
+          vscode.Uri.joinPath(this.context.extensionUri, "out", "webview")
         ]
       }
     );
-
     const scriptUri = panel.webview.asWebviewUri(
-      vscode.Uri.joinPath(this._context.extensionUri, "out", "webview", "graphWorkspace.js")
+      vscode.Uri.joinPath(this.context.extensionUri, "out", "webview", "GraphWorkspaceEditor.js")
     );
     panel.webview.html = this.getGraphEditorHtml(scriptUri);
-
+    if (!panel.webview) {
+      console.error("Webview is undefined!");
+  }
+    
     panel.webview.onDidReceiveMessage((message: any): void => {
+      console.log("START: onDidReceiveMessage in ComponentVersionsProvider");
       if (message.type === "ready") {
         (async () => {
           try {
             await this.apiClient.authenticate();
             const workspaceData = await this.fetchWorkspaceGraphData();
             panel.webview.postMessage({
-              type: "projectData",
+              type: "workspaceData",
               data: workspaceData
             });
           } catch (error) {
             vscode.window.showErrorMessage(`Data fetch failed: ${error}`);
           }
         })();
+      } else {
+        console.log("We are in EEEEEEEEEEEEEEEEEELLLLLLLLLLLLLLLLLLSSSSSSSSSSSSSSSSSEEEEEEEEEEEEEEE");
       }
       return;
     });
@@ -387,9 +394,18 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
    * @returns 
    */
   private async fetchWorkspaceGraphData(): Promise<any> {
+    console.log("Start fetchWorkspaceData");
     try {
       await this.apiClient.authenticate();
-      const response = await this.apiClient.executeQuery(FETCH_ALL_WORKSPACE_COMPONENTS, { in: ["1a0606aa-5330-4ab9-a993-7bd552cefac8"] });
+      const mappings = await loadConfigurations();
+      const workspaceData = await this._buildTreeData(mappings);
+      const components = this.getComponents(workspaceData);
+      console.log("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
+      console.log("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
+      console.log(components);
+      console.log("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
+      console.log("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
+      const response = await this.apiClient.executeQuery(FETCH_ALL_WORKSPACE_COMPONENTS_AND_ISSUES, { in: components });
       console.log("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
       console.log("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
       console.log(response.data);
@@ -403,7 +419,29 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
       );
     }
   }
+  private getComponents(data: any): string[] {
+    console.log("Start getComponents.");
+    let ids: string[] = [];
+
+    if (Array.isArray(data)) {
+        for (const item of data) {
+            ids = ids.concat(this.getComponents(item));
+        }
+    } else if (typeof data === "object" && data !== null) {
+        for (const key in data) {
+            if (key === "id") {
+                ids.push(data[key]);
+            } else {
+                ids = ids.concat(this.getComponents(data[key]));
+            }
+        }
+    }
+
+    return ids;
+}
   getGraphEditorHtml(scriptUri: vscode.Uri): string {
+    console.log("STEP: Generating Webview HTML");
+    console.log("Script URI:", scriptUri.toString());
     return /* html */ `
       <!DOCTYPE html>
       <html lang="en">
@@ -427,6 +465,7 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
       <body>
         <div id="app"></div>
         <script src="${scriptUri}"></script>
+
       </body>
       </html>
     `;
@@ -454,6 +493,9 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
 
       // Transform mappings into tree data for the webview
       const treeData = await this._buildTreeData(mappings);
+      console.log("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+      console.log(treeData);
+      console.log("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
 
       // Send data to the webview
       this._view.webview.postMessage({
@@ -759,7 +801,7 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
    */
   public async openWorkspaceGraphEditor() {
     const panel = vscode.window.createWebviewPanel(
-      "graphEditor",
+      "graphIssueEditor",
       "Graph Editor",
       vscode.ViewColumn.One,
       {
@@ -1231,7 +1273,7 @@ export class GraphsProvider implements vscode.WebviewViewProvider {
           try {
             await this.apiClient.authenticate();
             const projectData = await this.fetchProjectGraphData(projectId);
-            console.log(projectData);
+            //console.log(projectData);
             panel.webview.postMessage({
               type: "projectData",
               data: projectData
@@ -1265,6 +1307,8 @@ export class GraphsProvider implements vscode.WebviewViewProvider {
   }
 
   private getGraphEditorHtml(scriptUri: vscode.Uri): string {
+    console.log("STEP: Generating Webview HTML");
+    console.log("Script URI:", scriptUri.toString());
     return /* html */ `
       <!DOCTYPE html>
       <html lang="en">
