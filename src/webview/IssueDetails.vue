@@ -200,6 +200,7 @@ export default {
     return {
       issue: null,
       error: null,
+      originComponentId: null,  // holds the propagated origin component ID
       expandedSections: {
         affectedEntities: false,
         description: false,
@@ -363,14 +364,9 @@ export default {
      * - If a node is a ComponentVersion, return node.component.id.
      * - If a node is a direct Component, return node.id.
      */
-    getComponentId() {
-      if (!this.issue?.affects?.nodes) return null;
-      for (const node of this.issue.affects.nodes) {
-        if (node.__typename === 'ComponentVersion' && node.component?.id) {
-          return node.component.id;
-        } else if (node.__typename === 'Component' && node.id) {
-          return node.id;
-        }
+     getComponentId() {
+      if (this.originComponentId) {
+        return this.originComponentId;
       }
       return null;
     },
@@ -506,15 +502,23 @@ export default {
     }
 
     // Restore persisted state if available
+    console.log("[IssueDetails.vue] Mounted: retrieving state...");
     const state = vscode.getState();
     if (state) {
+      if (state.originComponentId) {
+        this.originComponentId = state.originComponentId;
+        console.log("[IssueDetails.vue] Mounted: originComponentId restored:", this.originComponentId);
+      }
       if (state.issue) {
         this.issue = state.issue;
-        console.log("[IssueDetails.vue] Restored persisted issue:", this.issue);
+        console.log("[IssueDetails.vue] Mounted: issue restored", this.issue);
       }
       if (state.error) {
         this.error = state.error;
+        console.log("[IssueDetails.vue] Mounted: error restored", this.error);
       }
+    } else {
+      console.log("[IssueDetails.vue] Mounted: No state found.");
     }
 
     window.addEventListener("message", (event) => {

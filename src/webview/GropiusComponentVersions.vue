@@ -116,37 +116,45 @@ export default defineComponent({
 
         // Handle version tag click
         const handleVersionClick = (item: TreeItem, version: string, index: number) => {
-
             const uniqueId = `${item.id}-${version}-${index}`;
             const versionId = item.componentVersionIds && item.componentVersionIds[index];
 
+            console.log("[GropiusComponentVersions.vue] handleVersionClick: clicked version", {
+                uniqueId,
+                versionId,
+                componentId: item.id
+            });
+
             // Set temporary click feedback
             clickedVersion.value = uniqueId;
-
-            // Clear previous click feedback timeout
             if (clickFeedbackTimer.value !== null) {
                 clearTimeout(clickFeedbackTimer.value);
             }
-
-            // Set timeout to remove temporary click feedback
             clickFeedbackTimer.value = setTimeout(() => {
                 clickedVersion.value = null;
             }, 500) as unknown as number;
 
-            // Set the active version (this persists)
             activeVersion.value = uniqueId;
 
-            // Call the command to show issues for this component version
             if (versionId) {
-                vscode.postMessage({
-                    command: 'showComponentVersionIssues',
-                    data: {
-                        componentName: item.name,
-                        version: version,
-                        componentId: item.id,
-                        componentVersionId: versionId
-                    }
+                // Send message to trigger component version issues
+                console.log("[GropiusComponentVersions.vue] Posting message 'showComponentVersionIssues' with data:", {
+                componentName: item.name,
+                version: version,
+                componentId: item.id,
+                componentVersionId: versionId
                 });
+                vscode.postMessage({
+                command: 'showComponentVersionIssues',
+                data: {
+                    componentName: item.name,
+                    version: version,
+                    componentId: item.id,
+                    componentVersionId: versionId
+                }
+                });
+            } else {
+                console.error("[GropiusComponentVersions.vue] handleVersionClick: Missing versionId for", item);
             }
         };
 
@@ -174,21 +182,24 @@ export default defineComponent({
 
         // handle component clicks
         const handleComponentClick = (item: TreeItem) => {
-            // Set the active component
             activeComponent.value = item.id;
-
-            // Clear the active version
             activeVersion.value = null;
 
-            // Call the command to show issues for this component
+            console.log("[GropiusComponentVersions.vue] handleComponentClick: clicked component", {
+                componentName: item.name,
+                componentId: item.id
+            });
+
             if (item.id) {
                 vscode.postMessage({
-                    command: 'showComponentIssues',
-                    data: {
-                        componentName: item.name,
-                        componentId: item.id
-                    }
+                command: 'showComponentIssues',
+                data: {
+                    componentName: item.name,
+                    componentId: item.id
+                }
                 });
+            } else {
+                console.error("[GropiusComponentVersions.vue] handleComponentClick: Missing componentId for", item);
             }
         };
 
