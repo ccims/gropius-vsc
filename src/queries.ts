@@ -567,6 +567,15 @@ export const FETCH_ALL_WORKSPACE_COMPONENTS_AND_ISSUES = `query MyQuery($in: [ID
                 name
                 iconPath
               }
+              outgoingRelations {
+                nodes {
+                  end {
+                    relationPartner {
+                      id
+                    }
+                  }
+                }
+              }
             }
           }
         }

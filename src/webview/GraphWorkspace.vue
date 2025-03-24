@@ -70,11 +70,10 @@ async function autolayout(graph: Graph): Promise<GraphLayout> {
     console.log("Nothing about ISSUES");
     return [];
   }
-  console.log("AFTER first approvement!!!");
 
   const extractedIssues: { id: any; name: any; iconPath: any; count: any; isOpen: any; }[] = [];
 
-  // 🔹 Versionierte Issues extrahieren
+  // Extracts issues
   componentversion.aggregatedIssues.nodes.forEach((issue: any) => {
       extractedIssues.push({
           id: issue.id,
@@ -85,15 +84,7 @@ async function autolayout(graph: Graph): Promise<GraphLayout> {
         });
     });
     
-  extractedIssues.forEach((issue : any) => {
-    console.log("ID: " + issue.id);
-    console.log("name: " + issue.name);
-    console.log("iconPath: " + issue.iconPath);
-    console.log("count: " + issue.count);
-    console.log("isOpen " + issue.isOpen);
-  });
-  console.log("Before sorting???");
-  // 🔹 Sortierung: Offene Issues zuerst
+  // Sorts: First the open issues than others
   return extractedIssues.sort((a, b) => {
     if (a.isOpen && !b.isOpen) return -1;
     if (!a.isOpen && b.isOpen) return 1;
@@ -102,31 +93,35 @@ async function autolayout(graph: Graph): Promise<GraphLayout> {
 }
 
 
-function extractIssueRelations(relationPartner: any, projectId: string): any[] {
-  if (!showIssueRelations.value || !relationPartner?.aggregatedIssues?.nodes) {
-    console.log('Skipping issue relations for', relationPartner?.id, 'showIssueRelations:', showIssueRelations.value);
+function extractIssueRelations(componentVersion: any): any[] {
+  console.log("START extractIssueRelations");
+  
+  if (!componentVersion?.aggregatedIssues?.nodes) {
+    console.log('Skipping issue relations for', componentVersion?.id);
+    console.log("END extractIssueRelations 1");
     return [];
   }
   
-  console.log('Processing issue relations for:', relationPartner.id);
-  console.log('Aggregated issues:', relationPartner.aggregatedIssues.nodes);
+  console.log('Processing issue relations for:', componentVersion.id);
+  console.log('Aggregated issues:', componentVersion.aggregatedIssues.nodes);
   
   const aggregatedRelations = new Map<string, { start: string; end: string; count: number }>();
   
-  relationPartner.aggregatedIssues.nodes.forEach((aggregatedIssue: any) => {
+  componentVersion.aggregatedIssues.nodes.forEach((aggregatedIssue: any) => {
     console.log('Processing aggregated issue:', aggregatedIssue.id);
     const outgoingRelations = aggregatedIssue.outgoingRelations?.nodes || [];
     
     outgoingRelations.forEach((relation: any) => {
       if (!relation.end?.relationPartner?.id) {
         console.log('Skipping relation - missing end partner ID');
+        console.log("END extractIssueRelations 2");
         return;
       }
       
-      const startId = relationPartner.id;
+      const startId = componentVersion.id;
       const endId = relation.end.relationPartner.id;
       const key = `${startId}-${endId}`;
-      
+      if (startId != endId) {
       if (aggregatedRelations.has(key)) {
         aggregatedRelations.get(key)!.count += aggregatedIssue.count;
       } else {
@@ -136,11 +131,13 @@ function extractIssueRelations(relationPartner: any, projectId: string): any[] {
           count: aggregatedIssue.count
         });
       }
+    }
     });
   });
 
   const result = Array.from(aggregatedRelations.values());
   console.log('Extracted issue relations:', JSON.stringify(result, null, 2));
+  console.log("END extractIssueRelations 3");
   return result;
 }
 
@@ -166,6 +163,7 @@ function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout 
   workspace.nodes.forEach((component: any) => {
     if (component.versions?.nodes?.length > 1) {
       component.versions?.nodes.forEach((version: any) => {
+        graph.issueRelations.push(...extractIssueRelations(version));
         graph.components.push({
           id: version.id,
           name: component.name,
@@ -182,6 +180,7 @@ function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout 
       });
     } else {
       component.versions?.nodes.forEach((version: any) => {
+        graph.issueRelations.push(...extractIssueRelations(version));
         graph.components.push({
           id: version.id,
           name: component.name,
@@ -198,6 +197,17 @@ function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout 
       });
     }
 });
+
+graph.issueRelations.forEach((relation) => {
+  console.log("IssueRelation START: " + relation.start);
+  console.log("IssueRelation END: " + relation.end);
+  console.log("IssueRelation COUNT: " + relation.count);
+});
+
+//graph.issueRelations.push(...[{start: "d2bb5c86-aa45-41cb-802a-37f1ce487ddb", end: "a3a3693b-3995-43dd-ae80-6136b27ebc39", count:1}, {start: "a3a3693b-3995-43dd-ae80-6136b27ebc39", end: "87c7a566-2ccd-4f1e-be77-d947ed417ea3", count:1}]);
+//graph.issueRelations.push(...[{start: "ca54dc74-5cad-438a-8606-3c11d4363b4f", end: "ca54dc74-5cad-438a-8606-3c11d4363b4f", count:1}, {start: "ca54dc74-5cad-438a-8606-3c11d4363b4f", end: "ca54dc74-5cad-438a-8606-3c11d4363b4f", count:1}]);
+
+
   /*
   
 graph.components.forEach(component => {
@@ -235,13 +245,8 @@ async function updateGraph(data: any = null) {
   const { graph, layout } = createGraphData(data);
   const finalLayout = Object.keys(layout).length === 0 ? 
     await autolayout(graph) : layout;
-
-  console.log('Updating graph with:', {
-    components: graph.components.length,
-    relations: graph.relations.length,
-    issueRelations: graph.issueRelations.length
-  });
   
+  /*
   graph.components.forEach(element => {
     console.log("Name: " + element.name);
     console.log("ID: " + element.id);
@@ -249,7 +254,7 @@ async function updateGraph(data: any = null) {
     console.log("Issues: " + element.issueTypes)
     console.log("TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT");
   });
-  /*
+
   graph.components = [{
     id: "85b5b28e-b25d-4ce7-81b7-39d30aa96f97",
     name: "multi versions component",
