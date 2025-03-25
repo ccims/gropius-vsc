@@ -1632,4 +1632,60 @@ ul {
   top: 0;
   left: 0;
 }
+
+.badge-container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.edit-field-button {
+  margin-left: 4px;
+  opacity: 0.6;
+}
+
+.edit-field-button:hover {
+  opacity: 1;
+}
+
+.field-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 150px;
+  max-width: 250px;
+  background-color: var(--vscode-dropdown-background);
+  border: 1px solid var(--vscode-dropdown-border);
+  border-radius: 4px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  margin-top: 4px;
+}
+
+.dropdown-loading {
+  padding: 8px 12px;
+  font-style: italic;
+  color: var(--vscode-descriptionForeground);
+}
+
+.dropdown-options {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.dropdown-option {
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.dropdown-option:hover {
+  background-color: var(--vscode-list-hoverBackground);
+}
+
+.dropdown-option.selected {
+  background-color: var(--vscode-list-activeSelectionBackground);
+  color: var(--vscode-list-activeSelectionForeground);
+}
+
 </style>
