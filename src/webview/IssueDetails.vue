@@ -4,8 +4,8 @@
       <!-- Title Section -->
       <div class="issue-header">
         <div class="icon-stack">
-          <img class="base-icon" :src="getTypeIconPath()" alt="" />
-          <img class="overlay-icon" :src="getRelationalIconPath()" alt="" />
+          <img class="base-icon" :src="getTypeIconPathFor(issue)" alt="" />
+          <img class="overlay-icon" :src="getRelationalIconPathFor(issue)" alt="" />
         </div>
         <h2 class="issue-title">{{ issue.title }}</h2>
       </div>
@@ -26,7 +26,7 @@
               <div class="section-header">Type:</div>
               <div class="section-content inline-content">
                 <div class="badge type-badge">
-                  <img class="type-icon" :src="getTypeIconPath()" alt="" />
+                  <img class="type-icon" :src="getTypeIconPathFor(issue)" alt="" />
                   {{ issue.type.name }}
                 </div>
               </div>
@@ -137,23 +137,55 @@
             <span class="toggle-icon">{{ expandedSections.relatedIssues ? '▼' : '▶' }}</span>
           </div>
           <div class="section-content" v-if="expandedSections.relatedIssues">
-            <!-- Incoming Relations -->
-            <div v-if="hasIncomingRelations" class="relations-group">
-              <div class="relations-subheader">Issues that affect this issue:</div>
+            <!-- Outgoing Relations FIRST -->
+            <div v-if="hasOutgoingRelations" class="relations-group">
+              <div class="relations-subheader">Outgoing Relations</div>
               <div class="relations-list">
-                <div v-for="(relation, index) in issue.incomingRelations.nodes" :key="'in-' + index"
-                  class="relation-item" @click="openRelatedIssue(relation.issue.id)">
+                <div
+                  v-for="(relation, index) in issue.outgoingRelations.nodes"
+                  :key="'out-' + index"
+                  class="relation-item"
+                  @click="openRelatedIssue(relation.issue.id)"
+                >
+                  <div class="icon-stack">
+                    <img
+                      class="base-icon"
+                      :src="getTypeIconPathFor(relation.issue)"
+                      alt=""
+                    />
+                    <img
+                      class="overlay-icon"
+                      :src="getRelationalIconPathFor(relation.issue)"
+                      alt=""
+                    />
+                  </div>
                   {{ relation.issue.title }}
                 </div>
               </div>
             </div>
 
-            <!-- Outgoing Relations -->
-            <div v-if="hasOutgoingRelations" class="relations-group">
-              <div class="relations-subheader">Issues affected by this issue:</div>
+            <!-- Incoming Relations SECOND -->
+            <div v-if="hasIncomingRelations" class="relations-group">
+              <div class="relations-subheader">Incoming Relations</div>
               <div class="relations-list">
-                <div v-for="(relation, index) in issue.outgoingRelations.nodes" :key="'out-' + index"
-                  class="relation-item" @click="openRelatedIssue(relation.issue.id)">
+                <div
+                  v-for="(relation, index) in issue.incomingRelations.nodes"
+                  :key="'in-' + index"
+                  class="relation-item"
+                  @click="openRelatedIssue(relation.issue.id)"
+                >
+                  <div class="icon-stack">
+                    <img
+                      class="base-icon"
+                      :src="getTypeIconPathFor(relation.issue)"
+                      alt=""
+                    />
+                    <img
+                      class="overlay-icon"
+                      :src="getRelationalIconPathFor(relation.issue)"
+                      alt=""
+                    />
+                  </div>
                   {{ relation.issue.title }}
                 </div>
               </div>
@@ -384,24 +416,26 @@ export default {
       }
     },
 
-    getTypeIconPath() {
-      const isOpen = this.issue.state && this.issue.state.isOpen;
+    getTypeIconPathFor(someIssue) {
+      if (!someIssue) {
+        // Fallback icon
+        return new URL("../../resources/icons/bug-black.png", import.meta.url).href;
+      }
+      const isOpen = someIssue.state && someIssue.state.isOpen;
+      const typeName = someIssue.type && someIssue.type.name;
 
-      switch (this.issue.type.name) {
+      switch (typeName) {
         case "Bug":
-          return Boolean(isOpen)
+          return isOpen
             ? new URL("../../resources/icons/bug-green.png", import.meta.url).href
             : new URL("../../resources/icons/bug-red.png", import.meta.url).href;
         case "Feature":
-          return Boolean(isOpen)
+          return isOpen
             ? new URL("../../resources/icons/lightbulb-feature-green.png", import.meta.url).href
             : new URL("../../resources/icons/lightbulb-feature-red.png", import.meta.url).href;
         case "Misc":
-          return Boolean(isOpen)
-            ? new URL("../../resources/icons/exclamation-green.png", import.meta.url).href
-            : new URL("../../resources/icons/exclamation-red.png", import.meta.url).href;
         case "Task":
-          return Boolean(isOpen)
+          return isOpen
             ? new URL("../../resources/icons/exclamation-green.png", import.meta.url).href
             : new URL("../../resources/icons/exclamation-red.png", import.meta.url).href;
         default:
@@ -409,9 +443,12 @@ export default {
       }
     },
 
-    getRelationalIconPath() {
-      const hasIncoming = this.issue.incomingRelations && this.issue.incomingRelations.totalCount > 0;
-      const hasOutgoing = this.issue.outgoingRelations && this.issue.outgoingRelations.totalCount > 0;
+    getRelationalIconPathFor(someIssue) {
+      if (!someIssue) {
+        return new URL("../../resources/icons/none.png", import.meta.url).href;
+      }
+      const hasIncoming = someIssue.incomingRelations && someIssue.incomingRelations.totalCount > 0;
+      const hasOutgoing = someIssue.outgoingRelations && someIssue.outgoingRelations.totalCount > 0;
 
       if (hasIncoming && hasOutgoing) {
         return new URL("../../resources/icons/incoming-outgoing.png", import.meta.url).href;
@@ -1102,12 +1139,15 @@ ul {
 }
 
 .relation-item {
-  padding: 8px 10px;
-  background-color: var(--vscode-editor-background);
-  border: 1px solid var(--vscode-panel-border);
-  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  border-radius: 0;
   cursor: pointer;
   font-size: 0.9em;
+  padding: 4px 0; /* or however much vertical spacing you want */
 }
 
 .relation-item:hover {
