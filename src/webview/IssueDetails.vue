@@ -18,40 +18,49 @@
       <!-- Main Content Sections -->
       <div class="issue-sections">
 
-        <!-- Type and State Section -->
+        <!-- Type, State, AND Priority all in one horizontal info-section -->
         <div class="info-section horizontal-section">
-          <div class="section-group">
+          <!-- Type -->
+          <div class="section-group" v-if="issue.type">
             <div class="section-header-row">
               <div class="section-header">Type:</div>
               <div class="section-content inline-content">
-                <div class="badge type-badge" v-if="issue.type">
+                <div class="badge type-badge">
                   <img class="type-icon" :src="getTypeIconPath()" alt="" />
                   {{ issue.type.name }}
                 </div>
               </div>
             </div>
           </div>
-          <div class="section-group">
+
+          <!-- State -->
+          <div class="section-group" v-if="issue.state">
             <div class="section-header-row">
               <div class="section-header">State:</div>
               <div class="section-content inline-content">
-                <div class="badge state-badge"
-                  :class="{ 'state-open': issue.state && issue.state.isOpen, 'state-completed': issue.state && !issue.state.isOpen && issue.state.name === 'Completed', 'state-not-planned': issue.state && !issue.state.isOpen && issue.state.name === 'Not Planned' }">
-                  {{ issue.state ? issue.state.name : 'Unknown' }}
+                <div
+                  class="badge state-badge"
+                  :class="{
+                    'state-open': issue.state.isOpen,
+                    'state-completed': !issue.state.isOpen && issue.state.name === 'Completed',
+                    'state-not-planned': !issue.state.isOpen && issue.state.name === 'Not Planned'
+                  }"
+                >
+                  {{ issue.state.name || 'Unknown' }}
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- Priority Section -->
-        <div class="info-section" v-if="issue.priority">
-          <div class="section-header-row">
-            <div class="section-header">Priority:</div>
-            <div class="section-content inline-content">
-              <div class="badge priority-badge">
-                <img class="priority-icon" :src="getPriorityIconPath()" alt="" />
-                {{ issue.priority.name }}
+          <!-- Priority -->
+          <div class="section-group" v-if="issue.priority">
+            <div class="section-header-row">
+              <div class="section-header">Priority:</div>
+              <div class="section-content inline-content">
+                <div class="badge priority-badge">
+                  <img class="priority-icon" :src="getPriorityIconPath()" alt="" />
+                  {{ issue.priority.name }}
+                </div>
               </div>
             </div>
           </div>
