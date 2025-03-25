@@ -39,6 +39,13 @@ interface ComponentTreeItem {
   expanded: boolean;
 }
 
+interface DescriptionEditorData {
+  markdown: string;
+  issueId: string;
+  bodyId: string;
+  issueTitle?: string; // Make issueTitle optional
+}
+
 /**
  * Registers all providers and commands in VS Code
  */
@@ -800,21 +807,21 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
       this.lastVersionId = null;
       this.originComponentId = componentId; // Save origin component ID
       console.log("[ComponentIssuesProvider] updateIssues: originComponentId set to", this.originComponentId);
-  
+
       await this.apiClient.authenticate();
       const result = await this.apiClient.executeQuery(
         GET_ISSUES_OF_COMPONENT_QUERY,
         { id: componentId }
       );
-  
+
       if (!result.data || !result.data.node) {
         throw new Error("No component data received.");
       }
-  
+
       const issues = result.data.node.issues.nodes || [];
       this.lastIssues = issues;
       console.log("[ComponentIssuesProvider] updateIssues: Fetched", issues.length, "issues for component", componentId);
-  
+
       if (this._view) {
         this._view.webview.postMessage({
           command: "updateComponentIssues",
@@ -825,7 +832,7 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
           }
         });
       }
-  
+
       // Reveal the view after updating issues
       this.revealView();
     } catch (error: any) {
@@ -840,7 +847,7 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
  */
   public async refreshCurrentIssues(): Promise<void> {
     console.log("[ComponentIssuesProvider] Refreshing current issues");
-    
+
     try {
       // Clear any cached issues first to ensure fresh data
       if (this._view) {
@@ -851,7 +858,7 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
           isLoading: true
         });
       }
-      
+
       // If we have a component version selected, refresh its issues
       if (this.lastVersionId) {
         console.log(`[ComponentIssuesProvider] Refreshing issues for version ID ${this.lastVersionId}`);
@@ -860,7 +867,7 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
         await this.updateVersionIssues(this.lastVersionId);
         return;
       }
-      
+
       // If no version ID but we have component issues with component ID, use that
       if (this.lastIssues && this.lastIssues.length > 0) {
         // Try to find component ID from the first issue
@@ -873,7 +880,7 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
           return;
         }
       }
-      
+
       console.log("[ComponentIssuesProvider] No version or component ID available for refresh");
     } catch (error) {
       console.error("[ComponentIssuesProvider] Error refreshing issues:", error);
@@ -913,9 +920,9 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
     try {
       console.log("[ComponentIssuesProvider] updateVersionIssues: Called with componentVersionId", componentVersionId);
       this.lastVersionId = componentVersionId;
-  
+
       await this.apiClient.authenticate();
-  
+
       // Get the component ID from the component version
       const componentVersionResult = await this.apiClient.executeQuery(
         FETCH_COMPONENT_VERSION_BY_ID_QUERY,
@@ -923,24 +930,24 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
       );
       const componentId = componentVersionResult.data?.node?.component?.id;
       console.log("[ComponentIssuesProvider] updateVersionIssues: Extracted componentId:", componentId);
-  
+
       if (!componentId) {
         throw new Error("Could not find component ID for this version");
       }
-  
+
       // *** NEW: Set the originComponentId when a version is clicked ***
       this.originComponentId = componentId;
       console.log("[ComponentIssuesProvider] updateVersionIssues: originComponentId set to", this.originComponentId);
-  
+
       // Get ALL component issues (same as clicking the component)
       const componentResult = await this.apiClient.executeQuery(
         GET_ISSUES_OF_COMPONENT_QUERY,
         { id: componentId }
       );
-  
+
       // Get all issues specific to the component
       const componentIssues = componentResult.data?.node?.issues?.nodes || [];
-  
+
       // Mark which issues are affected by the selected version
       const versionResult = await this.apiClient.executeQuery(
         GET_ISSUES_OF_COMPONENT_VERSION_QUERY,
@@ -954,15 +961,15 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
           affectedIssueIds.add(issue.id);
         }
       }
-  
+
       const allIssues = componentIssues.map((issue: { id: unknown; }) => ({
         ...issue,
         affectsSelectedVersion: affectedIssueIds.has(issue.id)
       }));
-  
+
       this.lastIssues = allIssues;
       console.log("[ComponentIssuesProvider] updateVersionIssues: Fetched", allIssues.length, "issues for componentId", componentId);
-  
+
       if (this._view) {
         this._view.webview.postMessage({
           command: "updateComponentIssues",
@@ -1137,39 +1144,52 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
   /**
    * Opens a new editor with the issue description for editing
    */
-  private async openDescriptionEditor(data: { markdown: string, issueId: string, bodyId: string }) {
+  private async openDescriptionEditor(data: DescriptionEditorData) {
+
     try {
       // Create a temporary file in the system's temp directory
       const tempDir = vscode.Uri.file(require('os').tmpdir());
-      const tempFileName = `issue-description-${data.issueId.substring(0, 8)}.md`;
+
+      // Create a safe file name from the issue title
+      let safeTitlePart = '';
+      if (data.issueTitle) {
+        // Replace any characters that aren't safe for filenames
+        safeTitlePart = data.issueTitle
+          .replace(/[^a-zA-Z0-9\-_]/g, '_')
+          .substring(0, 30); // Limit length to avoid overly long filenames
+
+        safeTitlePart = `-${safeTitlePart}`;
+      }
+
+      const tempFileName = `Description of${safeTitlePart}.md`;
       const tempFileUri = vscode.Uri.joinPath(tempDir, tempFileName);
-      
+
       // Store the temp file URI and issue data for later use
       this.tempFileUri = tempFileUri;
       this.descriptionEditData = {
         bodyId: data.bodyId,
         issueId: data.issueId
       };
-      
+
       // Write the current description to the temp file
       const encoder = new TextEncoder();
       const encodedText = encoder.encode(data.markdown);
       await vscode.workspace.fs.writeFile(tempFileUri, encodedText);
-      
+
       // Open the temp file in the editor
       const document = await vscode.workspace.openTextDocument(tempFileUri);
       const editor = await vscode.window.showTextDocument(document);
-      
+
       // Set up a file system watcher to detect when the file is saved
       const watcher = vscode.workspace.createFileSystemWatcher(tempFileUri.fsPath);
-      
+
       // When the file is saved, update the description in the backend
       const saveDisposable = vscode.workspace.onDidSaveTextDocument((doc) => {
         if (doc.uri.toString() === tempFileUri.toString()) {
           this.handleDescriptionSave(doc.getText());
         }
       });
-      
+
       // Clean up when the editor is closed
       const closeDisposable = vscode.window.onDidChangeVisibleTextEditors((editors) => {
         const isOpen = editors.some(e => e.document.uri.toString() === tempFileUri.toString());
@@ -1179,13 +1199,13 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
           closeDisposable.dispose();
         }
       });
-      
+
     } catch (error) {
       console.error('[IssueDetailsProvider] Error opening description editor:', error);
       vscode.window.showErrorMessage(`Failed to open description editor: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
-  
+
   /**
    * Handles saving the description when the temporary file is saved
    */
@@ -1194,21 +1214,21 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
       console.error('[IssueDetailsProvider] Missing description edit data');
       return;
     }
-    
+
     try {
       // Save the changes to the backend
       await this.saveDescriptionChanges({
         id: this.descriptionEditData.bodyId,
         body: newContent
       });
-      
+
       vscode.window.showInformationMessage('Issue description updated successfully.');
     } catch (error) {
       console.error('[IssueDetailsProvider] Error saving description:', error);
       vscode.window.showErrorMessage(`Failed to save description: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
-  
+
   /**
    * Saves description changes to the backend using the updateBody mutation
    */
@@ -1216,7 +1236,7 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
     try {
       // Authenticate
       await globalApiClient.authenticate();
-      
+
       // Execute the updateBody mutation
       const result = await globalApiClient.executeQuery(UPDATE_BODY_MUTATION, {
         input: {
@@ -1224,15 +1244,15 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
           body: data.body
         }
       });
-      
+
       if (result.errors) {
         throw new Error(result.errors[0].message);
       }
-      
+
       if (!result.data?.updateBody?.body) {
         throw new Error('Failed to update description: No data returned');
       }
-      
+
       // Notify the webview that the description has been updated
       if (this._view) {
         this._view.webview.postMessage({
@@ -1241,10 +1261,10 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
           lastModifiedAt: result.data.updateBody.body.lastModifiedAt
         });
       }
-      
+
       // Refresh the component issues to reflect any changes
       vscode.commands.executeCommand('extension.refreshComponentIssues');
-      
+
     } catch (error) {
       console.error('[IssueDetailsProvider] Error in saveDescriptionChanges:', error);
       throw error;
@@ -1264,7 +1284,7 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
     }
     this.lastIssueId = issueId;
     console.log("[IssueDetailsProvider] updateIssueDetails: Updating issue details for issueId", issueId);
-    
+
     globalApiClient.authenticate()
       .then(() => {
         return Promise.all([

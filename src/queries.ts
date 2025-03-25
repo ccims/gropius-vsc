@@ -208,6 +208,7 @@ query GetIssueDetails($id: ID!) {
         name
       }
       body {
+        id
         body
         lastModifiedAt
       }

@@ -195,18 +195,9 @@
         </div>
 
         <!-- Templated Fields Section -->
-        <div 
-          v-if="issue.templatedFields && issue.templatedFields.length > 0"
-        >
-          <div 
-            v-for="(field, index) in issue.templatedFields" 
-            :key="index" 
-            class="info-section"
-          >
-            <div 
-              class="section-header-row"
-              style="display: flex; align-items: center; gap: 6px;"
-            >
+        <div v-if="issue.templatedFields && issue.templatedFields.length > 0">
+          <div v-for="(field, index) in issue.templatedFields" :key="index" class="info-section">
+            <div class="section-header-row" style="display: flex; align-items: center; gap: 6px;">
               <!-- Field name as a subsection title -->
               <div class="section-header" style="margin-bottom: 0;">
                 {{ field.name }}:
@@ -250,7 +241,7 @@ export default {
         artifacts: false
       },
       showFullDescription: false,
-      descriptionMaxLength: 100, // Characters to show before truncating
+      descriptionMaxLength: 120, // Characters to show before truncating
     };
   },
   computed: {
@@ -567,12 +558,21 @@ export default {
         return;
       }
 
-      console.log("[IssueDetails.vue] Opening description editor for issue:", this.issue.id);
+      // Ensure bodyId is present
+      if (!this.issue.body.id) {
+        console.error("Missing body ID - cannot edit description");
+        vscode.postMessage({
+          command: 'showError',
+          message: 'Cannot edit description: Missing body ID'
+        });
+        return;
+      }
 
       // Create a temporary file with the markdown content
       const markdown = this.issue.body.body || '';
       const issueId = this.issue.id;
       const bodyId = this.issue.body.id;
+      const issueTitle = this.issue.title || '';
 
       if (vscode) {
         vscode.postMessage({
@@ -580,7 +580,8 @@ export default {
           data: {
             markdown,
             issueId,
-            bodyId
+            bodyId,
+            issueTitle
           }
         });
       }
