@@ -62,16 +62,10 @@
           <div class="section-header-row">
             <div class="section-header">Labels:</div>
             <div class="section-content inline-content">
-              <div
-                v-for="(label, index) in issue.labels.nodes"
-                :key="index"
-                class="badge label-badge"
-                :style="{
-                  backgroundColor: label.color || 'rgba(0, 0, 0, 0.2)',
-                  color: '#ffffff'
-                }"
-                :title="label.description" 
-              >
+              <div v-for="(label, index) in issue.labels.nodes" :key="index" class="badge label-badge" :style="{
+                backgroundColor: label.color || 'rgba(0, 0, 0, 0.2)',
+                color: '#ffffff'
+              }" :title="label.description">
                 {{ label.name }}
               </div>
             </div>
@@ -106,10 +100,23 @@
           <div class="section-header" @click="toggleSection('description')"
             style="cursor: pointer; display: flex; justify-content: space-between;">
             <span>Description</span>
-            <span class="toggle-icon">{{ expandedSections.description ? '▼' : '▶' }}</span>
+            <div>
+              <button v-if="expandedSections.description" class="edit-button" @click.stop="editDescription"
+                title="Edit description">
+                <span class="edit-icon">✎</span>
+              </button>
+              <span class="toggle-icon">{{ expandedSections.description ? '▼' : '▶' }}</span>
+            </div>
           </div>
           <div class="section-content description-content" v-if="expandedSections.description">
-            <div class="description-text markdown-content" v-html="markdownToHtml(issue.body.body)"></div>
+            <div v-if="!isDescriptionTruncated || showFullDescription" class="description-text markdown-content"
+              v-html="markdownToHtml(issue.body.body)"></div>
+            <div v-else class="description-text markdown-content" v-html="markdownToHtml(truncatedDescription)"></div>
+            <div v-if="isDescriptionTruncated" class="show-more-container">
+              <button class="show-more-button" @click="toggleFullDescription">
+                {{ showFullDescription ? 'Show less' : 'Show more' }}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -216,7 +223,9 @@ export default {
         dates: false,
         relatedIssues: false,
         artifacts: false
-      }
+      },
+      showFullDescription: false,
+      descriptionMaxLength: 100, // Characters to show before truncating
     };
   },
   computed: {
@@ -267,6 +276,27 @@ export default {
       return Object.fromEntries(
         Object.entries(grouped).filter(([_, items]) => items.length > 0)
       );
+    },
+    // Computed properties for description truncation
+    isDescriptionTruncated() {
+      return this.issue &&
+        this.issue.body &&
+        this.issue.body.body &&
+        this.issue.body.body.length > this.descriptionMaxLength;
+    },
+    truncatedDescription() {
+      if (!this.issue || !this.issue.body || !this.issue.body.body) {
+        return '';
+      }
+
+      let text = this.issue.body.body;
+      // Find a good breaking point (end of sentence or paragraph)
+      const breakPoint = text.substring(0, this.descriptionMaxLength).lastIndexOf('.');
+
+      // If we found a period within the range break there, otherwise use the max length
+      const endIndex = breakPoint > 0 ? breakPoint + 1 : this.descriptionMaxLength;
+
+      return text.substring(0, endIndex) + '...';
     }
   },
   methods: {
@@ -357,7 +387,7 @@ export default {
     getRelationalIconPath() {
       const hasIncoming = this.issue.incomingRelations && this.issue.incomingRelations.totalCount > 0;
       const hasOutgoing = this.issue.outgoingRelations && this.issue.outgoingRelations.totalCount > 0;
-      
+
       if (hasIncoming && hasOutgoing) {
         return new URL("../../resources/icons/incoming-outgoing.png", import.meta.url).href;
       } else if (hasIncoming) {
@@ -373,7 +403,7 @@ export default {
      * - If a node is a ComponentVersion, return node.component.id.
      * - If a node is a direct Component, return node.id.
      */
-     getComponentId() {
+    getComponentId() {
       if (this.originComponentId) {
         return this.originComponentId;
       }
@@ -393,7 +423,7 @@ export default {
         return;
       }
       const url = `http://localhost:4200/components/${compId}/issues/${issueId}`;
-      
+
       if (vscode) {
         vscode.postMessage({
           command: 'openInExternalBrowser',
@@ -501,6 +531,54 @@ export default {
           }
         });
       }
+    },
+    toggleFullDescription() {
+      this.showFullDescription = !this.showFullDescription;
+    },
+
+    editDescription() {
+      if (!this.issue || !this.issue.body) {
+        console.error("No issue body to edit");
+        return;
+      }
+
+      console.log("[IssueDetails.vue] Opening description editor for issue:", this.issue.id);
+
+      // Create a temporary file with the markdown content
+      const markdown = this.issue.body.body || '';
+      const issueId = this.issue.id;
+      const bodyId = this.issue.body.id;
+
+      if (vscode) {
+        vscode.postMessage({
+          command: 'editDescription',
+          data: {
+            markdown,
+            issueId,
+            bodyId
+          }
+        });
+      }
+    },
+
+    // Update the description after editing
+    updateDescription(bodyId, newBody) {
+      if (!bodyId || !newBody) {
+        console.error("Missing required data for updating description");
+        return;
+      }
+
+      console.log("[IssueDetails.vue] Updating description for body:", bodyId);
+
+      if (vscode) {
+        vscode.postMessage({
+          command: 'updateDescription',
+          data: {
+            id: bodyId,
+            body: newBody
+          }
+        });
+      }
     }
   },
   mounted() {
@@ -545,6 +623,7 @@ export default {
           this.originComponentId = message.originComponentId;
         }
         this.error = message.error || null;
+        this.showFullDescription = false; // Reset show more state when loading new issue
 
         vscode.setState({
           issue: this.issue,
@@ -558,6 +637,18 @@ export default {
         } else {
           console.warn("[IssueDetails.vue] Received null issue with no error");
         }
+      } else if (message && message.command === "descriptionUpdated") {
+        // Handle description update from the extension
+        console.log("[IssueDetails.vue] Description updated message received");
+        if (this.issue && this.issue.body) {
+          this.issue.body.body = message.body;
+          this.issue.body.lastModifiedAt = message.lastModifiedAt || new Date().toISOString();
+
+          vscode.setState({
+            issue: this.issue,
+            error: this.error
+          });
+        }
       }
     });
 
@@ -568,3 +659,46 @@ export default {
   }
 };
 </script>
+
+<style>
+.edit-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  margin-right: 8px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  opacity: 0.7;
+  transition: opacity 0.2s, background-color 0.2s;
+}
+
+.edit-button:hover {
+  opacity: 1;
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.edit-icon {
+  font-size: 14px;
+}
+
+.show-more-container {
+  margin-top: 8px;
+  text-align: right;
+}
+
+.show-more-button {
+  background: none;
+  border: none;
+  color: #0066cc;
+  cursor: pointer;
+  font-size: 0.9em;
+  padding: 3px 8px;
+  transition: background-color 0.2s;
+  border-radius: 3px;
+}
+
+.show-more-button:hover {
+  background-color: rgba(0, 102, 204, 0.1);
+  text-decoration: underline;
+}
+</style>

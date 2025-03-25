@@ -512,3 +512,15 @@ export const FETCH_PROJECT_GRAPH_QUERY = `
     }
   }
 `;
+
+export const UPDATE_BODY_MUTATION = `
+mutation UpdateBody($input: UpdateBodyInput!) {
+  updateBody(input: $input) {
+    body {
+      id
+      body
+      lastModifiedAt
+    }
+  }
+}
+`;
