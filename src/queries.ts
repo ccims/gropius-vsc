@@ -162,6 +162,8 @@ query GetIssueDetails($id: ID!) {
       labels {
         nodes {
           name
+          color
+          description
         }
       }
       affects {

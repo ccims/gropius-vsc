@@ -62,7 +62,16 @@
           <div class="section-header-row">
             <div class="section-header">Labels:</div>
             <div class="section-content inline-content">
-              <div v-for="(label, index) in issue.labels.nodes" :key="index" class="badge label-badge">
+              <div
+                v-for="(label, index) in issue.labels.nodes"
+                :key="index"
+                class="badge label-badge"
+                :style="{
+                  backgroundColor: label.color || 'rgba(0, 0, 0, 0.2)',
+                  color: '#ffffff'
+                }"
+                :title="label.description" 
+              >
                 {{ label.name }}
               </div>
             </div>
