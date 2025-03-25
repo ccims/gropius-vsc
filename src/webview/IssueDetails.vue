@@ -194,6 +194,31 @@
           </div>
         </div>
 
+        <!-- Templated Fields Section -->
+        <div 
+          v-if="issue.templatedFields && issue.templatedFields.length > 0"
+        >
+          <div 
+            v-for="(field, index) in issue.templatedFields" 
+            :key="index" 
+            class="info-section"
+          >
+            <div 
+              class="section-header-row"
+              style="display: flex; align-items: center; gap: 6px;"
+            >
+              <!-- Field name as a subsection title -->
+              <div class="section-header" style="margin-bottom: 0;">
+                {{ field.name }}:
+              </div>
+              <!-- Field value on the same line, in bold -->
+              <div>
+                {{ field.value }}
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
     <div v-else-if="error" class="error-state">

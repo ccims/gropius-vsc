@@ -231,6 +231,11 @@ query GetIssueDetails($id: ID!) {
         }
         totalCount
       }
+      templatedField(name: "")
+      templatedFields {
+        name
+        value
+      }
     }
   }
 }
