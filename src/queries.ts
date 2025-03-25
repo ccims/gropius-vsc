@@ -159,6 +159,10 @@ query GetIssueDetails($id: ID!) {
       title
       createdAt
       lastUpdatedAt
+      template {
+        id
+        name
+      }
       labels {
         nodes {
           name
@@ -198,18 +202,26 @@ query GetIssueDetails($id: ID!) {
         }
       }
       state {
+        id
         isOpen
         name
       }
       type {
+        id
         name
       }
       priority {
+        id
         name
       }
       body {
+        id
         body
         lastModifiedAt
+      }
+      templatedFields {
+        name
+        value
       }
       estimatedTime
       hasPermission(permission: READ)
@@ -218,18 +230,6 @@ query GetIssueDetails($id: ID!) {
           issue {
             id
             title
-            state {
-              isOpen
-            }
-            type {
-              name
-            }
-            incomingRelations {
-              totalCount
-            }
-            outgoingRelations {
-              totalCount
-            }
           }
         }
         totalCount
@@ -239,26 +239,9 @@ query GetIssueDetails($id: ID!) {
           issue {
             id
             title
-            state {
-              isOpen
-            }
-            type {
-              name
-            }
-            incomingRelations {
-              totalCount
-            }
-            outgoingRelations {
-              totalCount
-            }
           }
         }
         totalCount
-      }
-      templatedField(name: "")
-      templatedFields {
-        name
-        value
       }
     }
   }
@@ -549,6 +532,99 @@ mutation UpdateBody($input: UpdateBodyInput!) {
       id
       body
       lastModifiedAt
+    }
+  }
+}
+`;
+
+
+// Mutation to change issue priority
+export const CHANGE_ISSUE_PRIORITY_MUTATION = `
+mutation ChangeIssuePriority($input: ChangeIssuePriorityInput!) {
+  changeIssuePriority(input: $input) {
+    priorityChangedEvent {
+      newPriority {
+        id
+        name
+      }
+    }
+  }
+}
+`;
+
+// Mutation to change issue state
+export const CHANGE_ISSUE_STATE_MUTATION = `
+mutation ChangeIssueState($input: ChangeIssueStateInput!) {
+  changeIssueState(input: $input) {
+    stateChangedEvent {
+      newState {
+        id
+        name
+        isOpen
+      }
+    }
+  }
+}
+`;
+
+// Mutation to change issue type
+export const CHANGE_ISSUE_TYPE_MUTATION = `
+mutation ChangeIssueType($input: ChangeIssueTypeInput!) {
+  changeIssueType(input: $input) {
+    typeChangedEvent {
+      newType {
+        id
+        name
+      }
+    }
+  }
+}
+`;
+
+// Query to get available issue priorities for a template
+export const GET_ISSUE_TEMPLATE_PRIORITIES = `
+query GetIssueTemplatePriorities($id: ID!) {
+  node(id: $id) {
+    ... on IssueTemplate {
+      priorities {
+        nodes {
+          id
+          name
+        }
+      }
+    }
+  }
+}
+`;
+
+// Query to get available issue states for a template
+export const GET_ISSUE_TEMPLATE_STATES = `
+query GetIssueTemplateStates($id: ID!) {
+  node(id: $id) {
+    ... on IssueTemplate {
+      states {
+        nodes {
+          id
+          name
+          isOpen
+        }
+      }
+    }
+  }
+}
+`;
+
+// Query to get available issue types for a template
+export const GET_ISSUE_TEMPLATE_TYPES = `
+query GetIssueTemplateTypes($id: ID!) {
+  node(id: $id) {
+    ... on IssueTemplate {
+      types {
+        nodes {
+          id
+          name
+        }
+      }
     }
   }
 }
