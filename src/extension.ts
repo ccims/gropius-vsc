@@ -1054,7 +1054,7 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
       this._view?.webview.postMessage({ command: 'displayIssue', issue: null });
     }
 
-    webviewView.webview.onDidReceiveMessage(async (message: any) => {
+    webviewView.webview.onDidReceiveMessage((message: any) => {
       if (message.command === "vueAppReady") {
         if (this.lastIssueId && this.originComponentId) {
           this.updateIssueDetails(this.lastIssueId);
@@ -1075,72 +1075,6 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
       } else if (message.command === 'updateDescription') {
         // New handler for saving description changes
         this.saveDescriptionChanges(message.data);
-      } else if (message.command === 'getIssueOptions') {
-        // Fetch available options for issue editing
-        const templateId = message.templateId;
-        if (templateId) {
-          try {
-            const options = await this.fetchIssueOptions(templateId);
-            this._view?.webview.postMessage({
-              command: 'issueOptionsLoaded',
-              options
-            });
-          } catch (error) {
-            console.error('[IssueDetailsProvider] Error getting issue options:', error);
-            this._view?.webview.postMessage({
-              command: 'issueOptionsError',
-              error: error instanceof Error ? error.message : String(error)
-            });
-          }
-        }
-      } else if (message.command === 'changeIssueState') {
-        // Change issue state
-        try {
-          const updatedState = await this.changeIssueState({
-            issueId: message.issueId,
-            stateId: message.stateId
-          });
-          this._view?.webview.postMessage({
-            command: 'issueStateUpdated',
-            state: updatedState
-          });
-          // Refresh issue details to reflect all changes
-          this.refreshCurrentIssue();
-        } catch (error) {
-          vscode.window.showErrorMessage(`Failed to update issue state: ${error instanceof Error ? error.message : String(error)}`);
-        }
-      } else if (message.command === 'changeIssueType') {
-        // Change issue type
-        try {
-          const updatedType = await this.changeIssueType({
-            issueId: message.issueId,
-            typeId: message.typeId
-          });
-          this._view?.webview.postMessage({
-            command: 'issueTypeUpdated',
-            type: updatedType
-          });
-          // Refresh issue details to reflect all changes
-          this.refreshCurrentIssue();
-        } catch (error) {
-          vscode.window.showErrorMessage(`Failed to update issue type: ${error instanceof Error ? error.message : String(error)}`);
-        }
-      } else if (message.command === 'changeIssuePriority') {
-        // Change issue priority
-        try {
-          const updatedPriority = await this.changeIssuePriority({
-            issueId: message.issueId,
-            priorityId: message.priorityId
-          });
-          this._view?.webview.postMessage({
-            command: 'issuePriorityUpdated',
-            priority: updatedPriority
-          });
-          // Refresh issue details to reflect all changes
-          this.refreshCurrentIssue();
-        } catch (error) {
-          vscode.window.showErrorMessage(`Failed to update issue priority: ${error instanceof Error ? error.message : String(error)}`);
-        }
       }
     });
   }
