@@ -305,14 +305,6 @@ export default {
       },
       showFullDescription: false,
       descriptionMaxLength: 120, // Characters to show before truncating
-      showTypeDropdown: false,
-      showStateDropdown: false,
-      showPriorityDropdown: false,
-      issueOptions: {
-        types: [],
-        states: [],
-        priorities: []
-      }
     };
   },
   computed: {
@@ -681,87 +673,6 @@ export default {
           }
         });
       }
-    },
-    // Load issue options (types, states, priorities) from the template
-    loadIssueOptions() {
-      if (!this.issue || !this.issue.template || !this.issue.template.id) {
-        console.error("Cannot load issue options: Missing template ID");
-        return;
-      }
-
-      if (vscode) {
-        vscode.postMessage({
-          command: 'getIssueOptions',
-          templateId: this.issue.template.id
-        });
-      }
-    },
-
-    // Change issue type
-    changeIssueType(typeId) {
-      if (!this.issue || !this.issue.id) {
-        console.error("Cannot change type: Missing issue ID");
-        return;
-      }
-
-      if (vscode) {
-        vscode.postMessage({
-          command: 'changeIssueType',
-          issueId: this.issue.id,
-          typeId: typeId
-        });
-      }
-
-      // Hide dropdown after selection
-      this.showTypeDropdown = false;
-    },
-
-    // Change issue state
-    changeIssueState(stateId) {
-      if (!this.issue || !this.issue.id) {
-        console.error("Cannot change state: Missing issue ID");
-        return;
-      }
-
-      if (vscode) {
-        vscode.postMessage({
-          command: 'changeIssueState',
-          issueId: this.issue.id,
-          stateId: stateId
-        });
-      }
-
-      // Hide dropdown after selection
-      this.showStateDropdown = false;
-    },
-
-    // Change issue priority
-    changeIssuePriority(priorityId) {
-      if (!this.issue || !this.issue.id) {
-        console.error("Cannot change priority: Missing issue ID");
-        return;
-      }
-
-      if (vscode) {
-        vscode.postMessage({
-          command: 'changeIssuePriority',
-          issueId: this.issue.id,
-          priorityId: priorityId
-        });
-      }
-
-      // Hide dropdown after selection
-      this.showPriorityDropdown = false;
-    },
-
-    // Close dropdowns when clicking outside
-    handleClickOutside(event) {
-      // Close all dropdowns when clicking outside of them
-      if (this.showTypeDropdown || this.showStateDropdown || this.showPriorityDropdown) {
-        this.showTypeDropdown = false;
-        this.showStateDropdown = false;
-        this.showPriorityDropdown = false;
-      }
     }
   },
   mounted() {
@@ -792,9 +703,6 @@ export default {
     } else {
       console.log("[IssueDetails.vue] Mounted: No state found.");
     }
-
-    // Click handler to close dropdown menus when clicking outside
-    document.addEventListener('click', this.handleClickOutside);
 
     window.addEventListener("message", (event) => {
       console.log("[IssueDetails.vue] Received message event:", event);
@@ -834,22 +742,6 @@ export default {
             issue: this.issue,
             error: this.error
           });
-        }
-      }
-
-      if (message && message.command === 'issueOptionsLoaded') {
-        this.issueOptions = message.options;
-      } else if (message && message.command === 'issueStateUpdated') {
-        if (this.issue && this.issue.state) {
-          this.issue.state = message.state;
-        }
-      } else if (message && message.command === 'issueTypeUpdated') {
-        if (this.issue && this.issue.type) {
-          this.issue.type = message.type;
-        }
-      } else if (message && message.command === 'issuePriorityUpdated') {
-        if (this.issue && this.issue.priority) {
-          this.issue.priority = message.priority;
         }
       }
     });
