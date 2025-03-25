@@ -15,7 +15,8 @@ import {
   CREATE_ARTIFACT_MUTATION,
   ADD_ARTIFACT_TO_ISSUE_MUTATION,
   GET_ARTIFACT_TEMPLATES_QUERY,
-  GET_ISSUES_OF_COMPONENT_QUERY
+  GET_ISSUES_OF_COMPONENT_QUERY,
+  UPDATE_BODY_MUTATION
 } from "./queries";
 import path from "path";
 
@@ -1042,12 +1043,15 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
  * IssueDetailsProvider:
  * - Displays detailed information about a selected issue
  * - Handles issue selection and view persistence
+ * - Saves changes back to the backend via GraphQL mutation
  */
 class IssueDetailsProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'issueDetails';
   private _view?: vscode.WebviewView;
   private lastIssueId: string | null = null;
   private originComponentId: string | null = null; // store origin component ID
+  private tempFileUri: vscode.Uri | null = null;
+  private descriptionEditData: { bodyId: string, issueId: string } | null = null;
 
   public refreshCurrentIssue(): void {
     if (this._view && this.lastIssueId) {
@@ -1072,7 +1076,6 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
     console.log("[IssueDetailsProvider] Webview HTML set");
 
     // When the view is (re)opened, if a last issue was selected, re-fetch its details.
-    // When the view is (re)opened, refresh issue details only if we have both a lastIssueId and an originComponentId.
     if (this.lastIssueId && this.originComponentId) {
       console.log("[IssueDetailsProvider] Auto-refreshing issue details with issueId", this.lastIssueId, "and originComponentId", this.originComponentId);
       this.updateIssueDetails(this.lastIssueId, this.originComponentId);
@@ -1103,6 +1106,12 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
         vscode.commands.executeCommand('extension.openArtifactFile', message.artifactData);
       } else if (message.command === 'openInExternalBrowser' && message.url) {
         vscode.env.openExternal(vscode.Uri.parse(message.url));
+      } else if (message.command === 'editDescription') {
+        // New handler for edit description command
+        this.openDescriptionEditor(message.data);
+      } else if (message.command === 'updateDescription') {
+        // New handler for saving description changes
+        this.saveDescriptionChanges(message.data);
       }
     });
   }
@@ -1123,6 +1132,123 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
     <script src="${scriptUri}"></script>
   </body>
 </html>`;
+  }
+
+  /**
+   * Opens a new editor with the issue description for editing
+   */
+  private async openDescriptionEditor(data: { markdown: string, issueId: string, bodyId: string }) {
+    try {
+      // Create a temporary file in the system's temp directory
+      const tempDir = vscode.Uri.file(require('os').tmpdir());
+      const tempFileName = `issue-description-${data.issueId.substring(0, 8)}.md`;
+      const tempFileUri = vscode.Uri.joinPath(tempDir, tempFileName);
+      
+      // Store the temp file URI and issue data for later use
+      this.tempFileUri = tempFileUri;
+      this.descriptionEditData = {
+        bodyId: data.bodyId,
+        issueId: data.issueId
+      };
+      
+      // Write the current description to the temp file
+      const encoder = new TextEncoder();
+      const encodedText = encoder.encode(data.markdown);
+      await vscode.workspace.fs.writeFile(tempFileUri, encodedText);
+      
+      // Open the temp file in the editor
+      const document = await vscode.workspace.openTextDocument(tempFileUri);
+      const editor = await vscode.window.showTextDocument(document);
+      
+      // Set up a file system watcher to detect when the file is saved
+      const watcher = vscode.workspace.createFileSystemWatcher(tempFileUri.fsPath);
+      
+      // When the file is saved, update the description in the backend
+      const saveDisposable = vscode.workspace.onDidSaveTextDocument((doc) => {
+        if (doc.uri.toString() === tempFileUri.toString()) {
+          this.handleDescriptionSave(doc.getText());
+        }
+      });
+      
+      // Clean up when the editor is closed
+      const closeDisposable = vscode.window.onDidChangeVisibleTextEditors((editors) => {
+        const isOpen = editors.some(e => e.document.uri.toString() === tempFileUri.toString());
+        if (!isOpen) {
+          saveDisposable.dispose();
+          watcher.dispose();
+          closeDisposable.dispose();
+        }
+      });
+      
+    } catch (error) {
+      console.error('[IssueDetailsProvider] Error opening description editor:', error);
+      vscode.window.showErrorMessage(`Failed to open description editor: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  
+  /**
+   * Handles saving the description when the temporary file is saved
+   */
+  private async handleDescriptionSave(newContent: string) {
+    if (!this.descriptionEditData || !this.tempFileUri) {
+      console.error('[IssueDetailsProvider] Missing description edit data');
+      return;
+    }
+    
+    try {
+      // Save the changes to the backend
+      await this.saveDescriptionChanges({
+        id: this.descriptionEditData.bodyId,
+        body: newContent
+      });
+      
+      vscode.window.showInformationMessage('Issue description updated successfully.');
+    } catch (error) {
+      console.error('[IssueDetailsProvider] Error saving description:', error);
+      vscode.window.showErrorMessage(`Failed to save description: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  
+  /**
+   * Saves description changes to the backend using the updateBody mutation
+   */
+  private async saveDescriptionChanges(data: { id: string, body: string }) {
+    try {
+      // Authenticate
+      await globalApiClient.authenticate();
+      
+      // Execute the updateBody mutation
+      const result = await globalApiClient.executeQuery(UPDATE_BODY_MUTATION, {
+        input: {
+          id: data.id,
+          body: data.body
+        }
+      });
+      
+      if (result.errors) {
+        throw new Error(result.errors[0].message);
+      }
+      
+      if (!result.data?.updateBody?.body) {
+        throw new Error('Failed to update description: No data returned');
+      }
+      
+      // Notify the webview that the description has been updated
+      if (this._view) {
+        this._view.webview.postMessage({
+          command: 'descriptionUpdated',
+          body: result.data.updateBody.body.body,
+          lastModifiedAt: result.data.updateBody.body.lastModifiedAt
+        });
+      }
+      
+      // Refresh the component issues to reflect any changes
+      vscode.commands.executeCommand('extension.refreshComponentIssues');
+      
+    } catch (error) {
+      console.error('[IssueDetailsProvider] Error in saveDescriptionChanges:', error);
+      throw error;
+    }
   }
 
   public updateIssueDetails(issueId: string, originComponentId?: string) {
