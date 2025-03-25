@@ -233,6 +233,17 @@ query GetIssueDetails($id: ID!) {
           }
         }
         totalCount
+        edges {
+          node {
+            type {
+              name
+            }
+            issue {
+              title
+              id
+            }
+          }
+        }
       }
       incomingRelations {
         nodes {
@@ -242,6 +253,17 @@ query GetIssueDetails($id: ID!) {
           }
         }
         totalCount
+        edges {
+          node {
+            type {
+              name
+            }
+            issue {
+              title
+              id
+            }
+          }
+        }
       }
     }
   }

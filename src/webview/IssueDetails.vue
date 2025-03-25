@@ -131,35 +131,53 @@
 
         <!-- Related Issues Section -->
         <div class="info-section" v-if="hasRelations">
-          <div class="section-header" @click="toggleSection('relatedIssues')"
-            style="cursor: pointer; display: flex; justify-content: space-between;">
+          <div
+            class="section-header"
+            @click="toggleSection('relatedIssues')"
+            style="cursor: pointer; display: flex; justify-content: space-between;"
+          >
             <span>Related Issues</span>
             <span class="toggle-icon">{{ expandedSections.relatedIssues ? '▼' : '▶' }}</span>
           </div>
+
           <div class="section-content" v-if="expandedSections.relatedIssues">
             <!-- Outgoing Relations FIRST -->
             <div v-if="hasOutgoingRelations" class="relations-group">
               <div class="relations-subheader">Outgoing Relations</div>
-              <div class="relations-list">
-                <div
-                  v-for="(relation, index) in issue.outgoingRelations.nodes"
-                  :key="'out-' + index"
-                  class="relation-item"
-                  @click="openRelatedIssue(relation.issue.id)"
-                >
-                  <div class="icon-stack">
-                    <img
-                      class="base-icon"
-                      :src="getTypeIconPathFor(relation.issue)"
-                      alt=""
-                    />
-                    <img
-                      class="overlay-icon"
-                      :src="getRelationalIconPathFor(relation.issue)"
-                      alt=""
-                    />
+
+              <!-- Iterate over each relation type group -->
+              <div
+                v-for="(issues, relType) in groupedOutgoingRelations"
+                :key="'out-' + relType"
+                style="margin-bottom: 10px;"
+              >
+                <!-- Show the relation type -->
+                <div class="relation-type-header" style="font-weight: 600; margin-bottom: 4px;">
+                  {{ relType }}
+                </div>
+
+                <div class="relations-list">
+                  <div
+                    v-for="issueData in issues"
+                    :key="issueData.id"
+                    class="relation-item"
+                    @click="openRelatedIssue(issueData.id)"
+                    style="display: flex; align-items: center; gap: 8px;"
+                  >
+                    <div class="icon-stack">
+                      <img
+                        class="base-icon"
+                        :src="getTypeIconPathFor(issueData)"
+                        alt=""
+                      />
+                      <img
+                        class="overlay-icon"
+                        :src="getRelationalIconPathFor(issueData)"
+                        alt=""
+                      />
+                    </div>
+                    {{ issueData.title }}
                   </div>
-                  {{ relation.issue.title }}
                 </div>
               </div>
             </div>
@@ -167,26 +185,40 @@
             <!-- Incoming Relations SECOND -->
             <div v-if="hasIncomingRelations" class="relations-group">
               <div class="relations-subheader">Incoming Relations</div>
-              <div class="relations-list">
-                <div
-                  v-for="(relation, index) in issue.incomingRelations.nodes"
-                  :key="'in-' + index"
-                  class="relation-item"
-                  @click="openRelatedIssue(relation.issue.id)"
-                >
-                  <div class="icon-stack">
-                    <img
-                      class="base-icon"
-                      :src="getTypeIconPathFor(relation.issue)"
-                      alt=""
-                    />
-                    <img
-                      class="overlay-icon"
-                      :src="getRelationalIconPathFor(relation.issue)"
-                      alt=""
-                    />
+
+              <!-- Iterate over each relation type group -->
+              <div
+                v-for="(issues, relType) in groupedIncomingRelations"
+                :key="'in-' + relType"
+                style="margin-bottom: 10px;"
+              >
+                <!-- Show the relation type -->
+                <div class="relation-type-header" style="font-weight: 600; margin-bottom: 4px;">
+                  {{ relType }}
+                </div>
+
+                <div class="relations-list">
+                  <div
+                    v-for="issueData in issues"
+                    :key="issueData.id"
+                    class="relation-item"
+                    @click="openRelatedIssue(issueData.id)"
+                    style="display: flex; align-items: center; gap: 8px;"
+                  >
+                    <div class="icon-stack">
+                      <img
+                        class="base-icon"
+                        :src="getTypeIconPathFor(issueData)"
+                        alt=""
+                      />
+                      <img
+                        class="overlay-icon"
+                        :src="getRelationalIconPathFor(issueData)"
+                        alt=""
+                      />
+                    </div>
+                    {{ issueData.title }}
                   </div>
-                  {{ relation.issue.title }}
                 </div>
               </div>
             </div>
@@ -300,6 +332,71 @@ export default {
     },
     hasRelations() {
       return this.hasIncomingRelations || this.hasOutgoingRelations;
+    },
+    // NEW: Combine edges + nodes for OUTGOING
+    groupedOutgoingRelations() {
+      if (!this.issue || !this.issue.outgoingRelations) {
+        return {};
+      }
+      const edges = this.issue.outgoingRelations.edges || [];
+      const nodes = this.issue.outgoingRelations.nodes || [];
+
+      // 1) Create a map from issue.id => the fully populated issue from "nodes"
+      const issueMap = new Map();
+      for (const nodeItem of nodes) {
+        // nodeItem looks like: { issue: { id, title, state, type, ... } }
+        issueMap.set(nodeItem.issue.id, nodeItem.issue);
+      }
+
+      // 2) Group by relation type
+      const grouped = {};
+      for (const edgeItem of edges) {
+        // edgeItem.node => { type: { name }, issue: { id, title } }
+        const relType = edgeItem.node.type?.name || "Unknown";
+        const minimalIssue = edgeItem.node.issue;
+
+        // match minimalIssue.id to the fully populated issue from issueMap
+        const fullIssue = issueMap.get(minimalIssue.id) || minimalIssue;
+
+        if (!grouped[relType]) {
+          grouped[relType] = [];
+        }
+        grouped[relType].push(fullIssue);
+      }
+      return grouped;
+    },
+
+    // NEW: Combine edges + nodes for INCOMING
+    groupedIncomingRelations() {
+      if (!this.issue || !this.issue.incomingRelations) {
+        return {};
+      }
+      const edges = this.issue.incomingRelations.edges || [];
+      const nodes = this.issue.incomingRelations.nodes || [];
+
+      // 1) Create a map from issue.id => the fully populated issue from "nodes"
+      const issueMap = new Map();
+      for (const nodeItem of nodes) {
+        // nodeItem looks like: { issue: { id, title, state, type, ... } }
+        issueMap.set(nodeItem.issue.id, nodeItem.issue);
+      }
+
+      // 2) Group by relation type
+      const grouped = {};
+      for (const edgeItem of edges) {
+        // edgeItem.node => { type: { name }, issue: { id, title } }
+        const relType = edgeItem.node.type?.name || "Unknown";
+        const minimalIssue = edgeItem.node.issue;
+
+        // match minimalIssue.id to the fully populated issue from issueMap
+        const fullIssue = issueMap.get(minimalIssue.id) || minimalIssue;
+
+        if (!grouped[relType]) {
+          grouped[relType] = [];
+        }
+        grouped[relType].push(fullIssue);
+      }
+      return grouped;
     },
     groupedAffectedEntities() {
       if (!this.issue || !this.issue.affects || !this.issue.affects.nodes) {
@@ -1147,7 +1244,7 @@ ul {
   border-radius: 0;
   cursor: pointer;
   font-size: 0.9em;
-  padding: 4px 0; /* or however much vertical spacing you want */
+  padding: 0; /* or however much vertical spacing you want */
 }
 
 .relation-item:hover {
