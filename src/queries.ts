@@ -230,6 +230,18 @@ query GetIssueDetails($id: ID!) {
           issue {
             id
             title
+            state {
+               isOpen
+             }
+             type {
+               name
+             }
+             incomingRelations {
+               totalCount
+             }
+             outgoingRelations {
+               totalCount
+             }
           }
         }
         totalCount
@@ -250,6 +262,18 @@ query GetIssueDetails($id: ID!) {
           issue {
             id
             title
+            state {
+               isOpen
+             }
+             type {
+               name
+             }
+             incomingRelations {
+               totalCount
+             }
+             outgoingRelations {
+               totalCount
+             }
           }
         }
         totalCount
@@ -264,6 +288,11 @@ query GetIssueDetails($id: ID!) {
             }
           }
         }
+      }
+      templatedField(name: "")
+      templatedFields {
+        name
+        value
       }
     }
   }
