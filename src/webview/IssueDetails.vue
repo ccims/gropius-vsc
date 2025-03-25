@@ -25,9 +25,25 @@
             <div class="section-header-row">
               <div class="section-header">Type:</div>
               <div class="section-content inline-content">
-                <div class="badge type-badge">
-                  <img class="type-icon" :src="getTypeIconPathFor(issue)" alt="" />
-                  {{ issue.type.name }}
+                <div class="badge-container">
+                  <div class="badge type-badge">
+                    <img class="type-icon" :src="getTypeIconPath()" alt="" />
+                    {{ issue.type.name }}
+                  </div>
+                  <button class="edit-button edit-field-button" @click.stop="showTypeDropdown = !showTypeDropdown"
+                    title="Edit type">
+                    <span class="edit-icon">✎</span>
+                  </button>
+                  <!-- Type dropdown -->
+                  <div v-if="showTypeDropdown" class="field-dropdown">
+                    <div v-if="issueOptions.types.length === 0" class="dropdown-loading">Loading...</div>
+                    <div v-else class="dropdown-options">
+                      <div v-for="type in issueOptions.types" :key="type.id" @click="changeIssueType(type.id)"
+                        class="dropdown-option" :class="{ 'selected': issue.type.id === type.id }">
+                        {{ type.name }}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -38,15 +54,28 @@
             <div class="section-header-row">
               <div class="section-header">State:</div>
               <div class="section-content inline-content">
-                <div
-                  class="badge state-badge"
-                  :class="{
+                <div class="badge-container">
+                  <div class="badge state-badge" :class="{
                     'state-open': issue.state.isOpen,
                     'state-completed': !issue.state.isOpen && issue.state.name === 'Completed',
                     'state-not-planned': !issue.state.isOpen && issue.state.name === 'Not Planned'
-                  }"
-                >
-                  {{ issue.state.name || 'Unknown' }}
+                  }">
+                    {{ issue.state.name || 'Unknown' }}
+                  </div>
+                  <button class="edit-button edit-field-button" @click.stop="showStateDropdown = !showStateDropdown"
+                    title="Edit state">
+                    <span class="edit-icon">✎</span>
+                  </button>
+                  <!-- State dropdown -->
+                  <div v-if="showStateDropdown" class="field-dropdown">
+                    <div v-if="issueOptions.states.length === 0" class="dropdown-loading">Loading...</div>
+                    <div v-else class="dropdown-options">
+                      <div v-for="state in issueOptions.states" :key="state.id" @click="changeIssueState(state.id)"
+                        class="dropdown-option" :class="{ 'selected': issue.state.id === state.id }">
+                        {{ state.name }}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -57,9 +86,26 @@
             <div class="section-header-row">
               <div class="section-header">Priority:</div>
               <div class="section-content inline-content">
-                <div class="badge priority-badge">
-                  <img class="priority-icon" :src="getPriorityIconPath()" alt="" />
-                  {{ issue.priority.name }}
+                <div class="badge-container">
+                  <div class="badge priority-badge">
+                    <img class="priority-icon" :src="getPriorityIconPath()" alt="" />
+                    {{ issue.priority.name }}
+                  </div>
+                  <button class="edit-button edit-field-button"
+                    @click.stop="showPriorityDropdown = !showPriorityDropdown" title="Edit priority">
+                    <span class="edit-icon">✎</span>
+                  </button>
+                  <!-- Priority dropdown -->
+                  <div v-if="showPriorityDropdown" class="field-dropdown">
+                    <div v-if="issueOptions.priorities.length === 0" class="dropdown-loading">Loading...</div>
+                    <div v-else class="dropdown-options">
+                      <div v-for="priority in issueOptions.priorities" :key="priority.id"
+                        @click="changeIssuePriority(priority.id)" class="dropdown-option"
+                        :class="{ 'selected': issue.priority.id === priority.id }">
+                        {{ priority.name }}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -141,23 +187,11 @@
             <div v-if="hasOutgoingRelations" class="relations-group">
               <div class="relations-subheader">Outgoing Relations</div>
               <div class="relations-list">
-                <div
-                  v-for="(relation, index) in issue.outgoingRelations.nodes"
-                  :key="'out-' + index"
-                  class="relation-item"
-                  @click="openRelatedIssue(relation.issue.id)"
-                >
+                <div v-for="(relation, index) in issue.outgoingRelations.nodes" :key="'out-' + index"
+                  class="relation-item" @click="openRelatedIssue(relation.issue.id)">
                   <div class="icon-stack">
-                    <img
-                      class="base-icon"
-                      :src="getTypeIconPathFor(relation.issue)"
-                      alt=""
-                    />
-                    <img
-                      class="overlay-icon"
-                      :src="getRelationalIconPathFor(relation.issue)"
-                      alt=""
-                    />
+                    <img class="base-icon" :src="getTypeIconPathFor(relation.issue)" alt="" />
+                    <img class="overlay-icon" :src="getRelationalIconPathFor(relation.issue)" alt="" />
                   </div>
                   {{ relation.issue.title }}
                 </div>
@@ -168,23 +202,11 @@
             <div v-if="hasIncomingRelations" class="relations-group">
               <div class="relations-subheader">Incoming Relations</div>
               <div class="relations-list">
-                <div
-                  v-for="(relation, index) in issue.incomingRelations.nodes"
-                  :key="'in-' + index"
-                  class="relation-item"
-                  @click="openRelatedIssue(relation.issue.id)"
-                >
+                <div v-for="(relation, index) in issue.incomingRelations.nodes" :key="'in-' + index"
+                  class="relation-item" @click="openRelatedIssue(relation.issue.id)">
                   <div class="icon-stack">
-                    <img
-                      class="base-icon"
-                      :src="getTypeIconPathFor(relation.issue)"
-                      alt=""
-                    />
-                    <img
-                      class="overlay-icon"
-                      :src="getRelationalIconPathFor(relation.issue)"
-                      alt=""
-                    />
+                    <img class="base-icon" :src="getTypeIconPathFor(relation.issue)" alt="" />
+                    <img class="overlay-icon" :src="getRelationalIconPathFor(relation.issue)" alt="" />
                   </div>
                   {{ relation.issue.title }}
                 </div>
@@ -909,10 +931,13 @@ ul {
 /* -------- Issue Header (used in IssueDetails.vue) -------- */
 .issue-header {
   display: flex;
-  align-items: center; /* Keeps icon and title on the same baseline */
+  align-items: center;
+  /* Keeps icon and title on the same baseline */
   gap: 8px;
-  margin-bottom: 8px;  /* Spacing below the header */
-  border-bottom: none; /* Removes the horizontal line */
+  margin-bottom: 8px;
+  /* Spacing below the header */
+  border-bottom: none;
+  /* Removes the horizontal line */
 }
 
 .issue-title {
@@ -1110,7 +1135,7 @@ ul {
   margin-bottom: 4px;
 }
 
-.description-text > *:last-child {
+.description-text>*:last-child {
   margin-bottom: 0;
 }
 
@@ -1147,7 +1172,8 @@ ul {
   border-radius: 0;
   cursor: pointer;
   font-size: 0.9em;
-  padding: 4px 0; /* or however much vertical spacing you want */
+  padding: 4px 0;
+  /* or however much vertical spacing you want */
 }
 
 .relation-item:hover {
@@ -1352,7 +1378,8 @@ ul {
 }
 
 .section-group:nth-child(2) {
-  min-width: 100px; /* Ensure enough width for "Completed" */
+  min-width: 100px;
+  /* Ensure enough width for "Completed" */
 }
 
 .section-group:first-child {
