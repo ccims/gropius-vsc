@@ -711,3 +711,11 @@ ul {
 .open-in-browser-button:hover {
   background-color: var(--vscode-button-hoverBackground, #1177bb);
 }
+
+/* =================== Templated Fields =================== */
+
+.templated-field-value {
+  color: white;
+  font-size: 1em;
+  font-weight: bold;
+}
