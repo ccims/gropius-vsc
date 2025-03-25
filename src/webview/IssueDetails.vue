@@ -670,6 +670,7 @@ export default {
   border-radius: 3px;
   opacity: 0.7;
   transition: opacity 0.2s, background-color 0.2s;
+  color: aliceblue;
 }
 
 .edit-button:hover {
