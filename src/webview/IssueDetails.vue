@@ -357,7 +357,7 @@ export default {
       const issueMap = new Map();
       for (const nodeItem of nodes) {
         // nodeItem looks like: { issue: { id, title, state, type, ... } }
-        issueMap.set(nodeItem.issue.id, nodeItem.issue);
+        issueMap.set(nodeItem.relatedIssue.id, nodeItem.relatedIssue);
       }
 
       // 2) Group by relation type
@@ -365,7 +365,7 @@ export default {
       for (const edgeItem of edges) {
         // edgeItem.node => { type: { name }, issue: { id, title } }
         const relType = edgeItem.node.type?.name || "Unknown";
-        const minimalIssue = edgeItem.node.issue;
+        const minimalIssue = edgeItem.node.relatedIssue;
 
         // match minimalIssue.id to the fully populated issue from issueMap
         const fullIssue = issueMap.get(minimalIssue.id) || minimalIssue;

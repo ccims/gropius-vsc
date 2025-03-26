@@ -227,7 +227,7 @@ query GetIssueDetails($id: ID!) {
       hasPermission(permission: READ)
       outgoingRelations {
         nodes {
-          issue {
+          relatedIssue {
             id
             title
             state {
@@ -250,7 +250,7 @@ query GetIssueDetails($id: ID!) {
             type {
               name
             }
-            issue {
+            relatedIssue {
               title
               id
             }
