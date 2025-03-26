@@ -89,6 +89,13 @@ export function activate(context: vscode.ExtensionContext) {
       componentIssuesProvider.refreshCurrentIssues();
     })
   );
+  // Register command to handle issue updates and propagate them to other views
+  context.subscriptions.push(
+    vscode.commands.registerCommand('extension.issueUpdated', (data) => {
+      // Notify ComponentIssuesProvider about the update
+      componentIssuesProvider.handleIssueUpdate(data);
+    })
+  );
 
 
   // 3) Register the "Issue Details" view
@@ -817,6 +824,54 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
   }
 
   /**
+ * Handles issue updates from other parts of the extension
+ * Updates the issue in the current issues list without requiring a full refresh
+ */
+  public handleIssueUpdate(data: { issueId: string, field: string, newValue: any }): void {
+    if (!this.lastIssues || !this._view) {
+      return; // No issues to update or view not visible
+    }
+
+    const { issueId, field, newValue } = data;
+
+    // Find the issue in our current list
+    const issueIndex = this.lastIssues.findIndex(issue => issue.id === issueId);
+    if (issueIndex === -1) {
+      return; // Issue not found in our current list
+    }
+
+    // Create a copy of the issue to modify
+    const updatedIssue = { ...this.lastIssues[issueIndex] };
+
+    // Update the specific field
+    switch (field) {
+      case 'state':
+        updatedIssue.state = newValue;
+        break;
+      case 'type':
+        updatedIssue.type = newValue;
+        break;
+      case 'priority':
+        updatedIssue.priority = newValue;
+        break;
+    }
+
+    // Update the issue in our local cache
+    this.lastIssues[issueIndex] = updatedIssue;
+
+    // Notify the webview about the update
+    if (this._view) {
+      this._view.webview.postMessage({
+        command: 'issueUpdated',
+        issueId,
+        field,
+        newValue,
+        updatedIssue
+      });
+    }
+  }
+
+  /**
  * Refreshes the current set of issues by refetching them from the API.
  */
   public async refreshCurrentIssues(): Promise<void> {
@@ -1082,10 +1137,10 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
         if (templateId) {
           try {
             const options = await this.fetchIssueOptions(templateId);
-            console.log(`[IssueDetailsProvider] Sending options to webview:`, { 
-              states: options.states.length, 
-              types: options.types.length, 
-              priorities: options.priorities.length 
+            console.log(`[IssueDetailsProvider] Sending options to webview:`, {
+              states: options.states.length,
+              types: options.types.length,
+              priorities: options.priorities.length
             });
 
             this._view?.webview.postMessage({
@@ -1119,6 +1174,12 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
           });
           // Refresh issue details to reflect all changes
           this.refreshCurrentIssue();
+
+          vscode.commands.executeCommand('extension.issueUpdated', {
+            issueId: message.issueId,
+            field: 'state',
+            newValue: updatedState
+          });
         } catch (error) {
           vscode.window.showErrorMessage(`Failed to update issue state: ${error instanceof Error ? error.message : String(error)}`);
         }

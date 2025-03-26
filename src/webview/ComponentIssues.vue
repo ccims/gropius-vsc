@@ -195,10 +195,28 @@ export default {
 
         this.saveState();
       } else if (message && message.command === "issueUpdated") {
-        // If we receive notification that an issue has been updated,
-        // request a refresh of the entire list
-        if (vscode) {
-          vscode.postMessage({ command: "refreshRequested" });
+        // Handle direct issue updates without requiring a full refresh
+        if (message.updatedIssue) {
+          // Find and update the issue in our local list
+          const issueIndex = this.issues.findIndex(issue => issue.id === message.issueId);
+          if (issueIndex !== -1) {
+            // Create a new array with the updated issue
+            const updatedIssues = [...this.issues];
+            updatedIssues[issueIndex] = message.updatedIssue;
+            this.issues = updatedIssues;
+            this.saveState();
+            console.log(`Updated issue ${message.issueId}, field: ${message.field}`);
+          } else {
+            // If for some reason we can't find the issue, request a full refresh
+            if (vscode) {
+              vscode.postMessage({ command: "refreshRequested" });
+            }
+          }
+        } else {
+          // Fallback to a full refresh if we don't have updated issue data
+          if (vscode) {
+            vscode.postMessage({ command: "refreshRequested" });
+          }
         }
       }
     });
