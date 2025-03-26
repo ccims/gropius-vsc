@@ -1078,9 +1078,16 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
       } else if (message.command === 'getIssueOptions') {
         // Fetch available options for issue editing
         const templateId = message.templateId;
+        console.log(`[IssueDetailsProvider] Received getIssueOptions request for template: ${templateId}`);
         if (templateId) {
           try {
             const options = await this.fetchIssueOptions(templateId);
+            console.log(`[IssueDetailsProvider] Sending options to webview:`, { 
+              states: options.states.length, 
+              types: options.types.length, 
+              priorities: options.priorities.length 
+            });
+
             this._view?.webview.postMessage({
               command: 'issueOptionsLoaded',
               options
@@ -1092,6 +1099,12 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
               error: error instanceof Error ? error.message : String(error)
             });
           }
+        } else {
+          console.error('[IssueDetailsProvider] Missing templateId in getIssueOptions request');
+          this._view?.webview.postMessage({
+            command: 'issueOptionsError',
+            error: 'Missing template ID'
+          });
         }
       } else if (message.command === 'changeIssueState') {
         // Change issue state
@@ -1341,21 +1354,19 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
   }
 
   /**
- * Fetches available issue priorities from the IssueTemplate
+ * Fetches available issue priorities (independent of template)
  */
   private async fetchIssuePriorities(templateId: string): Promise<any[]> {
     try {
       await globalApiClient.authenticate();
 
-      const result = await globalApiClient.executeQuery(GET_ISSUE_TEMPLATE_PRIORITIES, {
-        id: templateId
-      });
+      const result = await globalApiClient.executeQuery(GET_ISSUE_TEMPLATE_PRIORITIES);
 
       if (result.errors) {
         throw new Error(result.errors[0].message);
       }
 
-      return result.data?.node?.priorities?.nodes || [];
+      return result.data?.searchIssuePriorities || [];
     } catch (error) {
       console.error('[IssueDetailsProvider] Error fetching priorities:', error);
       throw error;
@@ -1363,21 +1374,19 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
   }
 
   /**
-   * Fetches available issue states from the IssueTemplate
+   * Fetches available issue states (independent of template)
    */
   private async fetchIssueStates(templateId: string): Promise<any[]> {
     try {
       await globalApiClient.authenticate();
 
-      const result = await globalApiClient.executeQuery(GET_ISSUE_TEMPLATE_STATES, {
-        id: templateId
-      });
+      const result = await globalApiClient.executeQuery(GET_ISSUE_TEMPLATE_STATES);
 
       if (result.errors) {
         throw new Error(result.errors[0].message);
       }
 
-      return result.data?.node?.states?.nodes || [];
+      return result.data?.searchIssueStates || [];
     } catch (error) {
       console.error('[IssueDetailsProvider] Error fetching states:', error);
       throw error;
@@ -1385,21 +1394,19 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
   }
 
   /**
-   * Fetches available issue types from the IssueTemplate
+   * Fetches available issue types (independent of template)
    */
   private async fetchIssueTypes(templateId: string): Promise<any[]> {
     try {
       await globalApiClient.authenticate();
 
-      const result = await globalApiClient.executeQuery(GET_ISSUE_TEMPLATE_TYPES, {
-        id: templateId
-      });
+      const result = await globalApiClient.executeQuery(GET_ISSUE_TEMPLATE_TYPES);
 
       if (result.errors) {
         throw new Error(result.errors[0].message);
       }
 
-      return result.data?.node?.types?.nodes || [];
+      return result.data?.searchIssueTypes || [];
     } catch (error) {
       console.error('[IssueDetailsProvider] Error fetching types:', error);
       throw error;
@@ -1411,11 +1418,20 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
    */
   private async fetchIssueOptions(templateId: string): Promise<{ states: any[], types: any[], priorities: any[] }> {
     try {
+      console.log(`[IssueDetailsProvider] Fetching options for template ${templateId}`);
+
       const [states, types, priorities] = await Promise.all([
         this.fetchIssueStates(templateId),
         this.fetchIssueTypes(templateId),
         this.fetchIssuePriorities(templateId)
       ]);
+
+      // Log the options to help with debugging
+      console.log(`[IssueDetailsProvider] Fetched options:`, {
+        states: states.length,
+        types: types.length,
+        priorities: priorities.length
+      });
 
       return { states, types, priorities };
     } catch (error) {

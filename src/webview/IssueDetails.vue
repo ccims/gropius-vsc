@@ -25,9 +25,23 @@
             <div class="section-header-row">
               <div class="section-header">Type:</div>
               <div class="section-content inline-content">
-                <div class="badge type-badge">
-                  <img class="type-icon" :src="getTypeIconPathFor(issue)" alt="" />
-                  {{ issue.type.name }}
+                <div class="select-container" @click.stop="showTypeDropdown = !showTypeDropdown">
+                  <div class="badge type-badge">
+                    <img class="type-icon" :src="getTypeIconPathFor(issue)" alt="" />
+                    {{ issue.type.name }}
+                    <span class="dropdown-arrow">▼</span>
+                  </div>
+
+                  <div v-if="showTypeDropdown" class="field-dropdown">
+                    <div v-if="issueOptions.types.length === 0" class="dropdown-loading">Loading...</div>
+                    <div v-else class="dropdown-options">
+                      <div v-for="type in issueOptions.types" :key="type.id" @click.stop="changeIssueType(type.id)"
+                        class="dropdown-option">
+                        <img class="type-icon-small" :src="getTypeIconForOption(type)" alt="" />
+                        {{ type.name }}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -38,28 +52,53 @@
             <div class="section-header-row">
               <div class="section-header">State:</div>
               <div class="section-content inline-content">
-                <div
-                  class="badge state-badge"
-                  :class="{
+                <div class="select-container" @click.stop="showStateDropdown = !showStateDropdown">
+                  <div class="badge state-badge" :class="{
                     'state-open': issue.state.isOpen,
                     'state-completed': !issue.state.isOpen && issue.state.name === 'Completed',
                     'state-not-planned': !issue.state.isOpen && issue.state.name === 'Not Planned'
-                  }"
-                >
-                  {{ issue.state.name || 'Unknown' }}
+                  }">
+                    {{ issue.state.name || 'Unknown' }}
+                    <span class="dropdown-arrow">▼</span>
+                  </div>
+
+                  <div v-if="showStateDropdown" class="field-dropdown">
+                    <div v-if="issueOptions.states.length === 0" class="dropdown-loading">Loading...</div>
+                    <div v-else class="dropdown-options">
+                      <div v-for="state in issueOptions.states" :key="state.id" @click.stop="changeIssueState(state.id)"
+                        class="dropdown-option" :class="{
+                          'state-option-open': state.isOpen,
+                          'state-option-closed': !state.isOpen
+                        }">
+                        {{ state.name }}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-
           <!-- Priority -->
           <div class="section-group" v-if="issue.priority">
             <div class="section-header-row">
               <div class="section-header">Priority:</div>
               <div class="section-content inline-content">
-                <div class="badge priority-badge">
-                  <img class="priority-icon" :src="getPriorityIconPath()" alt="" />
-                  {{ issue.priority.name }}
+                <div class="select-container" @click.stop="showPriorityDropdown = !showPriorityDropdown">
+                  <div class="badge priority-badge">
+                    <img class="priority-icon" :src="getPriorityIconPath()" alt="" />
+                    {{ issue.priority.name }}
+                    <span class="dropdown-arrow">▼</span>
+                  </div>
+
+                  <div v-if="showPriorityDropdown" class="field-dropdown">
+                    <div v-if="issueOptions.priorities.length === 0" class="dropdown-loading">Loading...</div>
+                    <div v-else class="dropdown-options">
+                      <div v-for="priority in issueOptions.priorities" :key="priority.id"
+                        @click.stop="changeIssuePriority(priority.id)" class="dropdown-option">
+                        {{ priority.name }}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -131,11 +170,8 @@
 
         <!-- Related Issues Section -->
         <div class="info-section" v-if="hasRelations">
-          <div
-            class="section-header"
-            @click="toggleSection('relatedIssues')"
-            style="cursor: pointer; display: flex; justify-content: space-between;"
-          >
+          <div class="section-header" @click="toggleSection('relatedIssues')"
+            style="cursor: pointer; display: flex; justify-content: space-between;">
             <span>Related Issues</span>
             <span class="toggle-icon">{{ expandedSections.relatedIssues ? '▼' : '▶' }}</span>
           </div>
@@ -146,35 +182,19 @@
               <div class="relations-subheader">Outgoing Relations</div>
 
               <!-- Iterate over each relation type group -->
-              <div
-                v-for="(issues, relType) in groupedOutgoingRelations"
-                :key="'out-' + relType"
-                style="margin-bottom: 10px;"
-              >
+              <div v-for="(issues, relType) in groupedOutgoingRelations" :key="'out-' + relType"
+                style="margin-bottom: 10px;">
                 <!-- Show the relation type -->
                 <div class="relation-type-header" style="font-weight: 600; margin-bottom: 4px;">
                   {{ relType }}
                 </div>
 
                 <div class="relations-list">
-                  <div
-                    v-for="issueData in issues"
-                    :key="issueData.id"
-                    class="relation-item"
-                    @click="openRelatedIssue(issueData.id)"
-                    style="display: flex; align-items: center; gap: 8px;"
-                  >
+                  <div v-for="issueData in issues" :key="issueData.id" class="relation-item"
+                    @click="openRelatedIssue(issueData.id)" style="display: flex; align-items: center; gap: 8px;">
                     <div class="icon-stack">
-                      <img
-                        class="base-icon"
-                        :src="getTypeIconPathFor(issueData)"
-                        alt=""
-                      />
-                      <img
-                        class="overlay-icon"
-                        :src="getRelationalIconPathFor(issueData)"
-                        alt=""
-                      />
+                      <img class="base-icon" :src="getTypeIconPathFor(issueData)" alt="" />
+                      <img class="overlay-icon" :src="getRelationalIconPathFor(issueData)" alt="" />
                     </div>
                     {{ issueData.title }}
                   </div>
@@ -187,35 +207,19 @@
               <div class="relations-subheader">Incoming Relations</div>
 
               <!-- Iterate over each relation type group -->
-              <div
-                v-for="(issues, relType) in groupedIncomingRelations"
-                :key="'in-' + relType"
-                style="margin-bottom: 10px;"
-              >
+              <div v-for="(issues, relType) in groupedIncomingRelations" :key="'in-' + relType"
+                style="margin-bottom: 10px;">
                 <!-- Show the relation type -->
                 <div class="relation-type-header" style="font-weight: 600; margin-bottom: 4px;">
                   {{ relType }}
                 </div>
 
                 <div class="relations-list">
-                  <div
-                    v-for="issueData in issues"
-                    :key="issueData.id"
-                    class="relation-item"
-                    @click="openRelatedIssue(issueData.id)"
-                    style="display: flex; align-items: center; gap: 8px;"
-                  >
+                  <div v-for="issueData in issues" :key="issueData.id" class="relation-item"
+                    @click="openRelatedIssue(issueData.id)" style="display: flex; align-items: center; gap: 8px;">
                     <div class="icon-stack">
-                      <img
-                        class="base-icon"
-                        :src="getTypeIconPathFor(issueData)"
-                        alt=""
-                      />
-                      <img
-                        class="overlay-icon"
-                        :src="getRelationalIconPathFor(issueData)"
-                        alt=""
-                      />
+                      <img class="base-icon" :src="getTypeIconPathFor(issueData)" alt="" />
+                      <img class="overlay-icon" :src="getRelationalIconPathFor(issueData)" alt="" />
                     </div>
                     {{ issueData.title }}
                   </div>
@@ -315,6 +319,14 @@ export default {
       },
       showFullDescription: false,
       descriptionMaxLength: 120, // Characters to show before truncating
+      showTypeDropdown: false,
+      showStateDropdown: false,
+      showPriorityDropdown: false,
+      issueOptions: {
+        types: [],
+        states: [],
+        priorities: []
+      }
     };
   },
   computed: {
@@ -451,6 +463,14 @@ export default {
       const endIndex = breakPoint > 0 ? breakPoint + 1 : this.descriptionMaxLength;
 
       return text.substring(0, endIndex) + '...';
+    }
+  },
+  watch: {
+    issue(newIssue) {
+      if (newIssue && newIssue.template && newIssue.template.id) {
+        console.log('[IssueDetails.vue] Issue changed, loading options for template:', newIssue.template.id);
+        this.loadIssueOptions();
+      }
     }
   },
   methods: {
@@ -748,6 +768,127 @@ export default {
           }
         });
       }
+    },
+    loadIssueOptions() {
+      if (!this.issue || !this.issue.template || !this.issue.template.id) {
+        console.error("Cannot load issue options: Missing template ID");
+        return;
+      }
+
+      console.log("[IssueDetails.vue] Loading options for template:", this.issue.template.id);
+
+      if (vscode) {
+        vscode.postMessage({
+          command: 'getIssueOptions',
+          templateId: this.issue.template.id
+        });
+      }
+    },
+
+    // Change issue type
+    changeIssueType(typeId) {
+      if (!this.issue || !this.issue.id) {
+        console.error("Cannot change type: Missing issue ID");
+        return;
+      }
+
+      if (vscode) {
+        vscode.postMessage({
+          command: 'changeIssueType',
+          issueId: this.issue.id,
+          typeId: typeId
+        });
+      }
+
+      // Hide dropdown after selection
+      this.showTypeDropdown = false;
+    },
+
+    // Change issue state
+    changeIssueState(stateId) {
+      if (!this.issue || !this.issue.id) {
+        console.error("Cannot change state: Missing issue ID");
+        return;
+      }
+
+      if (vscode) {
+        vscode.postMessage({
+          command: 'changeIssueState',
+          issueId: this.issue.id,
+          stateId: stateId
+        });
+      }
+
+      // Hide dropdown after selection
+      this.showStateDropdown = false;
+    },
+
+    // Change issue priority
+    changeIssuePriority(priorityId) {
+      if (!this.issue || !this.issue.id) {
+        console.error("Cannot change priority: Missing issue ID");
+        return;
+      }
+
+      if (vscode) {
+        vscode.postMessage({
+          command: 'changeIssuePriority',
+          issueId: this.issue.id,
+          priorityId: priorityId
+        });
+      }
+
+      // Hide dropdown after selection
+      this.showPriorityDropdown = false;
+    },
+
+    getTypeIconForOption(type) {
+      // Icons for different types in the dropdown
+      const isOpen = this.issue.state && this.issue.state.isOpen;
+
+      switch (type.name) {
+        case "Bug":
+          return Boolean(isOpen)
+            ? new URL("../../resources/icons/bug-green.png", import.meta.url).href
+            : new URL("../../resources/icons/bug-red.png", import.meta.url).href;
+        case "Feature":
+          return Boolean(isOpen)
+            ? new URL("../../resources/icons/lightbulb-feature-green.png", import.meta.url).href
+            : new URL("../../resources/icons/lightbulb-feature-red.png", import.meta.url).href;
+        case "Misc":
+        case "Task":
+          return Boolean(isOpen)
+            ? new URL("../../resources/icons/exclamation-green.png", import.meta.url).href
+            : new URL("../../resources/icons/exclamation-red.png", import.meta.url).href;
+        default:
+          return new URL("../../resources/icons/bug-black.png", import.meta.url).href;
+      }
+    },
+
+    // Close dropdowns when clicking outside
+    handleClickOutside(event) {
+      let isOnDropdown = false;
+
+      const dropdowns = document.querySelectorAll('.select-container, .field-dropdown');
+      dropdowns.forEach(el => {
+        if (el.contains(event.target)) {
+          isOnDropdown = true;
+        }
+      });
+
+      // Only close dropdowns if clicking outside
+      if (!isOnDropdown) {
+        this.showTypeDropdown = false;
+        this.showStateDropdown = false;
+        this.showPriorityDropdown = false;
+      }
+
+      // Close all dropdowns when clicking outside of them
+      if (this.showTypeDropdown || this.showStateDropdown || this.showPriorityDropdown) {
+        this.showTypeDropdown = false;
+        this.showStateDropdown = false;
+        this.showPriorityDropdown = false;
+      }
     }
   },
   mounted() {
@@ -779,6 +920,8 @@ export default {
       console.log("[IssueDetails.vue] Mounted: No state found.");
     }
 
+    document.addEventListener('click', this.handleClickOutside);
+
     window.addEventListener("message", (event) => {
       console.log("[IssueDetails.vue] Received message event:", event);
       const message = event.data;
@@ -801,6 +944,13 @@ export default {
 
         if (this.issue) {
           console.log("[IssueDetails.vue] Issue updated:", this.issue);
+          // Load options right after receiving the issue
+          if (this.issue.template && this.issue.template.id) {
+            console.log("[IssueDetails.vue] Issue has template ID, loading options:", this.issue.template.id);
+            this.loadIssueOptions();
+          } else {
+            console.warn("[IssueDetails.vue] Issue missing template ID, can't load options");
+          }
         } else if (this.error) {
           console.warn("[IssueDetails.vue] Received error:", this.error);
         } else {
@@ -818,13 +968,42 @@ export default {
             error: this.error
           });
         }
+      } else if (message && message.command === 'issueOptionsLoaded') {
+        console.log("[IssueDetails.vue] Options loaded:", message.options);
+        this.issueOptions = message.options;
+      } else if (message && message.command === 'issueOptionsError') {
+        console.error("[IssueDetails.vue] Error loading options:", message.error);
+      } else if (message && message.command === 'issueStateUpdated') {
+        if (this.issue && this.issue.state) {
+          console.log("[IssueDetails.vue] State updated:", message.state);
+          this.issue.state = message.state;
+        }
+      } else if (message && message.command === 'issueTypeUpdated') {
+        if (this.issue && this.issue.type) {
+          console.log("[IssueDetails.vue] Type updated:", message.type);
+          this.issue.type = message.type;
+        }
+      } else if (message && message.command === 'issuePriorityUpdated') {
+        if (this.issue && this.issue.priority) {
+          console.log("[IssueDetails.vue] Priority updated:", message.priority);
+          this.issue.priority = message.priority;
+        }
       }
     });
+
+    // When an issue is loaded, also load the issue options
+    if (this.issue && this.issue.template && this.issue.template.id) {
+      this.loadIssueOptions();
+    }
 
     if (vscode) {
       vscode.postMessage({ command: "vueAppReady" });
       console.log("[IssueDetails.vue] Posted vueAppReady message");
     }
+  },
+  beforeDestroy() {
+    // Remove event listener when component is destroyed
+    document.removeEventListener('click', this.handleClickOutside);
   }
 };
 </script>
@@ -1006,10 +1185,13 @@ ul {
 /* -------- Issue Header (used in IssueDetails.vue) -------- */
 .issue-header {
   display: flex;
-  align-items: center; /* Keeps icon and title on the same baseline */
+  align-items: center;
+  /* Keeps icon and title on the same baseline */
   gap: 8px;
-  margin-bottom: 8px;  /* Spacing below the header */
-  border-bottom: none; /* Removes the horizontal line */
+  margin-bottom: 8px;
+  /* Spacing below the header */
+  border-bottom: none;
+  /* Removes the horizontal line */
 }
 
 .issue-title {
@@ -1207,7 +1389,7 @@ ul {
   margin-bottom: 4px;
 }
 
-.description-text > *:last-child {
+.description-text>*:last-child {
   margin-bottom: 0;
 }
 
@@ -1244,7 +1426,8 @@ ul {
   border-radius: 0;
   cursor: pointer;
   font-size: 0.9em;
-  padding: 0; /* or however much vertical spacing you want */
+  padding: 0;
+  /* or however much vertical spacing you want */
 }
 
 .relation-item:hover {
@@ -1449,7 +1632,8 @@ ul {
 }
 
 .section-group:nth-child(2) {
-  min-width: 100px; /* Ensure enough width for "Completed" */
+  min-width: 100px;
+  /* Ensure enough width for "Completed" */
 }
 
 .section-group:first-child {
@@ -1593,5 +1777,70 @@ ul {
   position: absolute;
   top: 0;
   left: 0;
+}
+
+/* Dropdown styling */
+.select-container {
+  position: relative;
+  cursor: pointer;
+}
+
+.dropdown-arrow {
+  margin-left: 6px;
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+.select-container:hover .dropdown-arrow {
+  opacity: 1;
+}
+
+.field-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 180px;
+  background-color: var(--vscode-dropdown-background);
+  border: 1px solid var(--vscode-dropdown-border);
+  border-radius: 4px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  margin-top: 4px;
+}
+
+.dropdown-loading {
+  padding: 8px 12px;
+  font-style: italic;
+  color: var(--vscode-descriptionForeground);
+}
+
+.dropdown-options {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.dropdown-option {
+  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  transition: background-color 0.2s;
+}
+
+.dropdown-option:hover {
+  background-color: var(--vscode-list-hoverBackground);
+}
+
+.type-icon-small {
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+}
+
+.state-option-open {
+  color: #2ea043;
+}
+
+.state-option-closed {
+  color: #f85149;
 }
 </style>

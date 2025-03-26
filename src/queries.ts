@@ -632,51 +632,33 @@ mutation ChangeIssueType($input: ChangeIssueTypeInput!) {
 }
 `;
 
-// Query to get available issue priorities for a template
+// Query to get available issue priorities 
 export const GET_ISSUE_TEMPLATE_PRIORITIES = `
-query GetIssueTemplatePriorities($id: ID!) {
-  node(id: $id) {
-    ... on IssueTemplate {
-      priorities {
-        nodes {
-          id
-          name
-        }
-      }
-    }
+query GetIssuePriorities {
+  searchIssuePriorities(first: 50, query: "*") {
+    id
+    name
   }
 }
 `;
 
-// Query to get available issue states for a template
+// Query to get available issue states
 export const GET_ISSUE_TEMPLATE_STATES = `
-query GetIssueTemplateStates($id: ID!) {
-  node(id: $id) {
-    ... on IssueTemplate {
-      states {
-        nodes {
-          id
-          name
-          isOpen
-        }
-      }
-    }
+query GetIssueStates {
+  searchIssueStates(first: 50, query: "*") {
+    id
+    name
+    isOpen
   }
 }
 `;
 
-// Query to get available issue types for a template
+// Query to get available issue types
 export const GET_ISSUE_TEMPLATE_TYPES = `
-query GetIssueTemplateTypes($id: ID!) {
-  node(id: $id) {
-    ... on IssueTemplate {
-      types {
-        nodes {
-          id
-          name
-        }
-      }
-    }
+query GetIssueTypes {
+  searchIssueTypes(first: 50, query: "*") {
+    id
+    name
   }
 }
 `;
