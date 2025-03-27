@@ -662,3 +662,14 @@ query GetIssueTypes {
   }
 }
 `;
+
+// Mutation to change issue title
+export const CHANGE_ISSUE_TITLE_MUTATION = `
+mutation ChangeIssueTitle($input: ChangeIssueTitleInput!) {
+  changeIssueTitle(input: $input) {
+    titleChangedEvent {
+      newTitle
+    }
+  }
+}
+`;

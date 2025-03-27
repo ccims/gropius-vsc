@@ -22,7 +22,8 @@ import {
   CHANGE_ISSUE_STATE_MUTATION,
   GET_ISSUE_TEMPLATE_TYPES,
   GET_ISSUE_TEMPLATE_STATES,
-  GET_ISSUE_TEMPLATE_PRIORITIES
+  GET_ISSUE_TEMPLATE_PRIORITIES,
+  CHANGE_ISSUE_TITLE_MUTATION
 } from "./queries";
 import path from "path";
 
@@ -854,6 +855,9 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
       case 'priority':
         updatedIssue.priority = newValue;
         break;
+      case 'title':
+        updatedIssue.title = newValue;
+        break;
     }
 
     // Update the issue in our local cache
@@ -1215,6 +1219,29 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
         } catch (error) {
           vscode.window.showErrorMessage(`Failed to update issue priority: ${error instanceof Error ? error.message : String(error)}`);
         }
+      } else if (message.command === 'changeIssueTitle') {
+        // Change issue title
+        try {
+          const updatedTitle = await this.changeIssueTitle({
+            issueId: message.issueId,
+            title: message.title
+          });
+          this._view?.webview.postMessage({
+            command: 'issueTitleUpdated',
+            title: updatedTitle
+          });
+          // Refresh issue details to reflect all changes
+          this.refreshCurrentIssue();
+
+          // Notify other views about the issue update
+          vscode.commands.executeCommand('extension.issueUpdated', {
+            issueId: message.issueId,
+            field: 'title',
+            newValue: updatedTitle
+          });
+        } catch (error) {
+          vscode.window.showErrorMessage(`Failed to update issue title: ${error instanceof Error ? error.message : String(error)}`);
+        }
       }
     });
   }
@@ -1299,6 +1326,32 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
     } catch (error) {
       console.error('[IssueDetailsProvider] Error opening description editor:', error);
       vscode.window.showErrorMessage(`Failed to open description editor: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+ * Changes the issue title
+ */
+  private async changeIssueTitle(data: { issueId: string, title: string }): Promise<string> {
+    try {
+      await globalApiClient.authenticate();
+
+      const result = await globalApiClient.executeQuery(CHANGE_ISSUE_TITLE_MUTATION, {
+        input: {
+          issue: data.issueId,
+          title: data.title
+        }
+      });
+
+      if (result.errors) {
+        throw new Error(result.errors[0].message);
+      }
+
+      // Return the updated title
+      return result.data?.changeIssueTitle?.titleChangedEvent?.newTitle;
+    } catch (error) {
+      console.error('[IssueDetailsProvider] Error changing issue title:', error);
+      throw error;
     }
   }
 

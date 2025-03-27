@@ -1,19 +1,40 @@
 <template>
   <div id="app" class="issue-details">
     <div v-if="issue" class="issue-container">
-      <!-- Title Section -->
+
+      <!-- Title Section with Edit Button -->
       <div class="issue-header">
         <div class="icon-stack">
           <img class="base-icon" :src="getTypeIconPathFor(issue)" alt="" />
           <img class="overlay-icon" :src="getRelationalIconPathFor(issue)" alt="" />
         </div>
-        <h2 class="issue-title">{{ issue.title }}</h2>
-      </div>
 
-      <!-- "Open in Browser" Button -->
-      <button class="open-in-browser-button" @click="openInBrowser">
-        Open in Browser
-      </button>
+        <div class="title-container">
+          <!-- Non-editing mode -->
+          <div v-if="!isEditingTitle" class="title-display">
+            <h2 class="issue-title">{{ issue.title }}</h2>
+            <button class="edit-button title-edit-button" @click="startTitleEdit" title="Edit title">
+              <span class="edit-icon">✎</span>
+            </button>
+
+            <!-- Spacer to push the browser button to the right -->
+            <div class="flex-spacer"></div>
+
+            <!-- Open in Browser Button - always on the right -->
+            <button class="open-in-browser-button compact-button" @click="openInBrowser">
+              Open in Browser
+            </button>
+          </div>
+
+          <!-- Editing mode - stays in the same place -->
+          <div v-else class="title-edit-container">
+            <input type="text" v-model="editedTitle" class="title-edit-input" ref="titleInput" @keyup.enter="saveTitle"
+              @keyup.esc="cancelTitleEdit" />
+            <button class="edit-button cancel-button" @click="cancelTitleEdit">Cancel</button>
+            <button class="edit-button save-button" @click="saveTitle">Save</button>
+          </div>
+        </div>
+      </div>
 
       <!-- Main Content Sections -->
       <div class="issue-sections">
@@ -326,7 +347,9 @@ export default {
         types: [],
         states: [],
         priorities: []
-      }
+      },
+      isEditingTitle: false,
+      editedTitle: '',
     };
   },
   computed: {
@@ -842,6 +865,39 @@ export default {
       this.showPriorityDropdown = false;
     },
 
+    startTitleEdit() {
+      this.editedTitle = this.issue.title;
+      this.isEditingTitle = true;
+      // Focus the input field after the DOM updates
+      this.$nextTick(() => {
+        if (this.$refs.titleInput) {
+          this.$refs.titleInput.focus();
+        }
+      });
+    },
+
+    cancelTitleEdit() {
+      this.isEditingTitle = false;
+      this.editedTitle = '';
+    },
+
+    saveTitle() {
+      if (!this.editedTitle.trim()) {
+        // Don't allow empty titles
+        return;
+      }
+
+      if (vscode) {
+        vscode.postMessage({
+          command: 'changeIssueTitle',
+          issueId: this.issue.id,
+          title: this.editedTitle.trim()
+        });
+      }
+
+      this.isEditingTitle = false;
+    },
+
     getTypeIconForOption(type) {
       // Icons for different types in the dropdown
       const isOpen = this.issue.state && this.issue.state.isOpen;
@@ -988,6 +1044,11 @@ export default {
           console.log("[IssueDetails.vue] Priority updated:", message.priority);
           this.issue.priority = message.priority;
         }
+      } else if (message && message.command === 'issueTitleUpdated') {
+        if (this.issue) {
+          console.log("[IssueDetails.vue] Title updated:", message.title);
+          this.issue.title = message.title;
+        }
       }
     });
 
@@ -1014,8 +1075,8 @@ export default {
   background: none;
   border: none;
   cursor: pointer;
-  margin-right: 8px;
-  padding: 2px 6px;
+  margin-right: 0px;
+  padding: 2px 5px;
   border-radius: 3px;
   opacity: 0.7;
   transition: opacity 0.2s, background-color 0.2s;
@@ -1025,6 +1086,13 @@ export default {
 .edit-button:hover {
   opacity: 1;
   background-color: rgba(0, 0, 0, 0.1);
+}
+
+.edit-button.cancel-button,
+.edit-button.save-button {
+  padding: 2px 6px;
+  height: 24px;
+  font-size: 0.85em;
 }
 
 .edit-icon {
@@ -1067,10 +1135,17 @@ export default {
   display: flex;
   align-items: center;
   gap: 4px;
+  flex-shrink: 0;
 }
 
 .open-in-browser-button:hover {
   background-color: var(--vscode-button-hoverBackground, #1177bb);
+}
+
+.open-in-browser-button.compact-button {
+  padding: 2px 6px; 
+  font-size: 0.8em; 
+  margin-left: 4px; 
 }
 
 /* =================== Templated Fields (optional extra styling) =================== */
@@ -1186,18 +1261,19 @@ ul {
 .issue-header {
   display: flex;
   align-items: center;
-  /* Keeps icon and title on the same baseline */
   gap: 8px;
   margin-bottom: 8px;
-  /* Spacing below the header */
-  border-bottom: none;
-  /* Removes the horizontal line */
+  width: 100%;
 }
 
 .issue-title {
   margin: 0;
-  font-size: 1.3em;
+  font-size: 1.15em;
   font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
 }
 
 .issue-id {
@@ -1842,5 +1918,67 @@ ul {
 
 .state-option-closed {
   color: #f85149;
+}
+
+.title-container {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}
+
+.title-display {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-width: 0;
+  /* Allow flex shrinking */
+  gap: 2px;
+  width: 100%;
+}
+
+.title-edit-container {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.title-edit-input {
+  flex: 1;
+  background-color: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-focusBorder, #0078d4);
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-size: 1.15em;
+  height: 24px;
+}
+
+/* Compact Open in Browser Button */
+.compact-button {
+  background-color: var(--vscode-button-secondaryBackground, #2d2d2d);
+  color: var(--vscode-button-secondaryForeground, #cccccc);
+  border: none;
+  border-radius: 3px;
+  padding: 3px 8px;
+  font-size: 0.85em;
+  height: 24px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.compact-button:hover {
+  background-color: var(--vscode-button-secondaryHoverBackground, #3d3d3d);
+}
+
+.title-edit-button {
+  margin-left: 4px; 
+  flex-shrink: 0; 
+}
+
+.flex-spacer {
+  min-width: 4px;
+  flex-grow: 0.2;
 }
 </style>
