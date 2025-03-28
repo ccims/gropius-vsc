@@ -289,6 +289,18 @@ query GetIssueDetails($id: ID!) {
           }
         }
       }
+      assignments {
+        nodes {
+          id
+          user {
+            username
+            displayName
+          }
+          initialType {
+            name
+          }
+        }
+      }
       templatedField(name: "")
       templatedFields {
         name
@@ -296,8 +308,7 @@ query GetIssueDetails($id: ID!) {
       }
     }
   }
-}
-`;
+}`;
 
 export const FETCH_COMPONENT_VERSION_BY_ID_QUERY = `
 query GetComponentVersion($id: ID!) {

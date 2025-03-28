@@ -1437,10 +1437,21 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
       })
       .then(([issueData, artifactsData]) => {
         if (issueData.data && issueData.data.node) {
+          // Check if assignments data exists and log it
+          if (issueData.data.node.assignments) {
+            console.log(`[IssueDetailsProvider] Issue ${issueId} has assignments data:`,
+              issueData.data.node.assignments.nodes ?
+                `${issueData.data.node.assignments.nodes.length} assignments` :
+                'No assignments nodes');
+          } else {
+            console.log(`[IssueDetailsProvider] Issue ${issueId} has no assignments data`);
+          }
+
           const issueWithArtifacts = {
             ...issueData.data.node,
             artifacts: artifactsData.data?.node?.artefacts?.nodes || []
           };
+
           this._view?.webview.postMessage({
             command: 'displayIssue',
             issue: issueWithArtifacts,
@@ -1466,7 +1477,6 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
         });
       });
   }
-
   /**
  * Fetches available issue priorities (independent of template)
  */

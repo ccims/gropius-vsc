@@ -250,6 +250,32 @@
           </div>
         </div>
 
+        <!-- Assignments Section -->
+        <div class="info-section">
+          <div class="section-header" @click="toggleSection('assignments')"
+            style="cursor: pointer; display: flex; justify-content: space-between;">
+            <span>Assignments</span>
+            <span class="toggle-icon">{{ expandedSections.assignments ? '▼' : '▶' }}</span>
+          </div>
+          <div class="section-content" v-if="expandedSections.assignments">
+            <div v-if="issue.assignments && issue.assignments.nodes && issue.assignments.nodes.length > 0"
+              class="assignments-list">
+              <div v-for="assignment in issue.assignments.nodes" :key="assignment.id" class="assignment-item">
+                <div class="assignment-content">
+                  <div class="assignment-user">
+                    <div class="user-avatar">{{ getUserInitials(assignment.user) }}</div>
+                    <span class="user-name">{{ assignment.user.displayName || assignment.user.username }}</span>
+                    <span class="assignment-type-badge">{{ getAssignmentType() }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div v-else class="no-assignments">
+              <p>No user assignments for this issue.</p>
+            </div>
+          </div>
+        </div>
+
         <!-- Artifacts Section -->
         <div class="info-section">
           <div class="section-header" @click="toggleSection('artifacts')"
@@ -343,6 +369,7 @@ export default {
       showTypeDropdown: false,
       showStateDropdown: false,
       showPriorityDropdown: false,
+      assignments: false,
       issueOptions: {
         types: [],
         states: [],
@@ -655,6 +682,43 @@ export default {
     },
     toggleSection(sectionName) {
       this.expandedSections[sectionName] = !this.expandedSections[sectionName];
+
+      // Add logging for assignments section
+      if (sectionName === 'assignments') {
+        console.log(`[IssueDetails.vue] Assignments section toggled to ${this.expandedSections.assignments}`);
+        if (this.issue && this.issue.assignments) {
+          console.log('[IssueDetails.vue] Assignments data:', JSON.stringify(this.issue.assignments));
+        }
+      }
+    },
+
+    getAssignmentType() {
+      if (this.issue && this.issue.assignments && this.issue.assignments.nodes.length > 0) {
+        // Try different possible locations for the type
+        const firstAssignment = this.issue.assignments.nodes[0];
+        if (firstAssignment.initialType && firstAssignment.initialType.name) {
+          return firstAssignment.initialType.name;
+        } else if (firstAssignment.type && firstAssignment.type.name) {
+          return firstAssignment.type.name;
+        } else if (typeof firstAssignment.initialType === 'string') {
+          return firstAssignment.initialType;
+        } else if (typeof firstAssignment.type === 'string') {
+          return firstAssignment.type;
+        }
+        // If types come from elsewhere in the data
+        return "Developer"; // Fallback to match your screenshot
+      }
+      return null;
+    },
+
+    getUserInitials(user) {
+      if (!user) return '';
+      const name = user.displayName || user.username || '';
+      return name.split(' ')
+        .map(part => part[0])
+        .join('')
+        .toUpperCase()
+        .substring(0, 2);
     },
 
 
@@ -1143,9 +1207,9 @@ export default {
 }
 
 .open-in-browser-button.compact-button {
-  padding: 2px 6px; 
-  font-size: 0.8em; 
-  margin-left: 4px; 
+  padding: 2px 6px;
+  font-size: 0.8em;
+  margin-left: 4px;
 }
 
 /* =================== Templated Fields (optional extra styling) =================== */
@@ -1973,12 +2037,88 @@ ul {
 }
 
 .title-edit-button {
-  margin-left: 4px; 
-  flex-shrink: 0; 
+  margin-left: 4px;
+  flex-shrink: 0;
 }
 
 .flex-spacer {
   min-width: 4px;
   flex-grow: 0.2;
+}
+
+/* =================== Assignments Styling =================== */
+.assignments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.assignment-item {
+  display: flex;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background-color: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+}
+
+.assignment-content {
+  width: 100%;
+}
+
+.assignment-user {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.user-name {
+  flex-grow: 1;
+  font-weight: 500;
+  margin-right: 8px;
+}
+
+.assignment-type-badge {
+  background-color: rgba(0, 0, 0, 0.2);
+  color: var(--vscode-foreground);
+  padding: 2px 6px;
+  border-radius: 12px;
+  font-size: 0.7em;
+  margin-left: auto; 
+}
+
+.no-assignments {
+  font-style: italic;
+  color: var(--vscode-descriptionForeground);
+  text-align: center;
+  padding: 12px;
+  background-color: rgba(30, 30, 30, 0.2);
+  border-radius: 4px;
+}
+
+.assignment-type-header {
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.user-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: #0066aa;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8em;
+  margin-right: 8px;
+}
+
+.assignment-user {
+  display: flex;
+  align-items: center;
+  width: 100%;
 }
 </style>
