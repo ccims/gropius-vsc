@@ -296,7 +296,7 @@ query GetIssueDetails($id: ID!) {
             username
             displayName
           }
-          initialType {
+          type {
             name
           }
         }

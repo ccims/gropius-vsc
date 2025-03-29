@@ -265,7 +265,7 @@
                   <div class="assignment-user">
                     <div class="user-avatar">{{ getUserInitials(assignment.user) }}</div>
                     <span class="user-name">{{ assignment.user.displayName || assignment.user.username }}</span>
-                    <span class="assignment-type-badge">{{ getAssignmentType() }}</span>
+                    <span class="assignment-type-badge">{{ getAssignmentType(assignment) }}</span>
                   </div>
                 </div>
               </div>
@@ -692,23 +692,11 @@ export default {
       }
     },
 
-    getAssignmentType() {
-      if (this.issue && this.issue.assignments && this.issue.assignments.nodes.length > 0) {
-        // Try different possible locations for the type
-        const firstAssignment = this.issue.assignments.nodes[0];
-        if (firstAssignment.initialType && firstAssignment.initialType.name) {
-          return firstAssignment.initialType.name;
-        } else if (firstAssignment.type && firstAssignment.type.name) {
-          return firstAssignment.type.name;
-        } else if (typeof firstAssignment.initialType === 'string') {
-          return firstAssignment.initialType;
-        } else if (typeof firstAssignment.type === 'string') {
-          return firstAssignment.type;
-        }
-        // If types come from elsewhere in the data
-        return "Developer"; // Fallback to match your screenshot
+    getAssignmentType(assignment) {
+      if (assignment && assignment.type && assignment.type.name) {
+        return assignment.type.name;
       }
-      return null;
+      return "No type";
     },
 
     getUserInitials(user) {
@@ -2085,16 +2073,21 @@ ul {
   padding: 2px 6px;
   border-radius: 12px;
   font-size: 0.7em;
-  margin-left: auto; 
+  margin-left: auto;
 }
 
 .no-assignments {
   font-style: italic;
   color: var(--vscode-descriptionForeground);
   text-align: center;
-  padding: 12px;
+  padding: 4px 12px; /* Reduced padding */
   background-color: rgba(30, 30, 30, 0.2);
   border-radius: 4px;
+  margin: 0; /* Remove any margin */
+}
+
+.no-assignments p {
+  margin: 4px 0; /* Minimal vertical margin for the paragraph */
 }
 
 .assignment-type-header {
