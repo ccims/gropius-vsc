@@ -1242,6 +1242,10 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
         } catch (error) {
           vscode.window.showErrorMessage(`Failed to update issue title: ${error instanceof Error ? error.message : String(error)}`);
         }
+      } else if (message.command === 'refreshCurrentIssue') {
+        if (this.lastIssueId) {
+          this.updateIssueDetails(this.lastIssueId);
+        }
       }
     });
   }

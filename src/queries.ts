@@ -646,7 +646,7 @@ mutation ChangeIssueType($input: ChangeIssueTypeInput!) {
 // Query to get available issue priorities 
 export const GET_ISSUE_TEMPLATE_PRIORITIES = `
 query GetIssuePriorities {
-  searchIssuePriorities(first: 50, query: "*") {
+  searchIssuePriorities(first: 500, query: "*") {
     id
     name
   }
@@ -656,7 +656,7 @@ query GetIssuePriorities {
 // Query to get available issue states
 export const GET_ISSUE_TEMPLATE_STATES = `
 query GetIssueStates {
-  searchIssueStates(first: 50, query: "*") {
+  searchIssueStates(first: 500, query: "*") {
     id
     name
     isOpen
@@ -667,7 +667,7 @@ query GetIssueStates {
 // Query to get available issue types
 export const GET_ISSUE_TEMPLATE_TYPES = `
 query GetIssueTypes {
-  searchIssueTypes(first: 50, query: "*") {
+  searchIssueTypes(first: 500, query: "*") {
     id
     name
   }
@@ -680,6 +680,80 @@ mutation ChangeIssueTitle($input: ChangeIssueTitleInput!) {
   changeIssueTitle(input: $input) {
     titleChangedEvent {
       newTitle
+    }
+  }
+}
+`;
+
+// Queries to get users and assignment types
+export const GET_ALL_USERS = `
+query GetAllUsers {
+  searchUsers(first: 500, query: "*") {
+    id
+    username
+    displayName
+  }
+}
+`;
+
+export const GET_ASSIGNMENT_TYPES_FOR_TEMPLATE = `
+query GetAssignmentTypesForAnIssueTemplate($templateId: ID!) {
+  node(id: $templateId) {
+    ... on IssueTemplate {
+      id
+      name
+      assignmentTypes {
+        nodes {
+          id
+          name
+          description
+        }
+      }
+    }
+  }
+}
+`;
+
+// Mutations for assignments
+export const CREATE_ASSIGNMENT_MUTATION = `
+mutation CreateAssignment($input: CreateAssignmentInput!) {
+  createAssignment(input: $input) {
+    assignment {
+      id
+      user {
+        username
+        displayName
+      }
+      type {
+        id
+        name
+      }
+    }
+  }
+}
+`;
+
+export const REMOVE_ASSIGNMENT_MUTATION = `
+mutation RemoveAssignment($input: RemoveAssignmentInput!) {
+  removeAssignment(input: $input) {
+    removedAssignmentEvent {
+      id
+    }
+  }
+}
+`;
+
+export const CHANGE_ASSIGNMENT_TYPE_MUTATION = `
+mutation ChangeAssignmentType($input: ChangeAssignmentTypeInput!) {
+  changeAssignmentType(input: $input) {
+    assignmentTypeChangedEvent {
+      assignment {
+        id
+        type {
+          id
+          name
+        }
+      }
     }
   }
 }

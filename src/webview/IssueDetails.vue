@@ -255,7 +255,13 @@
           <div class="section-header" @click="toggleSection('assignments')"
             style="cursor: pointer; display: flex; justify-content: space-between;">
             <span>Assignments</span>
-            <span class="toggle-icon">{{ expandedSections.assignments ? '▼' : '▶' }}</span>
+            <div>
+              <button v-if="expandedSections.assignments" class="edit-button" @click.stop="showAddAssignmentDialog"
+                title="Add assignment">
+                <span class="button-icon">+</span>
+              </button>
+              <span class="toggle-icon">{{ expandedSections.assignments ? '▼' : '▶' }}</span>
+            </div>
           </div>
           <div class="section-content" v-if="expandedSections.assignments">
             <div v-if="issue.assignments && issue.assignments.nodes && issue.assignments.nodes.length > 0"
@@ -265,13 +271,81 @@
                   <div class="assignment-user">
                     <div class="user-avatar">{{ getUserInitials(assignment.user) }}</div>
                     <span class="user-name">{{ assignment.user.displayName || assignment.user.username }}</span>
-                    <span class="assignment-type-badge">{{ getAssignmentType(assignment) }}</span>
+                    <div class="assignment-actions">
+                      <div class="select-container" v-if="issue.template">
+                        <span class="assignment-type-badge" @click.stop="showChangeTypeDialog(assignment)">
+                          {{ assignment.type ? assignment.type.name : 'No type' }}
+                          <span class="dropdown-arrow">▼</span>
+                        </span>
+                      </div>
+                      <button class="remove-button" @click.stop="confirmRemoveAssignment(assignment)"
+                        title="Remove assignment">
+                        ✕
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
             <div v-else class="no-assignments">
               <p>No user assignments for this issue.</p>
+            </div>
+
+            <!-- Add Assignment Dialog -->
+            <div v-if="showingAddAssignment" class="assignment-dialog">
+              <div class="dialog-title">Add Assignment</div>
+              <div class="dialog-content">
+                <div class="search-container">
+                  <input type="text" v-model="userSearchQuery" placeholder="Search users..." class="search-input"
+                    @input="searchUsers" />
+                  <div v-if="userSearchResults.length > 0" class="search-results">
+                    <div v-for="user in userSearchResults" :key="user.id" class="search-result-item"
+                      @click="selectUser(user)">
+                      {{ user.displayName || user.username }}
+                    </div>
+                  </div>
+                </div>
+
+                <div v-if="selectedUser" class="selected-user">
+                  <span>Selected: {{ selectedUser.displayName || selectedUser.username }}</span>
+                </div>
+
+                <div class="type-selection" v-if="assignmentTypes.length > 0">
+                  <label>Assignment Type:</label>
+                  <select v-model="selectedTypeId" class="type-select">
+                    <option value="">No type</option>
+                    <option v-for="type in assignmentTypes" :key="type.id" :value="type.id">
+                      {{ type.name }}
+                    </option>
+                  </select>
+                </div>
+
+                <div class="dialog-actions">
+                  <button @click="closeAddAssignmentDialog" class="cancel-button">Cancel</button>
+                  <button @click="createAssignment" class="create-button" :disabled="!selectedUser">Create</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Change Type Dialog -->
+            <div v-if="showingChangeType" class="assignment-dialog">
+              <div class="dialog-title">Change Assignment Type</div>
+              <div class="dialog-content">
+                <div class="type-selection" v-if="assignmentTypes.length > 0">
+                  <label>New Type:</label>
+                  <select v-model="selectedTypeId" class="type-select">
+                    <option value="">No type</option>
+                    <option v-for="type in assignmentTypes" :key="type.id" :value="type.id">
+                      {{ type.name }}
+                    </option>
+                  </select>
+                </div>
+
+                <div class="dialog-actions">
+                  <button @click="closeChangeTypeDialog" class="cancel-button">Cancel</button>
+                  <button @click="changeAssignmentType" class="create-button">Save</button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -377,6 +451,14 @@ export default {
       },
       isEditingTitle: false,
       editedTitle: '',
+      showingAddAssignment: false,
+      showingChangeType: false,
+      userSearchQuery: '',
+      userSearchResults: [],
+      selectedUser: null,
+      assignmentTypes: [],
+      selectedTypeId: '',
+      currentAssignment: null,
     };
   },
   computed: {
@@ -699,6 +781,7 @@ export default {
       return "No type";
     },
 
+    // Helper for displaying user initials in the avatar
     getUserInitials(user) {
       if (!user) return '';
       const name = user.displayName || user.username || '';
@@ -709,6 +792,236 @@ export default {
         .substring(0, 2);
     },
 
+    // Assignment Type handling
+    async loadAssignmentTypes() {
+      if (!this.issue || !this.issue.template || !this.issue.template.id) {
+        console.warn('[IssueDetails] Cannot load assignment types: No template ID');
+        return;
+      }
+
+      try {
+        await globalApiClient.authenticate();
+        const result = await globalApiClient.executeQuery(
+          GET_ASSIGNMENT_TYPES_FOR_TEMPLATE,
+          { templateId: this.issue.template.id }
+        );
+
+        if (result.data?.node?.assignmentTypes?.nodes) {
+          this.assignmentTypes = result.data.node.assignmentTypes.nodes;
+          console.log('[IssueDetails] Loaded assignment types:', this.assignmentTypes);
+        } else {
+          console.warn('[IssueDetails] No assignment types found for template');
+          this.assignmentTypes = [];
+        }
+      } catch (error) {
+        console.error('[IssueDetails] Error loading assignment types:', error);
+        vscode.window.showErrorMessage(`Failed to load assignment types: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+
+    // Add Assignment Dialog
+    showAddAssignmentDialog(event) {
+      // Prevent the event from propagating up to the section toggle
+      if (event) event.stopPropagation();
+
+      // Load assignment types if not already loaded
+      if (this.assignmentTypes.length === 0) {
+        this.loadAssignmentTypes();
+      }
+
+      this.showingAddAssignment = true;
+      this.userSearchQuery = '';
+      this.userSearchResults = [];
+      this.selectedUser = null;
+      this.selectedTypeId = '';
+    },
+
+    closeAddAssignmentDialog() {
+      this.showingAddAssignment = false;
+    },
+
+    async searchUsers() {
+      if (!this.userSearchQuery || this.userSearchQuery.length < 1) {
+        this.userSearchResults = [];
+        return;
+      }
+
+      try {
+        await globalApiClient.authenticate();
+        const result = await globalApiClient.executeQuery(
+          GET_ALL_USERS
+        );
+
+        if (result.data?.searchUsers) {
+          // Filter users based on the search query
+          const query = this.userSearchQuery.toLowerCase();
+          const users = result.data.searchUsers;
+
+          this.userSearchResults = users.filter(user => {
+            const displayName = (user.displayName || '').toLowerCase();
+            const username = (user.username || '').toLowerCase();
+            return displayName.includes(query) || username.includes(query);
+          }).slice(0, 10); // Limit to 10 results
+        }
+      } catch (error) {
+        console.error('[IssueDetails] Error searching users:', error);
+        this.userSearchResults = [];
+      }
+    },
+
+    selectUser(user) {
+      this.selectedUser = user;
+      this.userSearchResults = [];
+    },
+
+    async createAssignment() {
+      if (!this.selectedUser || !this.issue) {
+        console.error('[IssueDetails] Cannot create assignment: Missing user or issue');
+        return;
+      }
+
+      try {
+        await globalApiClient.authenticate();
+
+        const input = {
+          issue: this.issue.id,
+          user: this.selectedUser.id
+        };
+
+        // Add type if selected
+        if (this.selectedTypeId) {
+          input.type = this.selectedTypeId;
+        }
+
+        const result = await globalApiClient.executeQuery(
+          CREATE_ASSIGNMENT_MUTATION,
+          { input }
+        );
+
+        if (result.data?.createAssignment?.assignment) {
+          vscode.window.showInformationMessage('Assignment created successfully.');
+          this.closeAddAssignmentDialog();
+
+          // Refresh issue details to show the new assignment
+          if (this.issue && this.issue.id) {
+            this.refreshCurrentIssue();
+          }
+        } else {
+          console.error('[IssueDetails] Failed to create assignment:', result);
+          vscode.window.showErrorMessage('Failed to create assignment.');
+        }
+      } catch (error) {
+        console.error('[IssueDetails] Error creating assignment:', error);
+        vscode.window.showErrorMessage(`Error creating assignment: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+
+    // Remove Assignment
+    async confirmRemoveAssignment(assignment) {
+      if (!assignment || !assignment.id) {
+        console.error('[IssueDetails] Cannot remove assignment: Missing assignment ID');
+        return;
+      }
+
+      const confirmed = await vscode.window.showQuickPick(
+        ['Yes, remove assignment', 'Cancel'],
+        { placeHolder: 'Are you sure you want to remove this assignment?' }
+      );
+
+      if (confirmed === 'Yes, remove assignment') {
+        this.removeAssignment(assignment.id);
+      }
+    },
+
+    async removeAssignment(assignmentId) {
+      try {
+        await globalApiClient.authenticate();
+
+        const result = await globalApiClient.executeQuery(
+          REMOVE_ASSIGNMENT_MUTATION,
+          { input: { assignment: assignmentId } }
+        );
+
+        if (result.data?.removeAssignment?.removedAssignmentEvent) {
+          vscode.window.showInformationMessage('Assignment removed successfully.');
+
+          // Refresh issue details to update assignments
+          if (this.issue && this.issue.id) {
+            this.refreshCurrentIssue();
+          }
+        } else {
+          console.error('[IssueDetails] Failed to remove assignment:', result);
+          vscode.window.showErrorMessage('Failed to remove assignment.');
+        }
+      } catch (error) {
+        console.error('[IssueDetails] Error removing assignment:', error);
+        vscode.window.showErrorMessage(`Error removing assignment: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+
+    // Change Assignment Type Dialog
+    showChangeTypeDialog(assignment) {
+      if (!assignment || !assignment.id) {
+        console.error('[IssueDetails] Cannot change type: Missing assignment ID');
+        return;
+      }
+
+      // Load assignment types if not already loaded
+      if (this.assignmentTypes.length === 0) {
+        this.loadAssignmentTypes();
+      }
+
+      this.currentAssignment = assignment;
+      this.selectedTypeId = assignment.type ? assignment.type.id : '';
+      this.showingChangeType = true;
+    },
+
+    closeChangeTypeDialog() {
+      this.showingChangeType = false;
+      this.currentAssignment = null;
+      this.selectedTypeId = '';
+    },
+
+    async changeAssignmentType() {
+      if (!this.currentAssignment || !this.currentAssignment.id) {
+        console.error('[IssueDetails] Cannot change type: Missing assignment ID');
+        return;
+      }
+
+      try {
+        await globalApiClient.authenticate();
+
+        const input = {
+          assignment: this.currentAssignment.id
+        };
+
+        // Add type if selected
+        if (this.selectedTypeId) {
+          input.type = this.selectedTypeId;
+        }
+
+        const result = await globalApiClient.executeQuery(
+          CHANGE_ASSIGNMENT_TYPE_MUTATION,
+          { input }
+        );
+
+        if (result.data?.changeAssignmentType?.assignmentTypeChangedEvent) {
+          vscode.window.showInformationMessage('Assignment type changed successfully.');
+          this.closeChangeTypeDialog();
+
+          // Refresh issue details to show the updated assignment
+          if (this.issue && this.issue.id) {
+            this.refreshCurrentIssue();
+          }
+        } else {
+          console.error('[IssueDetails] Failed to change assignment type:', result);
+          vscode.window.showErrorMessage('Failed to change assignment type.');
+        }
+      } catch (error) {
+        console.error('[IssueDetails] Error changing assignment type:', error);
+        vscode.window.showErrorMessage(`Error changing assignment type: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
 
     getArtifactName(artifact) {
       if (!artifact) return 'Unknown';
@@ -997,6 +1310,13 @@ export default {
         this.showStateDropdown = false;
         this.showPriorityDropdown = false;
       }
+    },
+    refreshCurrentIssue() {
+      if (vscode) {
+        vscode.postMessage({
+          command: 'refreshCurrentIssue'
+        });
+      }
     }
   },
   mounted() {
@@ -1101,6 +1421,27 @@ export default {
           console.log("[IssueDetails.vue] Title updated:", message.title);
           this.issue.title = message.title;
         }
+      }
+
+      if (typeof acquireVsCodeApi !== "undefined") {
+        const existingMessageHandler = window.onmessage;
+        window.addEventListener("message", (event) => {
+          const message = event.data;
+
+          // Forward to existing handler first
+          if (existingMessageHandler) {
+            existingMessageHandler(event);
+          }
+
+          if (message && message.command === "refreshCurrentIssue") {
+            if (this.issue && this.issue.id) {
+              this._view?.webview.postMessage({
+                command: 'showIssueDetails',
+                issueId: this.issue.id
+              });
+            }
+          }
+        });
       }
     });
 
@@ -2074,20 +2415,21 @@ ul {
   border-radius: 12px;
   font-size: 0.7em;
   margin-left: auto;
+  cursor: pointer;
 }
 
 .no-assignments {
   font-style: italic;
   color: var(--vscode-descriptionForeground);
   text-align: center;
-  padding: 4px 12px; /* Reduced padding */
+  padding: 4px 12px;
   background-color: rgba(30, 30, 30, 0.2);
   border-radius: 4px;
-  margin: 0; /* Remove any margin */
+  margin: 0;
 }
 
 .no-assignments p {
-  margin: 4px 0; /* Minimal vertical margin for the paragraph */
+  margin: 4px 0;
 }
 
 .assignment-type-header {
@@ -2113,5 +2455,136 @@ ul {
   display: flex;
   align-items: center;
   width: 100%;
+}
+
+.assignment-actions {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  gap: 8px;
+}
+
+.remove-button {
+  background: none;
+  border: none;
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+  opacity: 0.7;
+  font-size: 12px;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+.remove-button:hover {
+  opacity: 1;
+  background-color: rgba(255, 0, 0, 0.1);
+  color: #ff5555;
+}
+
+.assignment-dialog {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  width: 300px;
+  z-index: 1000;
+}
+
+.dialog-title {
+  padding: 10px;
+  font-weight: bold;
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.dialog-content {
+  padding: 15px;
+}
+
+
+.search-container {
+  position: relative;
+  margin-bottom: 15px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--vscode-input-border);
+  background-color: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border-radius: 3px;
+}
+
+.search-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 150px;
+  overflow-y: auto;
+  background-color: var(--vscode-dropdown-background);
+  border: 1px solid var(--vscode-dropdown-border);
+  border-radius: 0 0 3px 3px;
+  z-index: 10;
+}
+
+.search-result-item {
+  padding: 6px 8px;
+  cursor: pointer;
+}
+
+.search-result-item:hover {
+  background-color: var(--vscode-list-hoverBackground);
+}
+
+.selected-user {
+  margin-bottom: 15px;
+  padding: 8px;
+  background-color: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+}
+
+.type-selection {
+  margin-bottom: 15px;
+}
+
+.type-select {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--vscode-dropdown-border);
+  background-color: var(--vscode-dropdown-background);
+  color: var(--vscode-dropdown-foreground);
+  border-radius: 3px;
+  margin-top: 5px;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.cancel-button,
+.create-button {
+  padding: 6px 12px;
+  border-radius: 3px;
+  border: none;
+  cursor: pointer;
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+.create-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cancel-button {
+  background-color: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
 }
 </style>
