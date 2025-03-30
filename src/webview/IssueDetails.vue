@@ -255,15 +255,53 @@
           <div class="section-header" @click="toggleSection('assignments')"
             style="cursor: pointer; display: flex; justify-content: space-between;">
             <span>Assignments</span>
-            <div>
-              <button v-if="expandedSections.assignments" class="edit-button" @click.stop="showAddAssignmentDialog"
-                title="Add assignment">
-                <span class="button-icon">+</span>
-              </button>
-              <span class="toggle-icon">{{ expandedSections.assignments ? '▼' : '▶' }}</span>
-            </div>
+            <span class="toggle-icon">{{ expandedSections.assignments ? '▼' : '▶' }}</span>
           </div>
           <div class="section-content" v-if="expandedSections.assignments">
+            <div class="assignments-header">
+              <button class="add-assignment-button" @click.stop="toggleAddAssignmentDropdown">
+                <span class="button-icon">+</span> Add Assignment
+              </button>
+
+              <!-- Add Assignment Dropdown -->
+              <div v-if="showingAddAssignment" class="add-assignment-dropdown">
+                <div class="dropdown-title">Add Assignment</div>
+
+                <!-- User search -->
+                <div class="search-container">
+                  <input type="text" v-model="userSearchQuery" placeholder="Search users..." class="search-input"
+                    @input="searchUsers" ref="userSearchInput" />
+                  <div v-if="userSearchResults.length > 0" class="search-results">
+                    <div v-for="user in userSearchResults" :key="user.id" class="search-result-item"
+                      @click="selectUser(user)">
+                      {{ user.displayName || user.username }}
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Selected user -->
+                <div v-if="selectedUser" class="selected-user">
+                  <span>Selected: {{ selectedUser.displayName || selectedUser.username }}</span>
+                </div>
+
+                <!-- Type selection -->
+                <div class="type-selection" v-if="assignmentTypes.length > 0">
+                  <label>Assignment Type:</label>
+                  <select v-model="selectedTypeId" class="type-select">
+                    <option value="">No type</option>
+                    <option v-for="type in assignmentTypes" :key="type.id" :value="type.id">
+                      {{ type.name }}
+                    </option>
+                  </select>
+                </div>
+
+                <!-- Action buttons -->
+                <div class="dropdown-actions">
+                  <button @click="closeAddAssignmentDropdown" class="cancel-button">Cancel</button>
+                  <button @click="createAssignment" class="create-button" :disabled="!selectedUser">Create</button>
+                </div>
+              </div>
+            </div>
             <div v-if="issue.assignments && issue.assignments.nodes && issue.assignments.nodes.length > 0"
               class="assignments-list">
               <div v-for="assignment in issue.assignments.nodes" :key="assignment.id" class="assignment-item">
@@ -273,10 +311,23 @@
                     <span class="user-name">{{ assignment.user.displayName || assignment.user.username }}</span>
                     <div class="assignment-actions">
                       <div class="select-container" v-if="issue.template">
-                        <span class="assignment-type-badge" @click.stop="showChangeTypeDialog(assignment)">
+                        <span class="assignment-type-badge" @click.stop="toggleTypeDropdown(assignment.id)">
                           {{ assignment.type ? assignment.type.name : 'No type' }}
                           <span class="dropdown-arrow">▼</span>
                         </span>
+                        <div v-if="activeTypeDropdown === assignment.id" class="type-dropdown">
+                          <div v-if="assignmentTypes.length === 0" class="dropdown-loading">Loading...</div>
+                          <div v-else class="dropdown-options">
+                            <div v-for="type in assignmentTypes" :key="type.id" class="type-option"
+                              @click.stop="updateAssignmentType(assignment.id, type.id)">
+                              {{ type.name }}
+                            </div>
+                            <div class="type-option no-type-option"
+                              @click.stop="updateAssignmentType(assignment.id, null)">
+                              No type
+                            </div>
+                          </div>
+                        </div>
                       </div>
                       <button class="remove-button" @click.stop="confirmRemoveAssignment(assignment)"
                         title="Remove assignment">
@@ -289,63 +340,6 @@
             </div>
             <div v-else class="no-assignments">
               <p>No user assignments for this issue.</p>
-            </div>
-
-            <!-- Add Assignment Dialog -->
-            <div v-if="showingAddAssignment" class="assignment-dialog">
-              <div class="dialog-title">Add Assignment</div>
-              <div class="dialog-content">
-                <div class="search-container">
-                  <input type="text" v-model="userSearchQuery" placeholder="Search users..." class="search-input"
-                    @input="searchUsers" />
-                  <div v-if="userSearchResults.length > 0" class="search-results">
-                    <div v-for="user in userSearchResults" :key="user.id" class="search-result-item"
-                      @click="selectUser(user)">
-                      {{ user.displayName || user.username }}
-                    </div>
-                  </div>
-                </div>
-
-                <div v-if="selectedUser" class="selected-user">
-                  <span>Selected: {{ selectedUser.displayName || selectedUser.username }}</span>
-                </div>
-
-                <div class="type-selection" v-if="assignmentTypes.length > 0">
-                  <label>Assignment Type:</label>
-                  <select v-model="selectedTypeId" class="type-select">
-                    <option value="">No type</option>
-                    <option v-for="type in assignmentTypes" :key="type.id" :value="type.id">
-                      {{ type.name }}
-                    </option>
-                  </select>
-                </div>
-
-                <div class="dialog-actions">
-                  <button @click="closeAddAssignmentDialog" class="cancel-button">Cancel</button>
-                  <button @click="createAssignment" class="create-button" :disabled="!selectedUser">Create</button>
-                </div>
-              </div>
-            </div>
-
-            <!-- Change Type Dialog -->
-            <div v-if="showingChangeType" class="assignment-dialog">
-              <div class="dialog-title">Change Assignment Type</div>
-              <div class="dialog-content">
-                <div class="type-selection" v-if="assignmentTypes.length > 0">
-                  <label>New Type:</label>
-                  <select v-model="selectedTypeId" class="type-select">
-                    <option value="">No type</option>
-                    <option v-for="type in assignmentTypes" :key="type.id" :value="type.id">
-                      {{ type.name }}
-                    </option>
-                  </select>
-                </div>
-
-                <div class="dialog-actions">
-                  <button @click="closeChangeTypeDialog" class="cancel-button">Cancel</button>
-                  <button @click="changeAssignmentType" class="create-button">Save</button>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -459,6 +453,8 @@ export default {
       assignmentTypes: [],
       selectedTypeId: '',
       currentAssignment: null,
+      activeTypeDropdown: null,
+      assignmentTypes: [],
     };
   },
   computed: {
@@ -792,30 +788,113 @@ export default {
         .substring(0, 2);
     },
 
-    // Assignment Type handling
+    toggleAddAssignmentDropdown() {
+      this.showingAddAssignment = !this.showingAddAssignment;
+
+      if (this.showingAddAssignment) {
+        // Load assignment types if not already loaded
+        if (this.assignmentTypes.length === 0) {
+          this.loadAssignmentTypes();
+        }
+
+        // Focus the search input
+        this.$nextTick(() => {
+          if (this.$refs.userSearchInput) {
+            this.$refs.userSearchInput.focus();
+          }
+        });
+
+        // Add event listener to close when clicking outside
+        document.addEventListener('click', this.handleClickOutsideAddDropdown);
+      } else {
+        document.removeEventListener('click', this.handleClickOutsideAddDropdown);
+      }
+    },
+
+    closeAddAssignmentDropdown() {
+      this.showingAddAssignment = false;
+      this.userSearchQuery = '';
+      this.userSearchResults = [];
+      this.selectedUser = null;
+      this.selectedTypeId = '';
+      document.removeEventListener('click', this.handleClickOutsideAddDropdown);
+    },
+
+    handleClickOutsideAddDropdown(event) {
+      // Check if click is outside the dropdown
+      const dropdown = this.$el.querySelector('.add-assignment-dropdown');
+      const button = this.$el.querySelector('.add-assignment-button');
+
+      if (dropdown && button && !dropdown.contains(event.target) && !button.contains(event.target)) {
+        this.closeAddAssignmentDropdown();
+      }
+    },
+
     async loadAssignmentTypes() {
       if (!this.issue || !this.issue.template || !this.issue.template.id) {
-        console.warn('[IssueDetails] Cannot load assignment types: No template ID');
+        console.warn('[IssueDetails.vue] Cannot load assignment types: No template ID');
         return;
       }
 
+      console.log(`[IssueDetails.vue] Requesting assignment types for template: ${this.issue.template.id}`);
+
+      // Clear any existing assignment types
+      this.assignmentTypes = [];
+
+      if (vscode) {
+        vscode.postMessage({
+          command: 'getAssignmentTypes',
+          templateId: this.issue.template.id
+        });
+      }
+    },
+    // Update an assignment's type
+    async updateAssignmentType(assignmentId, typeId) {
+      if (!assignmentId) {
+        console.error('[IssueDetails] Cannot update assignment type: Missing assignment ID');
+        return;
+      }
+
+      console.log(`[IssueDetails] Updating assignment ${assignmentId} to type ${typeId || 'null'}`);
+
       try {
         await globalApiClient.authenticate();
+
+        const input = {
+          assignment: assignmentId
+        };
+
+        // Add type if selected (can be null for "No type")
+        if (typeId) {
+          input.type = typeId;
+        }
+
+        console.log('[IssueDetails] Sending mutation input:', input);
+
         const result = await globalApiClient.executeQuery(
-          GET_ASSIGNMENT_TYPES_FOR_TEMPLATE,
-          { templateId: this.issue.template.id }
+          CHANGE_ASSIGNMENT_TYPE_MUTATION,
+          { input }
         );
 
-        if (result.data?.node?.assignmentTypes?.nodes) {
-          this.assignmentTypes = result.data.node.assignmentTypes.nodes;
-          console.log('[IssueDetails] Loaded assignment types:', this.assignmentTypes);
+        console.log('[IssueDetails] Mutation result:', result);
+
+        if (result.data?.changeAssignmentType?.assignmentTypeChangedEvent) {
+          vscode.window.showInformationMessage('Assignment type updated.');
+
+          // Refresh issue details to show the updated assignment
+          if (this.issue && this.issue.id) {
+            this.refreshCurrentIssue();
+          }
         } else {
-          console.warn('[IssueDetails] No assignment types found for template');
-          this.assignmentTypes = [];
+          console.error('[IssueDetails] Failed to update assignment type:', result);
+          vscode.window.showErrorMessage('Failed to update assignment type.');
         }
       } catch (error) {
-        console.error('[IssueDetails] Error loading assignment types:', error);
-        vscode.window.showErrorMessage(`Failed to load assignment types: ${error instanceof Error ? error.message : String(error)}`);
+        console.error('[IssueDetails] Error updating assignment type:', error);
+        vscode.window.showErrorMessage(`Error updating assignment type: ${error instanceof Error ? error.message : String(error)}`);
+      } finally {
+        // Close the dropdown
+        this.activeTypeDropdown = null;
       }
     },
 
@@ -1311,12 +1390,36 @@ export default {
         this.showPriorityDropdown = false;
       }
     },
+
     refreshCurrentIssue() {
       if (vscode) {
         vscode.postMessage({
           command: 'refreshCurrentIssue'
         });
       }
+    },
+    toggleTypeDropdown(assignmentId) {
+      console.log(`[IssueDetails] Toggle type dropdown for assignment ${assignmentId}`);
+
+      // If this dropdown is already active, close it
+      if (this.activeTypeDropdown === assignmentId) {
+        this.activeTypeDropdown = null;
+      } else {
+        // Otherwise, set this as the active dropdown
+        this.activeTypeDropdown = assignmentId;
+
+        // Load assignment types if not already loaded
+        console.log(`[IssueDetails] Assignment types count: ${this.assignmentTypes.length}`);
+        if (this.assignmentTypes.length === 0) {
+          console.log('[IssueDetails] Loading assignment types...');
+          this.loadAssignmentTypes();
+        } else {
+          console.log('[IssueDetails] Using cached assignment types:', this.assignmentTypes);
+        }
+      }
+    }, closeTypeDropdown() {
+      this.activeTypeDropdown = null;
+      document.removeEventListener('click', this.closeTypeDropdown);
     }
   },
   mounted() {
@@ -1421,6 +1524,18 @@ export default {
           console.log("[IssueDetails.vue] Title updated:", message.title);
           this.issue.title = message.title;
         }
+      } else if (message && message.command === 'assignmentTypesLoaded') {
+        console.log('[IssueDetails.vue] Assignment types loaded:', message.types);
+        this.assignmentTypes = message.types || [];
+
+        // If a dropdown is open, force a refresh
+        if (this.activeTypeDropdown) {
+          this.$forceUpdate();
+        }
+      }
+      else if (message && message.command === 'assignmentTypesError') {
+        console.error('[IssueDetails.vue] Error loading assignment types:', message.error);
+        this.assignmentTypes = [];
       }
 
       if (typeof acquireVsCodeApi !== "undefined") {
@@ -1457,7 +1572,7 @@ export default {
   },
   beforeDestroy() {
     // Remove event listener when component is destroyed
-    document.removeEventListener('click', this.handleClickOutside);
+    document.removeEventListener('click', this.closeTypeDropdown);
   }
 };
 </script>
@@ -2260,6 +2375,12 @@ ul {
   opacity: 0.7;
 }
 
+.dropdown-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .select-container:hover .dropdown-arrow {
   opacity: 1;
 }
@@ -2507,7 +2628,7 @@ ul {
 
 .search-container {
   position: relative;
-  margin-bottom: 15px;
+  margin-bottom: 10px;
 }
 
 .search-input {
@@ -2549,7 +2670,7 @@ ul {
 }
 
 .type-selection {
-  margin-bottom: 15px;
+  margin-bottom: 10px;
 }
 
 .type-select {
@@ -2586,5 +2707,75 @@ ul {
 .cancel-button {
   background-color: var(--vscode-button-secondaryBackground);
   color: var(--vscode-button-secondaryForeground);
+}
+
+.type-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  min-width: 150px;
+  background-color: var(--vscode-dropdown-background);
+  border: 1px solid var(--vscode-dropdown-border);
+  border-radius: 4px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  z-index: 100;
+  margin-top: 4px;
+}
+
+.type-option {
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.type-option:hover {
+  background-color: var(--vscode-list-hoverBackground);
+}
+
+.no-type-option {
+  border-top: 1px solid var(--vscode-panel-border);
+  font-style: italic;
+  color: var(--vscode-descriptionForeground);
+}
+
+.assignments-header {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+  position: relative;
+}
+
+.add-assignment-button {
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: none;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 0.9em;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.add-assignment-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 250px;
+  background-color: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  margin-top: 4px;
+  padding: 10px;
+}
+
+.dropdown-title {
+  font-weight: bold;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  padding-bottom: 5px;
 }
 </style>

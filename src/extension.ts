@@ -23,7 +23,8 @@ import {
   GET_ISSUE_TEMPLATE_TYPES,
   GET_ISSUE_TEMPLATE_STATES,
   GET_ISSUE_TEMPLATE_PRIORITIES,
-  CHANGE_ISSUE_TITLE_MUTATION
+  CHANGE_ISSUE_TITLE_MUTATION,
+  GET_ASSIGNMENT_TYPES_FOR_TEMPLATE
 } from "./queries";
 import path from "path";
 
@@ -1246,6 +1247,31 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
         if (this.lastIssueId) {
           this.updateIssueDetails(this.lastIssueId);
         }
+      } else if (message.command === 'getAssignmentTypes') {
+        // Fetch available assignment types for a template
+        const templateId = message.templateId;
+        console.log(`[IssueDetailsProvider] Received getAssignmentTypes request for template: ${templateId}`);
+        if (templateId) {
+          try {
+            const types = await this.fetchAssignmentTypesForTemplate(templateId);
+            this._view?.webview.postMessage({
+              command: 'assignmentTypesLoaded',
+              types
+            });
+          } catch (error) {
+            console.error('[IssueDetailsProvider] Error getting assignment types:', error);
+            this._view?.webview.postMessage({
+              command: 'assignmentTypesError',
+              error: error instanceof Error ? error.message : String(error)
+            });
+          }
+        } else {
+          console.error('[IssueDetailsProvider] Missing templateId in getAssignmentTypes request');
+          this._view?.webview.postMessage({
+            command: 'assignmentTypesError',
+            error: 'Missing template ID'
+          });
+        }
       }
     });
   }
@@ -1480,6 +1506,33 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
           error: `Error fetching issue: ${errorMessage}`
         });
       });
+  }
+
+  // Add this function to IssueDetailsProvider class
+  private async fetchAssignmentTypesForTemplate(templateId: string): Promise<any[]> {
+    try {
+      await globalApiClient.authenticate();
+      console.log(`[IssueDetailsProvider] Fetching assignment types for template: ${templateId}`);
+
+      const result = await globalApiClient.executeQuery(
+        GET_ASSIGNMENT_TYPES_FOR_TEMPLATE,
+        { templateId }
+      );
+
+      console.log('[IssueDetailsProvider] Assignment types query result:', result);
+
+      if (result.data?.node?.assignmentTypes?.nodes) {
+        const types = result.data.node.assignmentTypes.nodes;
+        console.log(`[IssueDetailsProvider] Found ${types.length} assignment types for template`);
+        return types;
+      }
+
+      console.warn('[IssueDetailsProvider] No assignment types found for template');
+      return [];
+    } catch (error) {
+      console.error('[IssueDetailsProvider] Error fetching assignment types:', error);
+      return [];
+    }
   }
   /**
  * Fetches available issue priorities (independent of template)

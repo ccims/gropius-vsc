@@ -697,7 +697,7 @@ query GetAllUsers {
 `;
 
 export const GET_ASSIGNMENT_TYPES_FOR_TEMPLATE = `
-query GetAssignmentTypesForAnIssueTemplate($templateId: ID!) {
+query GetAssignmentTypesForTemplate($templateId: ID!) {
   node(id: $templateId) {
     ... on IssueTemplate {
       id
