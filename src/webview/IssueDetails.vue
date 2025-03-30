@@ -455,6 +455,7 @@ export default {
       currentAssignment: null,
       activeTypeDropdown: null,
       assignmentTypes: [],
+      assignmentTypesMap: {},
     };
   },
   computed: {
@@ -777,6 +778,30 @@ export default {
       return "No type";
     },
 
+    positionTypeDropdown() {
+      this.$nextTick(() => {
+        const dropdown = this.$el.querySelector('.type-dropdown');
+        if (!dropdown) return;
+
+        // Get the viewport height
+        const viewportHeight = window.innerHeight;
+
+        // Get the dropdown's position and dimensions
+        const rect = dropdown.getBoundingClientRect();
+
+        // Check if dropdown extends below viewport
+        if (rect.bottom > viewportHeight) {
+          // Position above instead of below
+          dropdown.style.bottom = '100%';
+          dropdown.style.top = 'auto';
+        } else {
+          // Default positioning (below)
+          dropdown.style.top = '100%';
+          dropdown.style.bottom = 'auto';
+        }
+      });
+    },
+
     // Helper for displaying user initials in the avatar
     getUserInitials(user) {
       if (!user) return '';
@@ -836,66 +861,46 @@ export default {
         return;
       }
 
-      console.log(`[IssueDetails.vue] Requesting assignment types for template: ${this.issue.template.id}`);
+      const templateId = this.issue.template.id;
 
-      // Clear any existing assignment types
+      // Check if we already have types for this template
+      if (this.assignmentTypesMap[templateId] && this.assignmentTypesMap[templateId].length > 0) {
+        console.log(`[IssueDetails.vue] Using cached assignment types for template ${templateId}`);
+        this.assignmentTypes = this.assignmentTypesMap[templateId];
+        return;
+      }
+
+      console.log(`[IssueDetails.vue] Requesting assignment types for template: ${templateId}`);
+
+      // Clear current assignment types while loading
       this.assignmentTypes = [];
 
       if (vscode) {
         vscode.postMessage({
           command: 'getAssignmentTypes',
-          templateId: this.issue.template.id
+          templateId: templateId
         });
       }
     },
     // Update an assignment's type
     async updateAssignmentType(assignmentId, typeId) {
       if (!assignmentId) {
-        console.error('[IssueDetails] Cannot update assignment type: Missing assignment ID');
+        console.error('[IssueDetails.vue] Cannot update assignment type: Missing assignment ID');
         return;
       }
 
-      console.log(`[IssueDetails] Updating assignment ${assignmentId} to type ${typeId || 'null'}`);
+      console.log(`[IssueDetails.vue] Updating assignment ${assignmentId} to type ${typeId || 'null'}`);
 
-      try {
-        await globalApiClient.authenticate();
-
-        const input = {
-          assignment: assignmentId
-        };
-
-        // Add type if selected (can be null for "No type")
-        if (typeId) {
-          input.type = typeId;
-        }
-
-        console.log('[IssueDetails] Sending mutation input:', input);
-
-        const result = await globalApiClient.executeQuery(
-          CHANGE_ASSIGNMENT_TYPE_MUTATION,
-          { input }
-        );
-
-        console.log('[IssueDetails] Mutation result:', result);
-
-        if (result.data?.changeAssignmentType?.assignmentTypeChangedEvent) {
-          vscode.window.showInformationMessage('Assignment type updated.');
-
-          // Refresh issue details to show the updated assignment
-          if (this.issue && this.issue.id) {
-            this.refreshCurrentIssue();
-          }
-        } else {
-          console.error('[IssueDetails] Failed to update assignment type:', result);
-          vscode.window.showErrorMessage('Failed to update assignment type.');
-        }
-      } catch (error) {
-        console.error('[IssueDetails] Error updating assignment type:', error);
-        vscode.window.showErrorMessage(`Error updating assignment type: ${error instanceof Error ? error.message : String(error)}`);
-      } finally {
-        // Close the dropdown
-        this.activeTypeDropdown = null;
+      if (vscode) {
+        vscode.postMessage({
+          command: 'changeAssignmentType',
+          assignmentId: assignmentId,
+          typeId: typeId
+        });
       }
+
+      // Close the dropdown
+      this.activeTypeDropdown = null;
     },
 
     // Add Assignment Dialog
@@ -1399,22 +1404,28 @@ export default {
       }
     },
     toggleTypeDropdown(assignmentId) {
-      console.log(`[IssueDetails] Toggle type dropdown for assignment ${assignmentId}`);
+      console.log(`[IssueDetails.vue] Toggle type dropdown for assignment ${assignmentId}`);
 
       // If this dropdown is already active, close it
       if (this.activeTypeDropdown === assignmentId) {
         this.activeTypeDropdown = null;
       } else {
-        // Otherwise, set this as the active dropdown
         this.activeTypeDropdown = assignmentId;
 
-        // Load assignment types if not already loaded
-        console.log(`[IssueDetails] Assignment types count: ${this.assignmentTypes.length}`);
-        if (this.assignmentTypes.length === 0) {
-          console.log('[IssueDetails] Loading assignment types...');
-          this.loadAssignmentTypes();
-        } else {
-          console.log('[IssueDetails] Using cached assignment types:', this.assignmentTypes);
+        if (this.issue?.template?.id) {
+          const templateId = this.issue.template.id;
+
+          if (this.assignmentTypesMap[templateId]) {
+            this.assignmentTypes = this.assignmentTypesMap[templateId];
+            console.log(`[IssueDetails.vue] Using cached assignment types for template ${templateId}:`, this.assignmentTypes);
+          } else {
+            console.log(`[IssueDetails.vue] Loading assignment types for template ${templateId}`);
+            this.loadAssignmentTypes();
+          }
+        }
+        if (this.activeTypeDropdown) {
+          // Position the dropdown after it's rendered
+          this.positionTypeDropdown();
         }
       }
     }, closeTypeDropdown() {
@@ -1525,12 +1536,18 @@ export default {
           this.issue.title = message.title;
         }
       } else if (message && message.command === 'assignmentTypesLoaded') {
-        console.log('[IssueDetails.vue] Assignment types loaded:', message.types);
-        this.assignmentTypes = message.types || [];
+        const templateId = this.issue?.template?.id;
+        if (templateId) {
+          console.log(`[IssueDetails.vue] Assignment types loaded for template ${templateId}:`, message.types);
 
-        // If a dropdown is open, force a refresh
-        if (this.activeTypeDropdown) {
-          this.$forceUpdate();
+          // Store in the map and update current array
+          this.assignmentTypesMap[templateId] = message.types || [];
+          this.assignmentTypes = message.types || [];
+
+          // If a dropdown is open, force a refresh
+          if (this.activeTypeDropdown) {
+            this.$forceUpdate();
+          }
         }
       }
       else if (message && message.command === 'assignmentTypesError') {
@@ -2718,8 +2735,10 @@ ul {
   border: 1px solid var(--vscode-dropdown-border);
   border-radius: 4px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-  z-index: 100;
   margin-top: 4px;
+  max-height: 150px;
+  overflow-y: auto;
+  z-index: 10;
 }
 
 .type-option {

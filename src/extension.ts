@@ -24,7 +24,8 @@ import {
   GET_ISSUE_TEMPLATE_STATES,
   GET_ISSUE_TEMPLATE_PRIORITIES,
   CHANGE_ISSUE_TITLE_MUTATION,
-  GET_ASSIGNMENT_TYPES_FOR_TEMPLATE
+  GET_ASSIGNMENT_TYPES_FOR_TEMPLATE,
+  CHANGE_ASSIGNMENT_TYPE_MUTATION
 } from "./queries";
 import path from "path";
 
@@ -1272,6 +1273,27 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
             error: 'Missing template ID'
           });
         }
+      } else if (message.command === 'changeAssignmentType') {
+        try {
+          const result = await this.changeAssignmentType({
+            assignmentId: message.assignmentId,
+            typeId: message.typeId
+          });
+
+          this._view?.webview.postMessage({
+            command: 'assignmentTypeUpdated',
+            assignment: result
+          });
+
+          // Refresh issue details to update the UI
+          this.refreshCurrentIssue();
+        } catch (error) {
+          console.error('[IssueDetailsProvider] Error changing assignment type:', error);
+          this._view?.webview.postMessage({
+            command: 'assignmentTypeError',
+            error: error instanceof Error ? error.message : String(error)
+          });
+        }
       }
     });
   }
@@ -1532,6 +1554,40 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
     } catch (error) {
       console.error('[IssueDetailsProvider] Error fetching assignment types:', error);
       return [];
+    }
+  }
+
+  private async changeAssignmentType(data: { assignmentId: string, typeId: string | null }): Promise<any> {
+    try {
+      await globalApiClient.authenticate();
+
+      const input: any = {
+        assignment: data.assignmentId
+      };
+
+      // Add type if provided
+      if (data.typeId) {
+        input.type = data.typeId;
+      }
+
+      console.log('[IssueDetailsProvider] Sending changeAssignmentType mutation:', input);
+
+      const result = await globalApiClient.executeQuery(
+        CHANGE_ASSIGNMENT_TYPE_MUTATION,
+        { input }
+      );
+
+      if (result.errors) {
+        throw new Error(result.errors[0].message);
+      }
+
+      console.log('[IssueDetailsProvider] Assignment type updated:', result);
+
+      // Return the updated assignment
+      return result.data?.changeAssignmentType?.assignmentTypeChangedEvent?.assignment;
+    } catch (error) {
+      console.error('[IssueDetailsProvider] Error changing assignment type:', error);
+      throw error;
     }
   }
   /**
