@@ -316,7 +316,7 @@
                           <span class="dropdown-arrow">▼</span>
                         </span>
                         <div v-if="activeTypeDropdown === assignment.id" class="type-dropdown">
-                          <div v-if="assignmentTypes.length === 0" class="dropdown-loading">Loading...</div>
+                          <div v-if="assignmentTypes.length === 0" class="dropdown-loading">No type</div>
                           <div v-else class="dropdown-options">
                             <div v-for="type in assignmentTypes" :key="type.id" class="type-option"
                               @click.stop="updateAssignmentType(assignment.id, type.id)">
@@ -1428,9 +1428,16 @@ export default {
           this.positionTypeDropdown();
         }
       }
-    }, closeTypeDropdown() {
-      this.activeTypeDropdown = null;
-      document.removeEventListener('click', this.closeTypeDropdown);
+      this.$nextTick(() => {
+        document.addEventListener('click', this.closeTypeDropdown);
+      });
+    }, closeTypeDropdown(event) {
+      // Only close if clicking outside the dropdown
+      const dropdown = this.$el.querySelector('.type-dropdown');
+      if (dropdown && !dropdown.contains(event.target)) {
+        this.activeTypeDropdown = null;
+        document.removeEventListener('click', this.closeTypeDropdown);
+      }
     }
   },
   mounted() {
