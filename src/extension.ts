@@ -26,7 +26,8 @@ import {
   CHANGE_ISSUE_TITLE_MUTATION,
   GET_ASSIGNMENT_TYPES_FOR_TEMPLATE,
   CHANGE_ASSIGNMENT_TYPE_MUTATION,
-  REMOVE_ASSIGNMENT_MUTATION
+  REMOVE_ASSIGNMENT_MUTATION,
+  GET_TEMPLATE_OPTIONS
 } from "./queries";
 import path from "path";
 
@@ -1696,14 +1697,26 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
     try {
       console.log(`[IssueDetailsProvider] Fetching options for template ${templateId}`);
 
-      const [states, types, priorities] = await Promise.all([
-        this.fetchIssueStates(templateId),
-        this.fetchIssueTypes(templateId),
-        this.fetchIssuePriorities(templateId)
-      ]);
+      const result = await globalApiClient.executeQuery(
+        GET_TEMPLATE_OPTIONS,
+        { templateId }
+      );
 
-      // Log the options to help with debugging
-      console.log(`[IssueDetailsProvider] Fetched options:`, {
+      if (result.errors) {
+        throw new Error(result.errors[0].message);
+      }
+
+      const template = result.data?.node;
+
+      if (!template) {
+        throw new Error(`Template with ID ${templateId} not found`);
+      }
+
+      const states = template.issueStates?.nodes || [];
+      const types = template.issueTypes?.nodes || [];
+      const priorities = template.issuePriorities?.nodes || [];
+
+      console.log(`[IssueDetailsProvider] Fetched template-specific options:`, {
         states: states.length,
         types: types.length,
         priorities: priorities.length
@@ -1712,7 +1725,7 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
       return { states, types, priorities };
     } catch (error) {
       console.error('[IssueDetailsProvider] Error fetching issue options:', error);
-      throw error;
+      return { states: [], types: [], priorities: [] };
     }
   }
 

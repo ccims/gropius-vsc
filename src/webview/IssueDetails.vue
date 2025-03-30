@@ -441,6 +441,7 @@ export default {
       showStateDropdown: false,
       showPriorityDropdown: false,
       assignments: false,
+      issueOptionsMap: {},
       issueOptions: {
         types: [],
         states: [],
@@ -1273,12 +1274,20 @@ export default {
         return;
       }
 
-      console.log("[IssueDetails.vue] Loading options for template:", this.issue.template.id);
+      const templateId = this.issue.template.id;
+      console.log(`[IssueDetails.vue] Loading options for template: ${templateId}`);
+
+      // Check if we already have cached options for this template
+      if (this.issueOptionsMap[templateId]) {
+        console.log(`[IssueDetails.vue] Using cached options for template ${templateId}`);
+        this.issueOptions = this.issueOptionsMap[templateId];
+        return;
+      }
 
       if (vscode) {
         vscode.postMessage({
           command: 'getIssueOptions',
-          templateId: this.issue.template.id
+          templateId: templateId
         });
       }
     },
@@ -1544,8 +1553,17 @@ export default {
           });
         }
       } else if (message && message.command === 'issueOptionsLoaded') {
-        console.log("[IssueDetails.vue] Options loaded:", message.options);
-        this.issueOptions = message.options;
+        const templateId = this.issue?.template?.id;
+        if (templateId) {
+          console.log(`[IssueDetails.vue] Options loaded for template ${templateId}:`, message.options);
+
+          // Cache the options for this template
+          this.issueOptionsMap[templateId] = message.options;
+          // Update current options
+          this.issueOptions = message.options;
+        } else {
+          console.warn("[IssueDetails.vue] Received options but no template ID available");
+        }
       } else if (message && message.command === 'issueOptionsError') {
         console.error("[IssueDetails.vue] Error loading options:", message.error);
       } else if (message && message.command === 'issueStateUpdated') {

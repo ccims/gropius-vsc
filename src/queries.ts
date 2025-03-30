@@ -758,3 +758,33 @@ mutation ChangeAssignmentType($input: ChangeAssignmentTypeInput!) {
   }
 }
 `;
+
+export const GET_TEMPLATE_OPTIONS = `
+query GetTemplateOptions($templateId: ID!) {
+  node(id: $templateId) {
+    ... on IssueTemplate {
+      id
+      name
+      issueTypes {
+        nodes {
+          id
+          name
+        }
+      }
+      issueStates {
+        nodes {
+          isOpen
+          id
+          name
+        }
+      }
+      issuePriorities {
+        nodes {
+          id
+          name
+        }
+      }
+    }
+  }
+}
+`;
