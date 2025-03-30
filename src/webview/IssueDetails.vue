@@ -329,8 +329,11 @@
                           </div>
                         </div>
                       </div>
-                      <button class="remove-button" @click.stop="confirmRemoveAssignment(assignment)"
-                        title="Remove assignment">
+                      <button class="remove-button" @click="(event) => {
+                        event.stopPropagation();
+                        console.log('Remove button clicked for assignment:', assignment.id);
+                        confirmRemoveAssignment(assignment);
+                      }" title="Remove assignment">
                         ✕
                       </button>
                     </div>
@@ -882,6 +885,26 @@ export default {
         });
       }
     },
+    async confirmRemoveAssignment(assignment) {
+      console.log(`[IssueDetails] Attempting to remove assignment:`, assignment);
+      alert(`Removing assignment: ${assignment.id}`); // Add this line
+
+      if (!assignment || !assignment.id) {
+        console.error('[IssueDetails] Cannot remove assignment: Missing assignment ID');
+        return;
+      }
+
+      console.log(`[IssueDetails] Removing assignment with ID: ${assignment.id}`);
+
+      if (vscode) {
+        vscode.postMessage({
+          command: 'removeAssignment',
+          assignmentId: assignment.id
+        });
+      } else {
+        console.error('[IssueDetails] vscode API not available');
+      }
+    },
     // Update an assignment's type
     async updateAssignmentType(assignmentId, typeId) {
       if (!assignmentId) {
@@ -1002,18 +1025,21 @@ export default {
 
     // Remove Assignment
     async confirmRemoveAssignment(assignment) {
+      console.log('[IssueDetails.vue] Confirming removal of assignment:', assignment.id);
+
       if (!assignment || !assignment.id) {
-        console.error('[IssueDetails] Cannot remove assignment: Missing assignment ID');
+        console.error('[IssueDetails.vue] Cannot remove assignment: Missing assignment ID');
         return;
       }
 
-      const confirmed = await vscode.window.showQuickPick(
-        ['Yes, remove assignment', 'Cancel'],
-        { placeHolder: 'Are you sure you want to remove this assignment?' }
-      );
-
-      if (confirmed === 'Yes, remove assignment') {
-        this.removeAssignment(assignment.id);
+      // Send the removal request directly to the extension host
+      if (vscode) {
+        vscode.postMessage({
+          command: 'removeAssignment',
+          assignmentId: assignment.id
+        });
+      } else {
+        console.error('[IssueDetails.vue] vscode API not available');
       }
     },
 
@@ -1471,7 +1497,7 @@ export default {
 
     document.addEventListener('click', this.handleClickOutside);
 
-    window.addEventListener("message", (event) => {
+    window.addEventListener("message", async (event) => {
       console.log("[IssueDetails.vue] Received message event:", event);
       const message = event.data;
       console.log("[IssueDetails.vue] Message data:", message);
@@ -1560,6 +1586,34 @@ export default {
       else if (message && message.command === 'assignmentTypesError') {
         console.error('[IssueDetails.vue] Error loading assignment types:', message.error);
         this.assignmentTypes = [];
+      } else if (message && message.command === 'assignmentRemoved') {
+        console.log('[IssueDetails.vue] Assignment removed:', message.assignmentId);
+
+        // The issue will be refreshed, so no need to update local state
+        vscode.window.showInformationMessage('Assignment removed successfully.');
+      }
+      else if (message && message.command === 'assignmentError') {
+        console.error('[IssueDetails.vue] Error with assignment:', message.error);
+        vscode.window.showErrorMessage(`Error: ${message.error}`);
+      } else if (message.command === 'removeAssignment') {
+        console.log(`[IssueDetailsProvider] Received removeAssignment request for ID: ${message.assignmentId}`);
+        try {
+          await this.removeAssignment(message.assignmentId);
+          console.log(`[IssueDetailsProvider] Successfully removed assignment ID: ${message.assignmentId}`);
+          this._view?.webview.postMessage({
+            command: 'assignmentRemoved',
+            assignmentId: message.assignmentId
+          });
+
+          // Refresh issue details to update the UI
+          this.refreshCurrentIssue();
+        } catch (error) {
+          console.error('[IssueDetailsProvider] Error removing assignment:', error);
+          this._view?.webview.postMessage({
+            command: 'assignmentError',
+            error: error instanceof Error ? error.message : String(error)
+          });
+        }
       }
 
       if (typeof acquireVsCodeApi !== "undefined") {
@@ -2612,18 +2666,19 @@ ul {
 .remove-button {
   background: none;
   border: none;
-  color: var(--vscode-descriptionForeground);
   cursor: pointer;
-  opacity: 0.7;
-  font-size: 12px;
-  padding: 2px 4px;
+  margin-right: 0px;
+  padding: 2px 5px;
   border-radius: 3px;
+  opacity: 0.7;
+  transition: opacity 0.2s, background-color 0.2s;
+  color: aliceblue;
+  font-size: 12px;
 }
 
 .remove-button:hover {
   opacity: 1;
-  background-color: rgba(255, 0, 0, 0.1);
-  color: #ff5555;
+  background-color: rgba(0, 0, 0, 0.1);
 }
 
 .assignment-dialog {

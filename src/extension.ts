@@ -25,7 +25,8 @@ import {
   GET_ISSUE_TEMPLATE_PRIORITIES,
   CHANGE_ISSUE_TITLE_MUTATION,
   GET_ASSIGNMENT_TYPES_FOR_TEMPLATE,
-  CHANGE_ASSIGNMENT_TYPE_MUTATION
+  CHANGE_ASSIGNMENT_TYPE_MUTATION,
+  REMOVE_ASSIGNMENT_MUTATION
 } from "./queries";
 import path from "path";
 
@@ -1294,6 +1295,23 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
             error: error instanceof Error ? error.message : String(error)
           });
         }
+      } if (message.command === 'removeAssignment') {
+        try {
+          await this.removeAssignment(message.assignmentId);
+          this._view?.webview.postMessage({
+            command: 'assignmentRemoved',
+            assignmentId: message.assignmentId
+          });
+
+          // Refresh issue details to update the UI
+          this.refreshCurrentIssue();
+        } catch (error) {
+          console.error('[IssueDetailsProvider] Error removing assignment:', error);
+          this._view?.webview.postMessage({
+            command: 'assignmentError',
+            error: error instanceof Error ? error.message : String(error)
+          });
+        }
       }
     });
   }
@@ -1590,6 +1608,27 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
       throw error;
     }
   }
+
+  private async removeAssignment(assignmentId: string): Promise<any> {
+    try {
+      await globalApiClient.authenticate();
+
+      const result = await globalApiClient.executeQuery(
+        REMOVE_ASSIGNMENT_MUTATION,
+        { input: { assignment: assignmentId } }
+      );
+
+      if (result.errors) {
+        throw new Error(result.errors[0].message);
+      }
+
+      return result.data?.removeAssignment?.removedAssignmentEvent;
+    } catch (error) {
+      console.error('[IssueDetailsProvider] Error removing assignment:', error);
+      throw error;
+    }
+  }
+
   /**
  * Fetches available issue priorities (independent of template)
  */
