@@ -570,7 +570,7 @@ export const FETCH_ALL_WORKSPACE_COMPONENTS_AND_ISSUES = `query MyQuery($in: [ID
               outgoingRelations {
                 nodes {
                   end {
-                  id
+                    id
                     relationPartner {
                       id
                     }
@@ -588,6 +588,60 @@ export const FETCH_ALL_WORKSPACE_COMPONENTS_AND_ISSUES = `query MyQuery($in: [ID
               }
             }
           }
+          incomingRelations {
+            nodes {
+              start {
+                id
+              }
+              end {
+                id
+              }
+              template {
+                stroke {
+                  color
+                  dash
+                }
+                markerType
+              }
+              id
+            }
+          }
+          interfaceDefinitions {
+            nodes {
+              visibleInterface {
+                id
+                aggregatedIssues {
+                  nodes {
+                    id
+                    isOpen
+                    count
+                    type {
+                      iconPath
+                      name
+                    }
+                  }
+                }
+              }
+              interfaceSpecificationVersion {
+                interfaceSpecification {
+                  name
+                  template {
+                    fill {
+                      color
+                    }
+                    stroke {
+                      color
+                      dash
+                    }
+                  }
+                  id
+                }
+                version
+                id
+              }
+              id
+            }
+          }
         }
       }
       template {
@@ -603,3 +657,119 @@ export const FETCH_ALL_WORKSPACE_COMPONENTS_AND_ISSUES = `query MyQuery($in: [ID
   }
 }
 `;
+
+/**
+ * Fetch all information of the selected issue
+ * All related issues
+ * All componentversions of those issues
+ */
+export const FETCH_FOR_ISSUE_GRAPH = `query MyQuery($id: ID!) {
+  node(id: $id) {
+    ... on Issue {
+      id
+      affects {
+        nodes {
+          ... on ComponentVersion {
+            id
+            version
+            template {
+              id
+              name
+            }
+            component {
+              name
+            }
+            aggregatedIssues {
+              nodes {
+                count
+                isOpen
+                id
+                type {
+                  id
+                  name
+                  iconPath
+                }
+                outgoingRelations {
+                  nodes {
+                    end {
+                      id
+                      relationPartner {
+                        id
+                      }
+                      type {
+                        id
+                      }
+                    }
+                    start {
+                      id
+                      type {
+                        id
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            incomingRelations {
+              nodes {
+                start {
+                  id
+                }
+                end {
+                  id
+                }
+                template {
+                  stroke {
+                    color
+                    dash
+                  }
+                  markerType
+                }
+                id
+              }
+            }
+            interfaceDefinitions {
+              nodes {
+                visibleInterface {
+                  id
+                  aggregatedIssues {
+                    nodes {
+                      id
+                      isOpen
+                      count
+                      type {
+                        iconPath
+                        name
+                      }
+                    }
+                  }
+                }
+                interfaceSpecificationVersion {
+                  interfaceSpecification {
+                    name
+                    template {
+                      fill {
+                        color
+                      }
+                      stroke {
+                        color
+                        dash
+                      }
+                    }
+                    id
+                  }
+                  version
+                  id
+                }
+                id
+              }
+            }
+          }
+          ... on Interface {
+            id
+          }
+        }
+      }
+    }
+  }
+}`;

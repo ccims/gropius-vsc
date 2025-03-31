@@ -5,6 +5,12 @@
           Graph
         </button>
        </div>
+      <!-- Show issue graph -->
+      <div class="showGraph">
+        <button class="graph-button" @click="openIssueGraph">
+          IssueGraph
+        </button>
+       </div>
     <div class="gropius-component-versions">
         <div v-if="loading" class="loading">
             <p>Loading component versions...</p>
@@ -168,6 +174,11 @@ export default defineComponent({
                 vscode.postMessage({ command: "showWorkspaceGraph" });
             }
         };
+        const openIssueGraph = () => {
+            if(vscode) {
+                vscode.postMessage({ command: "showIssueGraph"});
+            }
+        };
 
         onMounted(() => {
             // Request component version data from the extension
@@ -198,7 +209,8 @@ export default defineComponent({
             clickedVersion,
             handleVersionClick,
             activeVersion,
-            openWorkspaceGraph
+            openWorkspaceGraph,
+            openIssueGraph
         };
     }
 });
@@ -339,5 +351,27 @@ export default defineComponent({
         opacity: 1;
         transform: translateY(0);
     }
+}
+
+/* Workspace graph */
+
+.showGraph {
+  position:relative;
+}
+.graph-button {
+  background-color: var(--vscode-button-secondaryBackground, #2d2d2d);
+  color: var(--vscode-button-secondaryForeground, #cccccc);
+  border: none;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+}
+.graph-button:hover{
+  background-color: var(--vscode-button-secondaryHoverBackground, #3d3d3d);
 }
 </style>

@@ -1,5 +1,12 @@
 <template>
   <div id="app" class="issue-details">
+
+    <!-- Show workspace graph -->
+    <div class="showGraph">
+      <button class="graph-button" @click="openIssueGraph">
+        Graph
+      </button>
+    </div>
     <div v-if="issue" class="issue-container">
       <!-- Title Section -->
       <div class="issue-header">
@@ -370,7 +377,7 @@ export default {
           command: 'createArtifact',
           issueId: this.issue.id
         });
-      } 
+      }
     },
 
     getFileName(filePath) {
@@ -397,6 +404,13 @@ export default {
       }
 
       return `Artifact ${artifact.id.substring(0, 8)}`;
+    },
+    // Graph  
+    openIssueGraph() {
+      console.log("Start issue graph");
+      if (vscode) {
+        vscode.postMessage({ command: "showIssueGraph" });
+      }
     }
   },
   mounted() {
@@ -453,3 +467,29 @@ export default {
 };
 
 </script>
+
+<style>
+  
+
+/* Issue graph */
+
+.showGraph {
+  position:relative;
+}
+.graph-button {
+  background-color: var(--vscode-button-secondaryBackground, #2d2d2d);
+  color: var(--vscode-button-secondaryForeground, #cccccc);
+  border: none;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+}
+.graph-button:hover{
+  background-color: var(--vscode-button-secondaryHoverBackground, #3d3d3d);
+}
+</style>

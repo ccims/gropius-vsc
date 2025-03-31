@@ -13,7 +13,8 @@ import {
   SelectedElement,
   createContainer,
   CreateRelationContext,
-  LayoutEngine
+  LayoutEngine,
+  StrokeStyle
 } from "@gropius/graph-editor";
 import { TYPES } from "sprotty";
 import { onMounted, shallowRef, ref } from 'vue';
@@ -92,32 +93,27 @@ async function autolayout(graph: Graph): Promise<GraphLayout> {
   });
 }
 
+/**
+ * Extract the IssueRelations
+ * start: issueID
+ * end: issueID
+ * count: count
+ * @param componentVersion 
+ */
 
 function extractIssueRelations(componentVersion: any): any[] {
   console.log("START extractIssueRelations");
-  
   if (!componentVersion?.aggregatedIssues?.nodes) {
     console.log('Skipping issue relations for', componentVersion?.id);
-    console.log("END extractIssueRelations 1");
     return [];
-  }
-  
-  console.log('Processing issue relations for:', componentVersion.id);
-  console.log('Aggregated issues:', componentVersion.aggregatedIssues.nodes);
-  
+  }  
   const aggregatedRelations = new Map<string, { start: string; end: string; count: number }>();
-  
   componentVersion.aggregatedIssues.nodes.forEach((aggregatedIssue: any) => {
-    console.log('Processing aggregated issue:', aggregatedIssue.id);
     const outgoingRelations = aggregatedIssue.outgoingRelations?.nodes || [];
-    
     outgoingRelations.forEach((relation: any) => {
       if (!relation.end?.relationPartner?.id) {
-        console.log('Skipping relation - missing end partner ID');
-        console.log("END extractIssueRelations 2");
         return;
       }
-      
       const startId = relation.start.id;
       const endId = relation.end.id;
       const key = `${startId}-${endId}`;
@@ -134,26 +130,85 @@ function extractIssueRelations(componentVersion: any): any[] {
       }
     });
   });
-
-  //console.log("map values: " + aggregatedRelations.values());
-
-  aggregatedRelations.forEach((value, key) => {
-    console.log(`Key: ${key}, Value:`, value);
-  });
-
-
   const result = Array.from(aggregatedRelations.values());
-  for (const item of result) {
-   console.log("_____________________________________");
-   console.log("Start: " + item.start);
-   console.log("END: " + item.end);
-   console.log("count: " + item.count);
-   console.log("_____________________________________");
-  }
-
-  console.log('Extracted issue relations:', JSON.stringify(result, null, 2));
-  console.log("END extractIssueRelations 3");
   return result;
+}
+
+/**
+ * Extracts the relations between components
+ * @param componentVersion 
+ */
+function extractRelations(componentVersion: any): any[] {
+  console.log("START extractRelations!");
+  if (!componentVersion?.incomingRelations?.nodes) {
+    console.log('No relation on componentversion: ' + componentVersion?.id);
+    return [];
+  }
+  const relations = new Map<string, { id: string; name: string; start: string; end: string; style: {}; contextMenu: {} }>();
+  componentVersion.incomingRelations.nodes.forEach((relation: any) => {
+      if (!relation.end?.id) {
+        return;
+      }
+    let stroke: StrokeStyle["stroke"] = undefined;
+    if (relation.template.stroke != undefined) {
+        stroke = {
+            color: relation.template.stroke.color ?? undefined,
+            dash: relation.template.stroke.dash ?? undefined
+        };
+    }
+    const id = relation.id;
+    const name = relation.name;
+    const startId = relation.start.id;
+    const endId = relation.end.id;
+    const style = {stroke: stroke, marker: relation.template.markerType};
+    const key = `${startId}-${endId}`;
+    relations.set(key, {
+      id: id,
+      name: name,
+      start: startId,
+      end: endId,
+      style: style,
+      contextMenu: {}
+        });
+  });
+  const result = Array.from(relations.values());
+  return result;
+}
+
+function extractInterfaces(componentVersion: any): any []{
+  console.log("Start extractInterfaces");
+  if(!componentVersion?.interfaceDefinitions?.nodes){
+    console.log("No Interfaces for componentversion: " + componentVersion.id);
+    console.log("BREAK 1");
+    return [];
+  }
+  const interfaceResult = new Map<string, { id: string; name: string; version: string; style: {}; issueTypes: any []; contextMenu: {} }>();
+  componentVersion.interfaceDefinitions?.nodes.forEach((interfaceInstance: any) => {
+    if(!interfaceInstance.visibleInterface.id) {
+      console.log("BREAK 4");
+      return [];
+    }
+    console.log("BREAK 2");
+    const id = interfaceInstance.visibleInterface.id;
+    const name = interfaceInstance.interfaceSpecificationVersion.interfaceSpecification.name;
+    const version = interfaceInstance.interfaceSpecificationVersion.version;
+    const style = {fill: {color: interfaceInstance.interfaceSpecificationVersion.interfaceSpecification.template.fill?.color || 'transparent'}, stroke: {color: interfaceInstance.interfaceSpecificationVersion.interfaceSpecification.template.stroke.color || 'rgb(209, 213, 219)', dash: interfaceInstance.interfaceSpecificationVersion.interfaceSpecification.template.stroke.dash ?? undefined}};
+    const issueTypes = extractIssueTypes(interfaceInstance.visibleInterface);
+    const contextMenu = {
+      type: "interface"
+    };
+    interfaceResult.set(id, {
+      id: id,
+      name: name,
+      version: version,
+      style: style,
+      issueTypes: issueTypes,
+      contextMenu: contextMenu,
+    });
+  });
+  console.log("BREAK 3");
+  const result = Array.from(interfaceResult.values())
+  return result ?? [];
 }
 
 /**
@@ -179,6 +234,9 @@ function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout 
     if (component.versions?.nodes?.length > 1) {
       component.versions?.nodes.forEach((version: any) => {
         graph.issueRelations.push(...extractIssueRelations(version));
+        graph.relations.push(...extractRelations(version));
+        const compInterfaces = extractInterfaces(version);
+        console.log("Interface: " + JSON.stringify(compInterfaces));
         graph.components.push({
           id: version.id,
           name: component.name,
@@ -188,7 +246,7 @@ function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout 
             fill: { color: component?.template?.fill?.color || 'transparent' },
             stroke: { color: component?.template?.stroke?.color || 'rgb(209, 213, 219)' }
           },
-          interfaces: [],
+          interfaces: [], //compInterfaces,
           issueTypes: extractIssueTypes(version) || [],
           contextMenu: {}
         });
@@ -196,6 +254,9 @@ function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout 
     } else {
       component.versions?.nodes.forEach((version: any) => {
         graph.issueRelations.push(...extractIssueRelations(version));
+        graph.relations.push(...extractRelations(version));
+        const compInterfaces = extractInterfaces(version);
+        console.log("Interface: " + JSON.stringify(compInterfaces[0]));
         graph.components.push({
           id: version.id,
           name: component.name,
@@ -205,7 +266,7 @@ function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout 
             fill: { color: component?.template?.fill?.color || 'transparent' },
             stroke: { color: component?.template?.stroke?.color || 'rgb(209, 213, 219)' }
           },
-          interfaces: [],
+          interfaces: [], //compInterfaces,
           issueTypes: extractIssueTypes(version) || [],
           contextMenu: {}
         });
@@ -266,10 +327,6 @@ function handleMessage(event: MessageEvent) {
   if (message.type === "workspaceData") {
     workspaceData.value = message.data;
     updateGraph(message.data);
-    //TODO: update graph with workspace data
-  } else if (message.type === "issueData") {
-    issueData.value = message.data;
-    // TODO: update graph with issue data
   }
 }
 

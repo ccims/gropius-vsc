@@ -68,6 +68,10 @@
       {
         "command": "extension.showWorkspaceGraph",
         "title": "Show Workspace Graph"
+      },
+      {
+        "command": "extension.showIssueGraph",
+        "title": "Show Issue Graph"
       }
     ]
   },
