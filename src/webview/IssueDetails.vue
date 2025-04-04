@@ -2613,30 +2613,6 @@ ul {
   background-color: rgba(0, 0, 0, 0.1);
 }
 
-.assignment-dialog {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background-color: var(--vscode-editor-background);
-  border: 1px solid var(--vscode-panel-border);
-  border-radius: 4px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  width: 300px;
-  z-index: 1000;
-}
-
-.dialog-title {
-  padding: 10px;
-  font-weight: bold;
-  border-bottom: 1px solid var(--vscode-panel-border);
-}
-
-.dialog-content {
-  padding: 15px;
-}
-
-
 .search-container {
   position: relative;
   margin-bottom: 10px;
@@ -2671,53 +2647,6 @@ ul {
 
 .search-result-item:hover {
   background-color: var(--vscode-list-hoverBackground);
-}
-
-.selected-user {
-  margin-bottom: 15px;
-  padding: 8px;
-  background-color: rgba(0, 0, 0, 0.1);
-  border-radius: 3px;
-}
-
-.type-selection {
-  margin-bottom: 10px;
-}
-
-.type-select {
-  width: 100%;
-  padding: 6px 8px;
-  border: 1px solid var(--vscode-dropdown-border);
-  background-color: var(--vscode-dropdown-background);
-  color: var(--vscode-dropdown-foreground);
-  border-radius: 3px;
-  margin-top: 5px;
-}
-
-.dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.cancel-button,
-.create-button {
-  padding: 6px 12px;
-  border-radius: 3px;
-  border: none;
-  cursor: pointer;
-  background-color: var(--vscode-button-background);
-  color: var(--vscode-button-foreground);
-}
-
-.create-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.cancel-button {
-  background-color: var(--vscode-button-secondaryBackground);
-  color: var(--vscode-button-secondaryForeground);
 }
 
 .type-dropdown {
@@ -2756,64 +2685,6 @@ ul {
   justify-content: flex-end;
   margin-bottom: 10px;
   position: relative;
-}
-
-.add-assignment-button {
-  background-color: var(--vscode-button-background);
-  color: var(--vscode-button-foreground);
-  border: none;
-  border-radius: 4px;
-  padding: 4px 8px;
-  font-size: 0.9em;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.add-assignment-dropdown {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  width: 250px;
-  background-color: var(--vscode-editor-background);
-  border: 1px solid var(--vscode-panel-border);
-  border-radius: 4px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  z-index: 1000;
-  margin-top: 4px;
-  padding: 10px;
-}
-
-.dropdown-title {
-  font-weight: bold;
-  margin-bottom: 10px;
-  border-bottom: 1px solid var(--vscode-panel-border);
-  padding-bottom: 5px;
-}
-
-.add-button {
-  background: none;
-  border: none;
-  color: var(--vscode-button-foreground);
-  cursor: pointer;
-  font-size: 14px;
-  padding: 2px 4px;
-  border-radius: 3px;
-  opacity: 0.8;
-}
-
-.add-button:hover {
-  opacity: 1;
-  background-color: var(--vscode-button-background);
-}
-
-.add-assignment-form {
-  margin-bottom: 10px;
-  padding: 8px;
-  background-color: var(--vscode-editor-background);
-  border: 1px solid var(--vscode-panel-border);
-  border-radius: 4px;
 }
 
 .search-container {
