@@ -27,7 +27,9 @@ import {
   GET_ASSIGNMENT_TYPES_FOR_TEMPLATE,
   CHANGE_ASSIGNMENT_TYPE_MUTATION,
   REMOVE_ASSIGNMENT_MUTATION,
-  GET_TEMPLATE_OPTIONS
+  GET_TEMPLATE_OPTIONS,
+  GET_ALL_USERS,
+  CREATE_ASSIGNMENT_MUTATION
 } from "./queries";
 import path from "path";
 
@@ -1132,6 +1134,34 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
         vscode.commands.executeCommand('extension.openArtifactFile', message.artifactData);
       } else if (message.command === 'openInExternalBrowser' && message.url) {
         vscode.env.openExternal(vscode.Uri.parse(message.url));
+      } else if (message.command === 'searchUsers') {
+        try {
+          const users = await this.searchUsers(message.query);
+          this._view?.webview.postMessage({
+            command: 'userSearchResults',
+            users
+          });
+        } catch (error) {
+          console.error('[IssueDetailsProvider] Error searching users:', error);
+        }
+      }
+      else if (message.command === 'createAssignment') {
+        try {
+          const assignment = await this.createAssignment(message.issueId, message.userId);
+          this._view?.webview.postMessage({
+            command: 'assignmentCreated',
+            assignment
+          });
+
+          // Refresh issue details to show the new assignment
+          this.refreshCurrentIssue();
+        } catch (error) {
+          console.error('[IssueDetailsProvider] Error creating assignment:', error);
+          this._view?.webview.postMessage({
+            command: 'assignmentError',
+            error: error instanceof Error ? error.message : String(error)
+          });
+        }
       } else if (message.command === 'editDescription') {
         // New handler for edit description command
         this.openDescriptionEditor(message.data);
@@ -1422,6 +1452,53 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
       return result.data?.changeIssueTitle?.titleChangedEvent?.newTitle;
     } catch (error) {
       console.error('[IssueDetailsProvider] Error changing issue title:', error);
+      throw error;
+    }
+  }
+
+  private async searchUsers(query: string): Promise<any[]> {
+    try {
+      await globalApiClient.authenticate();
+
+      const result = await globalApiClient.executeQuery(
+        GET_ALL_USERS,
+        { query: query }
+      );
+
+      if (result.errors) {
+        throw new Error(result.errors[0].message);
+      }
+
+      return result.data?.searchUsers || [];
+    } catch (error) {
+      console.error('[IssueDetailsProvider] Error searching users:', error);
+      return [];
+    }
+  }
+
+  // Add this method to IssueDetailsProvider class
+  private async createAssignment(issueId: string, userId: string): Promise<any> {
+    try {
+      await globalApiClient.authenticate();
+
+      const result = await globalApiClient.executeQuery(
+        CREATE_ASSIGNMENT_MUTATION,
+        {
+          input: {
+            issue: issueId,
+            user: userId
+            // No type - will default to null
+          }
+        }
+      );
+
+      if (result.errors) {
+        throw new Error(result.errors[0].message);
+      }
+
+      return result.data?.createAssignment?.assignment;
+    } catch (error) {
+      console.error('[IssueDetailsProvider] Error creating assignment:', error);
       throw error;
     }
   }

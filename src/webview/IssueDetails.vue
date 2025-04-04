@@ -255,52 +255,28 @@
           <div class="section-header" @click="toggleSection('assignments')"
             style="cursor: pointer; display: flex; justify-content: space-between;">
             <span>Assignments</span>
-            <span class="toggle-icon">{{ expandedSections.assignments ? '▼' : '▶' }}</span>
+            <div>
+              <button v-if="expandedSections.assignments" class="remove-button" @click.stop="showAddAssignment"
+                title="Add assignment">
+                <span>+</span>
+              </button>
+              <span class="toggle-icon">{{ expandedSections.assignments ? '▼' : '▶' }}</span>
+            </div>
           </div>
           <div class="section-content" v-if="expandedSections.assignments">
-            <div class="assignments-header">
-              <button class="add-assignment-button" @click.stop="toggleAddAssignmentDropdown">
-                <span class="button-icon">+</span> Add Assignment
-              </button>
-
-              <!-- Add Assignment Dropdown -->
-              <div v-if="showingAddAssignment" class="add-assignment-dropdown">
-                <div class="dropdown-title">Add Assignment</div>
-
-                <!-- User search -->
-                <div class="search-container">
-                  <input type="text" v-model="userSearchQuery" placeholder="Search users..." class="search-input"
-                    @input="searchUsers" ref="userSearchInput" />
-                  <div v-if="userSearchResults.length > 0" class="search-results">
-                    <div v-for="user in userSearchResults" :key="user.id" class="search-result-item"
-                      @click="selectUser(user)">
-                      {{ user.displayName || user.username }}
-                    </div>
+            <div v-if="showingAddAssignment" class="add-assignment-form">
+              <div class="search-container">
+                <input type="text" v-model="userSearchQuery" placeholder="Search users..." class="search-input"
+                  @input="searchUsers" ref="userSearchInput" />
+                <div v-if="userSearchResults.length > 0" class="search-results">
+                  <div v-for="user in userSearchResults" :key="user.id" class="search-result-item"
+                    @click="selectUserAndCreateAssignment(user)">
+                    {{ user.displayName || user.username }}
                   </div>
                 </div>
-
-                <!-- Selected user -->
-                <div v-if="selectedUser" class="selected-user">
-                  <span>Selected: {{ selectedUser.displayName || selectedUser.username }}</span>
-                </div>
-
-                <!-- Type selection -->
-                <div class="type-selection" v-if="assignmentTypes.length > 0">
-                  <label>Assignment Type:</label>
-                  <select v-model="selectedTypeId" class="type-select">
-                    <option value="">No type</option>
-                    <option v-for="type in assignmentTypes" :key="type.id" :value="type.id">
-                      {{ type.name }}
-                    </option>
-                  </select>
-                </div>
-
-                <!-- Action buttons -->
-                <div class="dropdown-actions">
-                  <button @click="closeAddAssignmentDropdown" class="cancel-button">Cancel</button>
-                  <button @click="createAssignment" class="create-button" :disabled="!selectedUser">Create</button>
-                </div>
               </div>
+
+
             </div>
             <div v-if="issue.assignments && issue.assignments.nodes && issue.assignments.nodes.length > 0"
               class="assignments-list">
@@ -944,37 +920,74 @@ export default {
       this.selectedTypeId = '';
     },
 
+    // Show the add assignment form
+    showAddAssignment(event) {
+      event.stopPropagation();
+      this.showingAddAssignment = true;
+      this.userSearchQuery = '';
+      this.userSearchResults = [];
+
+      // Focus the input field
+      this.$nextTick(() => {
+        if (this.$refs.userSearchInput) {
+          this.$refs.userSearchInput.focus();
+        }
+      });
+
+      // Add click-outside handler to close the form
+      document.addEventListener('click', this.handleClickOutsideAddForm);
+    },
+    // Close the add assignment form when clicking outside
+    handleClickOutsideAddForm(event) {
+      const form = this.$el.querySelector('.add-assignment-form');
+      const button = this.$el.querySelector('.add-button');
+
+      if (form && button &&
+        !form.contains(event.target) &&
+        !button.contains(event.target)) {
+        this.showingAddAssignment = false;
+        document.removeEventListener('click', this.handleClickOutsideAddForm);
+      }
+    },
+
     closeAddAssignmentDialog() {
       this.showingAddAssignment = false;
     },
 
+    // Search for users as the user types
     async searchUsers() {
       if (!this.userSearchQuery || this.userSearchQuery.length < 1) {
         this.userSearchResults = [];
         return;
       }
 
-      try {
-        await globalApiClient.authenticate();
-        const result = await globalApiClient.executeQuery(
-          GET_ALL_USERS
-        );
-
-        if (result.data?.searchUsers) {
-          // Filter users based on the search query
-          const query = this.userSearchQuery.toLowerCase();
-          const users = result.data.searchUsers;
-
-          this.userSearchResults = users.filter(user => {
-            const displayName = (user.displayName || '').toLowerCase();
-            const username = (user.username || '').toLowerCase();
-            return displayName.includes(query) || username.includes(query);
-          }).slice(0, 10); // Limit to 10 results
-        }
-      } catch (error) {
-        console.error('[IssueDetails] Error searching users:', error);
-        this.userSearchResults = [];
+      if (vscode) {
+        vscode.postMessage({
+          command: 'searchUsers',
+          query: this.userSearchQuery
+        });
       }
+    },
+    // Select a user and create the assignment
+    selectUserAndCreateAssignment(user) {
+      if (!user || !user.id || !this.issue || !this.issue.id) {
+        console.error('[IssueDetails] Cannot create assignment: Missing user or issue ID');
+        return;
+      }
+
+      console.log(`[IssueDetails] Creating assignment for user: ${user.displayName || user.username}`);
+
+      if (vscode) {
+        vscode.postMessage({
+          command: 'createAssignment',
+          issueId: this.issue.id,
+          userId: user.id
+        });
+      }
+
+      // Close the form
+      this.showingAddAssignment = false;
+      document.removeEventListener('click', this.handleClickOutsideAddForm);
     },
 
     selectUser(user) {
@@ -1632,6 +1645,14 @@ export default {
             error: error instanceof Error ? error.message : String(error)
           });
         }
+      } else if (message && message.command === 'userSearchResults') {
+        console.log('[IssueDetails.vue] User search results:', message.users);
+        this.userSearchResults = message.users || [];
+      }
+      else if (message && message.command === 'assignmentCreated') {
+        console.log('[IssueDetails.vue] Assignment created successfully');
+        vscode.window.showInformationMessage('Assignment created successfully.');
+        // The issue will be refreshed with the new assignment
       }
 
       if (typeof acquireVsCodeApi !== "undefined") {
@@ -1669,6 +1690,7 @@ export default {
   beforeDestroy() {
     // Remove event listener when component is destroyed
     document.removeEventListener('click', this.closeTypeDropdown);
+    document.removeEventListener('click', this.handleClickOutsideAddForm);
   }
 };
 </script>
@@ -2876,5 +2898,64 @@ ul {
   margin-bottom: 10px;
   border-bottom: 1px solid var(--vscode-panel-border);
   padding-bottom: 5px;
+}
+
+.add-button {
+  background: none;
+  border: none;
+  color: var(--vscode-button-foreground);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  opacity: 0.8;
+}
+
+.add-button:hover {
+  opacity: 1;
+  background-color: var(--vscode-button-background);
+}
+
+.add-assignment-form {
+  margin-bottom: 10px;
+  padding: 8px;
+  background-color: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+}
+
+.search-container {
+  position: relative;
+}
+
+.search-input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--vscode-input-border);
+  background-color: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border-radius: 3px;
+}
+
+.search-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 150px;
+  overflow-y: auto;
+  background-color: var(--vscode-dropdown-background);
+  border: 1px solid var(--vscode-dropdown-border);
+  border-radius: 0 0 3px 3px;
+  z-index: 100;
+}
+
+.search-result-item {
+  padding: 6px 8px;
+  cursor: pointer;
+}
+
+.search-result-item:hover {
+  background-color: var(--vscode-list-hoverBackground);
 }
 </style>
