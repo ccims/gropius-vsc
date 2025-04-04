@@ -861,23 +861,6 @@ export default {
       this.activeTypeDropdown = null;
     },
 
-    // Add Assignment Dialog
-    showAddAssignmentDialog(event) {
-      // Prevent the event from propagating up to the section toggle
-      if (event) event.stopPropagation();
-
-      // Load assignment types if not already loaded
-      if (this.assignmentTypes.length === 0) {
-        this.loadAssignmentTypes();
-      }
-
-      this.showingAddAssignment = true;
-      this.userSearchQuery = '';
-      this.userSearchResults = [];
-      this.selectedUser = null;
-      this.selectedTypeId = '';
-    },
-
     // Show the add assignment form
     showAddAssignment(event) {
       event.stopPropagation();
@@ -895,16 +878,32 @@ export default {
       // Add click-outside handler to close the form
       document.addEventListener('click', this.handleClickOutsideAddForm);
     },
+
     // Close the add assignment form when clicking outside
     handleClickOutsideAddForm(event) {
       const form = this.$el.querySelector('.add-assignment-form');
-      const button = this.$el.querySelector('.add-button');
+      const button = this.$el.querySelector('.remove-button');
 
       if (form && button &&
         !form.contains(event.target) &&
         !button.contains(event.target)) {
         this.showingAddAssignment = false;
         document.removeEventListener('click', this.handleClickOutsideAddForm);
+      }
+    },
+
+    // Search for users as the user types
+    async searchUsers() {
+      if (!this.userSearchQuery || this.userSearchQuery.length < 1) {
+        this.userSearchResults = [];
+        return;
+      }
+
+      if (vscode) {
+        vscode.postMessage({
+          command: 'searchUsers',
+          query: this.userSearchQuery
+        });
       }
     },
 
@@ -953,48 +952,6 @@ export default {
       this.userSearchResults = [];
     },
 
-    async createAssignment() {
-      if (!this.selectedUser || !this.issue) {
-        console.error('[IssueDetails] Cannot create assignment: Missing user or issue');
-        return;
-      }
-
-      try {
-        await globalApiClient.authenticate();
-
-        const input = {
-          issue: this.issue.id,
-          user: this.selectedUser.id
-        };
-
-        // Add type if selected
-        if (this.selectedTypeId) {
-          input.type = this.selectedTypeId;
-        }
-
-        const result = await globalApiClient.executeQuery(
-          CREATE_ASSIGNMENT_MUTATION,
-          { input }
-        );
-
-        if (result.data?.createAssignment?.assignment) {
-          vscode.window.showInformationMessage('Assignment created successfully.');
-          this.closeAddAssignmentDialog();
-
-          // Refresh issue details to show the new assignment
-          if (this.issue && this.issue.id) {
-            this.refreshCurrentIssue();
-          }
-        } else {
-          console.error('[IssueDetails] Failed to create assignment:', result);
-          vscode.window.showErrorMessage('Failed to create assignment.');
-        }
-      } catch (error) {
-        console.error('[IssueDetails] Error creating assignment:', error);
-        vscode.window.showErrorMessage(`Error creating assignment: ${error instanceof Error ? error.message : String(error)}`);
-      }
-    },
-
     // Remove Assignment
     async confirmRemoveAssignment(assignment) {
       console.log('[IssueDetails.vue] Confirming removal of assignment:', assignment.id);
@@ -1039,29 +996,6 @@ export default {
         console.error('[IssueDetails] Error removing assignment:', error);
         vscode.window.showErrorMessage(`Error removing assignment: ${error instanceof Error ? error.message : String(error)}`);
       }
-    },
-
-    // Change Assignment Type Dialog
-    showChangeTypeDialog(assignment) {
-      if (!assignment || !assignment.id) {
-        console.error('[IssueDetails] Cannot change type: Missing assignment ID');
-        return;
-      }
-
-      // Load assignment types if not already loaded
-      if (this.assignmentTypes.length === 0) {
-        this.loadAssignmentTypes();
-      }
-
-      this.currentAssignment = assignment;
-      this.selectedTypeId = assignment.type ? assignment.type.id : '';
-      this.showingChangeType = true;
-    },
-
-    closeChangeTypeDialog() {
-      this.showingChangeType = false;
-      this.currentAssignment = null;
-      this.selectedTypeId = '';
     },
 
     async changeAssignmentType() {
