@@ -266,7 +266,7 @@
           <div class="section-content" v-if="expandedSections.assignments">
             <div v-if="showingAddAssignment" class="add-assignment-form">
               <div class="search-container">
-                <input type="text" v-model="userSearchQuery" placeholder="Search users..." class="search-input"
+                <input type="text" v-model="userSearchQuery" placeholder="Assign user" class="search-input"
                   @input="searchUsers" ref="userSearchInput" />
                 <div v-if="userSearchResults.length > 0" class="search-results">
                   <div v-for="user in userSearchResults" :key="user.id" class="search-result-item"
@@ -331,9 +331,9 @@
             <span class="toggle-icon">{{ expandedSections.artifacts ? '▼' : '▶' }}</span>
           </div>
           <div class="section-content" v-if="expandedSections.artifacts">
-            <button class="create-artifact-button" @click="createArtifact"
-              title="Create a new artifact from the active editor">
-              <span class="button-icon">+</span> Create Artifact
+            <button v-if="expandedSections.assignments" class="remove-button" @click.stop="showAddAssignment"
+              title="Add assignment">
+              <span style="font-size: 14px; font-weight: bold;">+</span>
             </button>
 
             <div v-if="issue.artifacts && issue.artifacts.length > 0" class="artifacts-list">
