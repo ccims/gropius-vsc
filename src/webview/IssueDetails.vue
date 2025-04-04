@@ -793,48 +793,6 @@ export default {
         .substring(0, 2);
     },
 
-    toggleAddAssignmentDropdown() {
-      this.showingAddAssignment = !this.showingAddAssignment;
-
-      if (this.showingAddAssignment) {
-        // Load assignment types if not already loaded
-        if (this.assignmentTypes.length === 0) {
-          this.loadAssignmentTypes();
-        }
-
-        // Focus the search input
-        this.$nextTick(() => {
-          if (this.$refs.userSearchInput) {
-            this.$refs.userSearchInput.focus();
-          }
-        });
-
-        // Add event listener to close when clicking outside
-        document.addEventListener('click', this.handleClickOutsideAddDropdown);
-      } else {
-        document.removeEventListener('click', this.handleClickOutsideAddDropdown);
-      }
-    },
-
-    closeAddAssignmentDropdown() {
-      this.showingAddAssignment = false;
-      this.userSearchQuery = '';
-      this.userSearchResults = [];
-      this.selectedUser = null;
-      this.selectedTypeId = '';
-      document.removeEventListener('click', this.handleClickOutsideAddDropdown);
-    },
-
-    handleClickOutsideAddDropdown(event) {
-      // Check if click is outside the dropdown
-      const dropdown = this.$el.querySelector('.add-assignment-dropdown');
-      const button = this.$el.querySelector('.add-assignment-button');
-
-      if (dropdown && button && !dropdown.contains(event.target) && !button.contains(event.target)) {
-        this.closeAddAssignmentDropdown();
-      }
-    },
-
     async loadAssignmentTypes() {
       if (!this.issue || !this.issue.template || !this.issue.template.id) {
         console.warn('[IssueDetails.vue] Cannot load assignment types: No template ID');
