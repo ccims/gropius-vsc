@@ -200,24 +200,40 @@
           <div class="section-content" v-if="expandedSections.relatedIssues">
             <!-- Outgoing Relations FIRST -->
             <div v-if="hasOutgoingRelations" class="relations-group">
-              <div class="relations-subheader">Outgoing Relations</div>
+              <div class="relations-subheader" style="display: flex; align-items: center; justify-content: space-between;">
+                <span>Outgoing Relations</span>
+                <!-- Edit button toggles editing mode -->
+                <button class="edit-button"
+                        @click="editingOutgoingRelations = !editingOutgoingRelations"
+                        :title="editingOutgoingRelations ? 'Done editing relations' : 'Edit outgoing relations'">
+                  <span class="edit-icon">✎</span>
+                </button>
+              </div>
 
               <!-- Iterate over each relation type group -->
-              <div v-for="(issues, relType) in groupedOutgoingRelations" :key="'out-' + relType"
-                style="margin-bottom: 10px;">
-                <!-- Show the relation type -->
+              <div v-for="(relations, relType) in groupedOutgoingRelations" :key="'out-' + relType" style="margin-bottom: 10px;">
+                <!-- Display the relation type -->
                 <div class="relation-type-header" style="font-weight: 600; margin-bottom: 4px;">
                   {{ relType }}
                 </div>
 
                 <div class="relations-list">
-                  <div v-for="issueData in issues" :key="issueData.id" class="relation-item"
-                    @click="openRelatedIssue(issueData.id)" style="display: flex; align-items: center; gap: 8px;">
+                  <div v-for="relation in relations" :key="relation.id" class="relation-item"
+                      style="display: flex; align-items: center; gap: 8px;">
                     <div class="icon-stack">
-                      <img class="base-icon" :src="getTypeIconPathFor(issueData)" alt="" />
-                      <img class="overlay-icon" :src="getRelationalIconPathFor(issueData)" alt="" />
+                      <img class="base-icon" :src="getTypeIconPathFor(relation.relatedIssue)" alt="" />
+                      <img class="overlay-icon" :src="getRelationalIconPathFor(relation.relatedIssue)" alt="" />
                     </div>
-                    {{ issueData.title }}
+                    <!-- Clicking the title opens the related issue -->
+                    <span @click="openRelatedIssue(relation.relatedIssue.id)" style="cursor: pointer;">
+                      {{ relation.relatedIssue.title }}
+                    </span>
+                    <!-- When editing, show the Remove button -->
+                    <button v-if="editingOutgoingRelations" class="remove-relation-button"
+                            @click.stop="onRemoveRelation(relation.id)"
+                            title="Remove Relation">
+                      X
+                    </button>
                   </div>
                 </div>
               </div>
@@ -436,6 +452,7 @@ export default {
       activeTypeDropdown: null,
       assignmentTypes: [],
       assignmentTypesMap: {},
+      editingOutgoingRelations: false
     };
   },
   computed: {
@@ -459,30 +476,27 @@ export default {
       if (!this.issue || !this.issue.outgoingRelations) {
         return {};
       }
-      const edges = this.issue.outgoingRelations.edges || [];
       const nodes = this.issue.outgoingRelations.nodes || [];
+      const edges = this.issue.outgoingRelations.edges || [];
 
-      // 1) Create a map from issue.id => the fully populated issue from "nodes"
-      const issueMap = new Map();
-      for (const nodeItem of nodes) {
-        // nodeItem looks like: { issue: { id, title, state, type, ... } }
-        issueMap.set(nodeItem.relatedIssue.id, nodeItem.relatedIssue);
+      // Create a map: relatedIssue.id -> relation type from the corresponding edge
+      const relationTypeMap = new Map();
+      for (const edge of edges) {
+        const relatedIssueId = edge.node.relatedIssue.id;
+        const relType = edge.node.type?.name || "Unknown";
+        relationTypeMap.set(relatedIssueId, relType);
       }
 
-      // 2) Group by relation type
+      // Group the nodes based on the relation type from the map
       const grouped = {};
-      for (const edgeItem of edges) {
-        // edgeItem.node => { type: { name }, issue: { id, title } }
-        const relType = edgeItem.node.type?.name || "Unknown";
-        const minimalIssue = edgeItem.node.relatedIssue;
-
-        // match minimalIssue.id to the fully populated issue from issueMap
-        const fullIssue = issueMap.get(minimalIssue.id) || minimalIssue;
-
+      for (const node of nodes) {
+        const relatedIssue = node.relatedIssue;
+        const relType = relationTypeMap.get(relatedIssue.id) || "Unknown";
         if (!grouped[relType]) {
           grouped[relType] = [];
         }
-        grouped[relType].push(fullIssue);
+        // Optionally, add the relation type to the node object if needed:
+        grouped[relType].push(node);
       }
       return grouped;
     },
@@ -598,6 +612,16 @@ export default {
       } catch (e) {
         console.error("Error formatting date:", e);
         return dateString;
+      }
+    },
+    onRemoveRelation(relationId) {
+      if (vscode) {
+        vscode.postMessage({
+          command: 'removeIssueRelation',
+          relationId: relationId
+        });
+      } else {
+        console.error("vscode API not available");
       }
     },
     openRelatedIssue(issueId) {

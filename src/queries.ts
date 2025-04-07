@@ -243,6 +243,7 @@ query GetIssueDetails($id: ID!) {
                totalCount
              }
           }
+          id
         }
         totalCount
         edges {
@@ -825,6 +826,23 @@ mutation CreateIssue($input: CreateIssueInput!) {
       }
       state {
         isOpen
+      }
+    }
+  }
+}
+`;
+
+export const REMOVE_ISSUE_RELATION_MUTATION = `
+mutation removeIssueRelation($relationId: ID!) {
+  removeIssueRelation(input: { issueRelation: $relationId }) {
+    removedOutgoingRelationEvent {
+      id
+      removedRelation {
+        id
+        relatedIssue {
+          id
+          title
+        }
       }
     }
   }

@@ -29,7 +29,8 @@ import {
   REMOVE_ASSIGNMENT_MUTATION,
   GET_TEMPLATE_OPTIONS,
   GET_ALL_USERS,
-  CREATE_ASSIGNMENT_MUTATION
+  CREATE_ASSIGNMENT_MUTATION,
+  REMOVE_ISSUE_RELATION_MUTATION
 } from "./queries";
 import path from "path";
 
@@ -1326,7 +1327,7 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
             error: error instanceof Error ? error.message : String(error)
           });
         }
-      } if (message.command === 'removeAssignment') {
+      } else if (message.command === 'removeAssignment') {
         try {
           await this.removeAssignment(message.assignmentId);
           this._view?.webview.postMessage({
@@ -1342,6 +1343,16 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
             command: 'assignmentError',
             error: error instanceof Error ? error.message : String(error)
           });
+        }
+      } else if (message.command === 'removeIssueRelation') {
+        console.log(`[IssueDetailsProvider] Received removeIssueRelation request for relation: ${message.relationId}`);
+        try {
+          await this.removeIssueRelation(message.relationId);
+          vscode.window.showInformationMessage("Relation removed successfully.");
+          // Refresh the issue details to update the outgoing relations UI
+          this.refreshCurrentIssue();
+        } catch (error) {
+          vscode.window.showErrorMessage(`Failed to remove relation: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
     });
@@ -1894,6 +1905,23 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
       }
     } else {
       vscode.commands.executeCommand('workbench.view.explorer');
+    }
+  }
+
+  // Outgoing Relations
+
+  private async removeIssueRelation(relationId: string): Promise<any> {
+    try {
+      await globalApiClient.authenticate();
+      const result = await globalApiClient.executeQuery(REMOVE_ISSUE_RELATION_MUTATION, { relationId });
+      if (result.errors) {
+        throw new Error(result.errors[0].message);
+      }
+      // Optionally, return the event data for further processing:
+      return result.data.removeIssueRelation.removedOutgoingRelationEvent;
+    } catch (error) {
+      console.error("[IssueDetailsProvider] Error in removeIssueRelation:", error);
+      throw error;
     }
   }
 }
