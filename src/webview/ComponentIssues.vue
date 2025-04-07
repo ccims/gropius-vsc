@@ -50,6 +50,12 @@
         </button>
       </div>
 
+      <div class="create-issue-container">
+        <button class="create-issue-button" @click="showCreateIssue" title="Create new issue">
+          <span class="create-icon">+</span>
+        </button>
+      </div>
+
     </div>
 
     <!-- Issues List -->
@@ -77,6 +83,142 @@
       <button @click="setStatusFilter('all')" class="clear-button">Show all issues</button>
     </div>
   </div>
+
+  <!-- Create Issue Modal -->
+<div v-if="showCreateIssueModal" class="modal-overlay" @click.self="closeCreateIssue">
+  <div class="create-issue-modal">
+    <div class="modal-header">
+      <h2>Create issue</h2>
+      <button class="close-button" @click="closeCreateIssue">×</button>
+    </div>
+    
+    <div class="modal-tabs">
+      <div class="tab" :class="{ 'active': currentTab === 'general' }">
+        <span class="tab-number">1</span> General
+      </div>
+      <div class="tab" :class="{ 'active': currentTab === 'templated' }">
+        <span class="tab-number">2</span> Templated fields
+      </div>
+    </div>
+    
+    <div class="modal-content">
+      <!-- General Tab -->
+      <div v-if="currentTab === 'general'" class="tab-content">
+        <div class="form-group">
+          <input type="text" v-model="newIssue.title" placeholder="Title" class="form-input" />
+          <div v-if="validationErrors.title" class="validation-error">
+            Title is a required field
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <div class="select-container" @click.stop="showTemplateDropdown = !showTemplateDropdown">
+            <div class="dropdown-display">
+              {{ newIssue.templateName || 'Template' }}
+              <span class="dropdown-arrow">▼</span>
+            </div>
+            
+            <div v-if="showTemplateDropdown" class="field-dropdown">
+              <div v-if="issueTemplates.length === 0" class="dropdown-loading">Loading...</div>
+              <div v-else class="dropdown-options">
+                <div v-for="template in issueTemplates" :key="template.id" 
+                     @click.stop="selectTemplate(template)" 
+                     class="dropdown-option">
+                  {{ template.name }}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div v-if="validationErrors.template" class="validation-error">
+            Template is a required field
+          </div>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <div class="select-container" @click.stop="!newIssue.templateId ? null : showTypeDropdown = !showTypeDropdown">
+              <div class="dropdown-display" :class="{ 'disabled': !newIssue.templateId }">
+                {{ newIssue.typeName || 'Type' }}
+                <span class="dropdown-arrow">▼</span>
+              </div>
+              
+              <div v-if="showTypeDropdown && newIssue.templateId" class="field-dropdown">
+                <div v-if="issueTypes.length === 0" class="dropdown-loading">Loading...</div>
+                <div v-else class="dropdown-options">
+                  <div v-for="type in issueTypes" :key="type.id" 
+                       @click.stop="selectType(type)" 
+                       class="dropdown-option">
+                    <img class="type-icon-small" :src="getTypeIconForOption(type)" alt="" />
+                    {{ type.name }}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div v-if="validationErrors.type" class="validation-error">
+              Type is a required field
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <div class="select-container" @click.stop="!newIssue.templateId ? null : showStateDropdown = !showStateDropdown">
+              <div class="dropdown-display" :class="{ 'disabled': !newIssue.templateId }">
+                {{ newIssue.stateName || 'State' }}
+                <span class="dropdown-arrow">▼</span>
+              </div>
+              
+              <div v-if="showStateDropdown && newIssue.templateId" class="field-dropdown">
+                <div v-if="issueStates.length === 0" class="dropdown-loading">Loading...</div>
+                <div v-else class="dropdown-options">
+                  <div v-for="state in issueStates" :key="state.id" 
+                       @click.stop="selectState(state)" 
+                       class="dropdown-option"
+                       :class="{ 'state-option-open': state.isOpen, 'state-option-closed': !state.isOpen }">
+                    {{ state.name }}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div v-if="validationErrors.state" class="validation-error">
+              State is a required field
+            </div>
+          </div>
+        </div>
+        
+        <div v-if="!newIssue.templateId" class="info-message">
+          Please select a template first to enable Type and State selection
+        </div>
+      </div>
+      
+      <!-- Templated Fields Tab -->
+      <div v-else class="tab-content">
+        <div v-if="newIssue.templateId" class="templated-fields">
+          <div v-for="(field, index) in templatedFields" :key="index" class="form-group">
+            <label>{{ field.name }}</label>
+            <input type="text" v-model="field.value" class="form-input" />
+          </div>
+        </div>
+        <div v-else class="no-template-message">
+          Please select a template first
+        </div>
+      </div>
+    </div>
+    
+    <div class="modal-footer">
+      <button v-if="currentTab === 'templated'" class="button secondary" @click="currentTab = 'general'">
+        Previous
+      </button>
+      <button v-if="currentTab === 'general'" class="button primary" @click="validateAndProceed">
+        Next
+      </button>
+      <button v-else class="button primary" @click="createIssue">
+        Create
+      </button>
+      <button class="button secondary" @click="closeCreateIssue">
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>
 </template>
 
 <script>
@@ -94,7 +236,31 @@ export default {
       componentVersionFilter: false,
       issueSourceMap: {},
       selectedVersionId: null,
-      affectedIssueIds: new Set(),
+      affectedIssueIds: new Set(), showCreateIssueModal: false,
+      currentTab: 'general',
+      newIssue: {
+        title: '',
+        templateId: '',
+        templateName: '',
+        typeId: '',
+        typeName: '',
+        stateId: '',
+        stateName: '',
+      },
+      issueTemplates: [],
+      issueTypes: [],
+      issueStates: [],
+      templatedFields: [],
+      showTemplateDropdown: false,
+      showTypeDropdown: false,
+      showStateDropdown: false,
+      validationErrors: {
+        title: false,
+        template: false,
+        type: false,
+        state: false
+      },
+      componentId: null,
     };
   },
   computed: {
@@ -218,6 +384,26 @@ export default {
             vscode.postMessage({ command: "refreshRequested" });
           }
         }
+      } else if (message && message.command === "issueTemplatesLoaded") {
+        // Handle templates loaded from backend
+        this.issueTemplates = message.templates || [];
+        console.log("Templates loaded:", this.issueTemplates.length);
+      } else if (message && message.command === "issueCreated") {
+        // Handle successful issue creation
+        if (message.issue) {
+          // Add the new issue to our list if not already there
+          const issueExists = this.issues.some(i => i.id === message.issue.id);
+          if (!issueExists) {
+            this.issues = [...this.issues, message.issue];
+            this.saveState();
+          }
+
+          // Show success notification or auto-open the new issue
+          console.log("Issue created successfully:", message.issue.id);
+
+          // Optionally, open the newly created issue
+          this.openIssueDetails(message.issue.id);
+        }
       }
     });
 
@@ -257,6 +443,177 @@ export default {
         case "Misc":
         case "Task":
           return new URL("../../resources/icons/exclamation-white.png", import.meta.url).href;
+      }
+    }, getTypeIconForOption(type) {
+      switch (type.name) {
+        case "Bug":
+          return new URL("../../resources/icons/bug-green.png", import.meta.url).href;
+        case "Feature":
+          return new URL("../../resources/icons/lightbulb-feature-green.png", import.meta.url).href;
+        case "Misc":
+        case "Task":
+          return new URL("../../resources/icons/exclamation-green.png", import.meta.url).href;
+        default:
+          return new URL("../../resources/icons/bug-green.png", import.meta.url).href;
+      }
+    },// Create Issue Dialog Methods
+    showCreateIssue() {
+      this.showCreateIssueModal = true;
+      this.currentTab = 'general';
+      this.resetForm();
+      this.fetchIssueTemplates();
+
+      // Get the current component ID from the metadata
+      if (this.selectedVersionId) {
+        this.componentId = this.selectedVersionId;
+      }
+
+      // Close any open dropdowns
+      this.showTemplateDropdown = false;
+      this.showTypeDropdown = false;
+      this.showStateDropdown = false;
+    },
+
+    closeCreateIssue() {
+      this.showCreateIssueModal = false;
+    },
+
+    resetForm() {
+      this.newIssue = {
+        title: '',
+        templateId: '',
+        templateName: '',
+        typeId: '',
+        typeName: '',
+        stateId: '',
+        stateName: '',
+      };
+      this.templatedFields = [];
+      this.validationErrors = {
+        title: false,
+        template: false,
+        type: false,
+        state: false
+      };
+    },
+
+    async fetchIssueTemplates() {
+      if (vscode) {
+        this.issueTemplates = [];
+        this.issueTypes = [];
+        this.issueStates = [];
+
+        // Request templates from the extension
+        vscode.postMessage({
+          command: 'fetchIssueTemplates'
+        });
+      }
+    },
+
+    selectTemplate(template) {
+      this.newIssue.templateId = template.id;
+      this.newIssue.templateName = template.name;
+      this.showTemplateDropdown = false;
+      this.validationErrors.template = false;
+
+      // Update available types and states based on the template
+      this.issueTypes = template.issueTypes?.nodes || [];
+      this.issueStates = template.issueStates?.nodes || [];
+
+      // Reset type and state if they're not available in the new template
+      const typeExists = this.issueTypes.find(t => t.id === this.newIssue.typeId);
+      if (!typeExists) {
+        this.newIssue.typeId = '';
+        this.newIssue.typeName = '';
+      }
+
+      const stateExists = this.issueStates.find(s => s.id === this.newIssue.stateId);
+      if (!stateExists) {
+        this.newIssue.stateId = '';
+        this.newIssue.stateName = '';
+      }
+
+      // Set up templated fields
+      this.setupTemplatedFields(template);
+    },
+
+    selectType(type) {
+      this.newIssue.typeId = type.id;
+      this.newIssue.typeName = type.name;
+      this.showTypeDropdown = false;
+      this.validationErrors.type = false;
+    },
+
+    selectState(state) {
+      this.newIssue.stateId = state.id;
+      this.newIssue.stateName = state.name;
+      this.showStateDropdown = false;
+      this.validationErrors.state = false;
+    },
+
+    setupTemplatedFields(template) {
+      // TODO: get templated fields from the template
+      this.templatedFields = [
+        { name: 'Priority', value: '' },
+        { name: 'Estimated Time', value: '' }
+      ];
+    },
+
+    validateAndProceed() {
+      // Reset validation errors
+      this.validationErrors = {
+        title: !this.newIssue.title,
+        template: !this.newIssue.templateId,
+        type: !this.newIssue.typeId,
+        state: !this.newIssue.stateId
+      };
+
+      // Check if all required fields are filled
+      if (!this.validationErrors.title &&
+        !this.validationErrors.template &&
+        !this.validationErrors.type &&
+        !this.validationErrors.state) {
+        // Proceed to templated fields tab
+        this.currentTab = 'templated';
+      }
+    },
+
+    createIssue() {
+      if (!this.componentId) {
+        if (this.selectedVersionId) {
+          this.componentId = this.selectedVersionId;
+        } else {
+          console.error("Cannot create issue: Missing component ID");
+          return;
+        }
+      }
+
+      // Format templated fields
+      const formattedFields = this.templatedFields.map(field => ({
+        name: field.name,
+        value: field.value
+      })).filter(field => field.value !== '');
+
+      // Prepare the issue creation input
+      const input = {
+        title: this.newIssue.title,
+        template: this.newIssue.templateId,
+        type: this.newIssue.typeId,
+        state: this.newIssue.stateId,
+        body: "", // Empty body initially
+        trackables: this.componentId,
+        templatedFields: formattedFields
+      };
+
+      // Send the creation request to the extension
+      if (vscode) {
+        vscode.postMessage({
+          command: 'createIssue',
+          input: input
+        });
+
+        // Close the dialog
+        this.closeCreateIssue();
       }
     },
     setStatusFilter(status) {
@@ -305,6 +662,25 @@ export default {
     handleClickOutside(event) {
       if (this.$refs.sortDropdown && !this.$refs.sortDropdown.contains(event.target)) {
         this.showSortMenu = false;
+      }
+
+      // Add this to your handleClickOutside method
+      if (this.showCreateIssueModal) {
+        // Only close dropdowns if clicking outside of them
+        const dropdownsContainers = document.querySelectorAll('.select-container');
+        let clickedInsideDropdown = false;
+
+        dropdownsContainers.forEach(container => {
+          if (container.contains(event.target)) {
+            clickedInsideDropdown = true;
+          }
+        });
+
+        if (!clickedInsideDropdown) {
+          this.showTemplateDropdown = false;
+          this.showTypeDropdown = false;
+          this.showStateDropdown = false;
+        }
       }
     },
     saveState() {
@@ -652,5 +1028,238 @@ export default {
   border-radius: 4px;
   font-weight: bold;
   font-size: 12px;
+}
+
+/* Create Issue Button */
+.create-issue-container {
+  margin-left: 4px;
+}
+
+.create-issue-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: none;
+  border-radius: 4px;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.create-issue-button:hover {
+  background-color: var(--vscode-button-hoverBackground);
+}
+
+/* Modal Dialog */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.create-issue-modal {
+  background-color: var(--vscode-editor-background);
+  border-radius: 6px;
+  width: 90%;
+  max-width: 480px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.1em;
+  font-weight: 600;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: var(--vscode-foreground);
+  opacity: 0.7;
+}
+
+.close-button:hover {
+  opacity: 1;
+}
+
+.modal-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.tab {
+  padding: 8px 12px;
+  cursor: pointer;
+  opacity: 0.7;
+  border-bottom: 2px solid transparent;
+}
+
+.tab.active {
+  opacity: 1;
+  border-bottom-color: var(--vscode-button-background);
+}
+
+.tab-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background-color: var(--vscode-button-secondaryBackground);
+  margin-right: 6px;
+  font-size: 0.8em;
+}
+
+.modal-content {
+  padding: 12px;
+  overflow-y: auto;
+  max-height: 50vh;
+  /* Important: Prevent horizontal scrolling */
+  overflow-x: hidden;
+}
+
+.tab-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 8px;
+}
+
+.form-row {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.form-row .form-group {
+  flex: 1;
+}
+
+.form-input {
+  background-color: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border, transparent);
+  border-radius: 4px;
+  padding: 5px 8px;
+  font-size: 13px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.form-input:focus {
+  outline: 1px solid var(--vscode-focusBorder);
+}
+
+.dropdown-display {
+  background-color: var(--vscode-dropdown-background);
+  color: var(--vscode-dropdown-foreground);
+  border: 1px solid var(--vscode-dropdown-border);
+  border-radius: 4px;
+  padding: 5px 8px;
+  font-size: 13px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.dropdown-display.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.validation-error {
+  color: var(--vscode-errorForeground, #f48771);
+  font-size: 0.85em;
+  margin-top: 2px;
+}
+
+.info-message {
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.85em;
+  font-style: italic;
+  margin-top: 6px;
+  text-align: center;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--vscode-panel-border);
+}
+
+.button {
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  border: none;
+}
+
+.primary {
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+.primary:hover {
+  background-color: var(--vscode-button-hoverBackground);
+}
+
+.secondary {
+  background-color: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+}
+
+.secondary:hover {
+  background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+.type-icon-small {
+  width: 14px;
+  height: 14px;
+  margin-right: 6px;
+}
+
+.no-template-message {
+  text-align: center;
+  padding: 20px;
+  color: var(--vscode-descriptionForeground);
+  font-style: italic;
 }
 </style>

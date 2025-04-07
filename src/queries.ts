@@ -788,3 +788,45 @@ query GetTemplateOptions($templateId: ID!) {
   }
 }
 `;
+
+export const GET_ISSUE_TEMPLATES = `
+query GetIssueTemplates {
+  issueTemplates {
+    nodes {
+      id
+      name
+      description
+      issueTypes {
+        nodes {
+          id
+          name
+        }
+      }
+      issueStates {
+        nodes {
+          id
+          name
+          isOpen
+        }
+      }
+    }
+  }
+}
+`;
+
+export const CREATE_ISSUE_MUTATION = `
+mutation CreateIssue($input: CreateIssueInput!) {
+  createIssue(input: $input) {
+    issue {
+      id
+      title
+      type {
+        name
+      }
+      state {
+        isOpen
+      }
+    }
+  }
+}
+`;
