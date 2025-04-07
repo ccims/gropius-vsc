@@ -218,20 +218,23 @@
                 </div>
 
                 <div class="relations-list">
-                  <div v-for="relation in relations" :key="relation.id" class="relation-item"
-                      style="display: flex; align-items: center; gap: 8px;">
-                    <div class="icon-stack">
-                      <img class="base-icon" :src="getTypeIconPathFor(relation.relatedIssue)" alt="" />
-                      <img class="overlay-icon" :src="getRelationalIconPathFor(relation.relatedIssue)" alt="" />
+                  <div v-for="relation in relations" :key="relation.id" class="relation-item">
+                    <!-- Left side: icon + title -->
+                    <div class="relation-content" @click="openRelatedIssue(relation.relatedIssue.id)">
+                      <div class="icon-stack">
+                        <img class="base-icon" :src="getTypeIconPathFor(relation.relatedIssue)" alt="" />
+                        <img class="overlay-icon" :src="getRelationalIconPathFor(relation.relatedIssue)" alt="" />
+                      </div>
+                      <span>{{ relation.relatedIssue.title }}</span>
                     </div>
-                    <!-- Clicking the title opens the related issue -->
-                    <span @click="openRelatedIssue(relation.relatedIssue.id)" style="cursor: pointer;">
-                      {{ relation.relatedIssue.title }}
-                    </span>
-                    <!-- When editing, show the Remove button -->
-                    <button v-if="editingOutgoingRelations" class="remove-relation-button"
-                            @click.stop="onRemoveRelation(relation.id)"
-                            title="Remove Relation">
+
+                    <!-- Right side: the remove X -->
+                    <button
+                      v-if="editingOutgoingRelations"
+                      class="remove-relation-button"
+                      @click.stop="onRemoveRelation(relation.id)"
+                      title="Remove Relation"
+                    >
                       X
                     </button>
                   </div>
@@ -2038,18 +2041,43 @@ ul {
 .relation-item {
   display: flex;
   align-items: center;
+  justify-content: space-between; /* space-between pushes them apart */
   gap: 8px;
-  background: none;
-  border: none;
-  border-radius: 0;
-  cursor: pointer;
-  font-size: 0.9em;
-  padding: 0;
-  /* or however much vertical spacing you want */
+  padding: 4px 0; /* optional spacing */
 }
 
 .relation-item:hover {
   background-color: var(--vscode-list-hoverBackground);
+}
+
+.relation-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  flex: 1; /* push the button to the far right */
+}
+
+.remove-relation-button {
+  display: inline-flex;            /* So we can center the X */
+  align-items: center;
+  justify-content: center;
+  width: 24px;                     /* Circle dimensions */
+  height: 24px;
+  border-radius: 50%;             /* Makes the shape round */
+  background: none;
+  border: none;
+  color: #d6bee4 !important;      /* Your desired color for the X */
+  cursor: pointer;
+  font-size: 1em;
+  margin: 0;
+  padding: 0;
+  transition: background-color 0.2s ease;
+  margin-left: -4px; /* adjust this value as needed */
+}
+
+.remove-relation-button:hover {
+  background-color: rgba(255, 255, 255, 0.1); /* Slightly gray/white background */
 }
 
 /* =================== Empty and Error States =================== */
