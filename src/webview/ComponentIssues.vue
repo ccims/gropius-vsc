@@ -85,140 +85,178 @@
   </div>
 
   <!-- Create Issue Modal -->
-<div v-if="showCreateIssueModal" class="modal-overlay" @click.self="closeCreateIssue">
-  <div class="create-issue-modal">
-    <div class="modal-header">
-      <h2>Create issue</h2>
-      <button class="close-button" @click="closeCreateIssue">×</button>
-    </div>
-    
-    <div class="modal-tabs">
-      <div class="tab" :class="{ 'active': currentTab === 'general' }">
-        <span class="tab-number">1</span> General
+  <div v-if="showCreateIssueModal" class="modal-overlay" @click.self="closeCreateIssue">
+    <div class="create-issue-modal">
+      <div class="modal-header">
+        <h2>Create issue</h2>
+        <button class="close-button" @click="closeCreateIssue">×</button>
       </div>
-      <div class="tab" :class="{ 'active': currentTab === 'templated' }">
-        <span class="tab-number">2</span> Templated fields
+
+      <div class="modal-tabs">
+        <div class="tab" :class="{ 'active': currentTab === 'general' }">
+          <span class="tab-number">1</span> General
+        </div>
+        <div class="tab" :class="{ 'active': currentTab === 'description' }">
+          <span class="tab-number">2</span> Description
+        </div>
+        <div class="tab" :class="{ 'active': currentTab === 'templated' }">
+          <span class="tab-number">3</span> Templated fields
+        </div>
       </div>
-    </div>
-    
-    <div class="modal-content">
-      <!-- General Tab -->
-      <div v-if="currentTab === 'general'" class="tab-content">
-        <div class="form-group">
-          <input type="text" v-model="newIssue.title" placeholder="Title" class="form-input" />
-          <div v-if="validationErrors.title" class="validation-error">
-            Title is a required field
-          </div>
-        </div>
-        
-        <div class="form-group">
-          <div class="select-container" @click.stop="showTemplateDropdown = !showTemplateDropdown">
-            <div class="dropdown-display">
-              {{ newIssue.templateName || 'Template' }}
-              <span class="dropdown-arrow">▼</span>
-            </div>
-            
-            <div v-if="showTemplateDropdown" class="field-dropdown">
-              <div v-if="issueTemplates.length === 0" class="dropdown-loading">Loading...</div>
-              <div v-else class="dropdown-options">
-                <div v-for="template in issueTemplates" :key="template.id" 
-                     @click.stop="selectTemplate(template)" 
-                     class="dropdown-option">
-                  {{ template.name }}
-                </div>
-              </div>
-            </div>
-          </div>
-          <div v-if="validationErrors.template" class="validation-error">
-            Template is a required field
-          </div>
-        </div>
-        
-        <div class="form-row">
+
+      <div class="modal-content">
+        <!-- General Tab -->
+        <div v-if="currentTab === 'general'" class="tab-content">
           <div class="form-group">
-            <div class="select-container" @click.stop="!newIssue.templateId ? null : showTypeDropdown = !showTypeDropdown">
-              <div class="dropdown-display" :class="{ 'disabled': !newIssue.templateId }">
-                {{ newIssue.typeName || 'Type' }}
+            <input type="text" v-model="newIssue.title" placeholder="Title" class="form-input" />
+            <div v-if="validationErrors.title" class="validation-error">
+              Title is a required field
+            </div>
+          </div>
+
+          <div class="form-group">
+            <div class="select-container" @click.stop="showTemplateDropdown = !showTemplateDropdown">
+              <div class="dropdown-display">
+                {{ newIssue.templateName || 'Template' }}
                 <span class="dropdown-arrow">▼</span>
               </div>
-              
-              <div v-if="showTypeDropdown && newIssue.templateId" class="field-dropdown">
-                <div v-if="issueTypes.length === 0" class="dropdown-loading">Loading...</div>
+
+              <div v-if="showTemplateDropdown" class="field-dropdown">
+                <div v-if="issueTemplates.length === 0" class="dropdown-loading">Loading...</div>
                 <div v-else class="dropdown-options">
-                  <div v-for="type in issueTypes" :key="type.id" 
-                       @click.stop="selectType(type)" 
-                       class="dropdown-option">
-                    <img class="type-icon-small" :src="getTypeIconForOption(type)" alt="" />
-                    {{ type.name }}
+                  <div v-for="template in issueTemplates" :key="template.id" @click.stop="selectTemplate(template)"
+                    class="dropdown-option">
+                    {{ template.name }}
                   </div>
                 </div>
               </div>
             </div>
-            <div v-if="validationErrors.type" class="validation-error">
-              Type is a required field
+            <div v-if="validationErrors.template" class="validation-error">
+              Template is a required field
             </div>
           </div>
-          
-          <div class="form-group">
-            <div class="select-container" @click.stop="!newIssue.templateId ? null : showStateDropdown = !showStateDropdown">
-              <div class="dropdown-display" :class="{ 'disabled': !newIssue.templateId }">
-                {{ newIssue.stateName || 'State' }}
-                <span class="dropdown-arrow">▼</span>
-              </div>
-              
-              <div v-if="showStateDropdown && newIssue.templateId" class="field-dropdown">
-                <div v-if="issueStates.length === 0" class="dropdown-loading">Loading...</div>
-                <div v-else class="dropdown-options">
-                  <div v-for="state in issueStates" :key="state.id" 
-                       @click.stop="selectState(state)" 
-                       class="dropdown-option"
-                       :class="{ 'state-option-open': state.isOpen, 'state-option-closed': !state.isOpen }">
-                    {{ state.name }}
+
+          <div class="form-row">
+            <div class="form-group">
+              <div class="select-container"
+                @click.stop="!newIssue.templateId ? null : showTypeDropdown = !showTypeDropdown">
+                <div class="dropdown-display" :class="{ 'disabled': !newIssue.templateId }">
+                  {{ newIssue.typeName || 'Type' }}
+                  <span class="dropdown-arrow">▼</span>
+                </div>
+
+                <div v-if="showTypeDropdown && newIssue.templateId" class="field-dropdown">
+                  <div v-if="issueTypes.length === 0" class="dropdown-loading">Loading...</div>
+                  <div v-else class="dropdown-options">
+                    <div v-for="type in issueTypes" :key="type.id" @click.stop="selectType(type)"
+                      class="dropdown-option">
+                      <img class="type-icon-small" :src="getTypeIconForOption(type)" alt="" />
+                      {{ type.name }}
+                    </div>
                   </div>
                 </div>
               </div>
+              <div v-if="validationErrors.type" class="validation-error">
+                Type is a required field
+              </div>
             </div>
-            <div v-if="validationErrors.state" class="validation-error">
-              State is a required field
+
+            <div class="form-group">
+              <div class="select-container"
+                @click.stop="!newIssue.templateId ? null : showStateDropdown = !showStateDropdown">
+                <div class="dropdown-display" :class="{ 'disabled': !newIssue.templateId }">
+                  {{ newIssue.stateName || 'State' }}
+                  <span class="dropdown-arrow">▼</span>
+                </div>
+
+                <div v-if="showStateDropdown && newIssue.templateId" class="field-dropdown">
+                  <div v-if="issueStates.length === 0" class="dropdown-loading">Loading...</div>
+                  <div v-else class="dropdown-options">
+                    <div v-for="state in issueStates" :key="state.id" @click.stop="selectState(state)"
+                      class="dropdown-option"
+                      :class="{ 'state-option-open': state.isOpen, 'state-option-closed': !state.isOpen }">
+                      {{ state.name }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div v-if="validationErrors.state" class="validation-error">
+                State is a required field
+              </div>
+            </div>
+          </div>
+
+          <div v-if="!newIssue.templateId" class="info-message">
+            Please select a template first to enable Type and State selection
+          </div>
+        </div>
+
+        <!-- Description Tab -->
+        <div v-else-if="currentTab === 'description'" class="tab-content">
+          <div class="description-editor">
+            <div class="editor-toolbar">
+              <button class="toolbar-button" @click="applyFormatting('h')"><span class="toolbar-icon">H</span></button>
+              <button class="toolbar-button" @click="applyFormatting('b')"><span class="toolbar-icon">B</span></button>
+              <button class="toolbar-button" @click="applyFormatting('i')"><span class="toolbar-icon">I</span></button>
+              <button class="toolbar-button" @click="applyFormatting('quote')"><span
+                  class="toolbar-icon">"</span></button>
+              <button class="toolbar-button" @click="applyFormatting('link')"><span
+                  class="toolbar-icon">🔗</span></button>
+              <button class="toolbar-button" @click="applyFormatting('code')"><span class="toolbar-icon">{
+                  }</span></button>
+              <button class="toolbar-button" @click="applyFormatting('ul')"><span class="toolbar-icon">•
+                </span></button>
+              <button class="toolbar-button" @click="applyFormatting('ol')"><span class="toolbar-icon">1.
+                </span></button>
+            </div>
+
+            <textarea class="description-textarea" v-model="newIssue.description" placeholder="Description (optional)"
+              rows="8"></textarea>
+
+            <div class="editor-footer">
+              <span class="editor-info">Markdown supported</span>
             </div>
           </div>
         </div>
-        
-        <div v-if="!newIssue.templateId" class="info-message">
-          Please select a template first to enable Type and State selection
-        </div>
-      </div>
-      
-      <!-- Templated Fields Tab -->
-      <div v-else class="tab-content">
-        <div v-if="newIssue.templateId" class="templated-fields">
-          <div v-for="(field, index) in templatedFields" :key="index" class="form-group">
-            <label>{{ field.name }}</label>
-            <input type="text" v-model="field.value" class="form-input" />
+
+        <!-- Templated Fields Tab -->
+        <div v-else class="tab-content">
+          <div v-if="newIssue.templateId" class="templated-fields">
+            <div v-for="(field, index) in templatedFields" :key="index" class="form-group">
+              <label>{{ field.name }}</label>
+              <input type="text" v-model="field.value" class="form-input" />
+            </div>
+          </div>
+          <div v-else class="no-template-message">
+            Please select a template first
           </div>
         </div>
-        <div v-else class="no-template-message">
-          Please select a template first
-        </div>
       </div>
-    </div>
-    
-    <div class="modal-footer">
-      <button v-if="currentTab === 'templated'" class="button secondary" @click="currentTab = 'general'">
-        Previous
-      </button>
-      <button v-if="currentTab === 'general'" class="button primary" @click="validateAndProceed">
-        Next
-      </button>
-      <button v-else class="button primary" @click="createIssue">
-        Create
-      </button>
-      <button class="button secondary" @click="closeCreateIssue">
-        Cancel
-      </button>
+
+      <div class="modal-footer">
+        <button v-if="currentTab === 'description'" class="button secondary" @click="currentTab = 'general'">
+          Previous
+        </button>
+        <button v-else-if="currentTab === 'templated'" class="button secondary" @click="currentTab = 'description'">
+          Previous
+        </button>
+
+        <button v-if="currentTab === 'general'" class="button primary" @click="validateAndProceed">
+          Next
+        </button>
+        <button v-else-if="currentTab === 'description'" class="button primary" @click="goToTemplatedFields">
+          Next
+        </button>
+        <button v-else class="button primary" @click="createIssue">
+          Create
+        </button>
+
+        <button class="button secondary" @click="closeCreateIssue">
+          Cancel
+        </button>
+      </div>
     </div>
   </div>
-</div>
 </template>
 
 <script>
@@ -246,6 +284,7 @@ export default {
         typeName: '',
         stateId: '',
         stateName: '',
+        description: ''
       },
       issueTemplates: [],
       issueTypes: [],
@@ -487,6 +526,7 @@ export default {
         typeName: '',
         stateId: '',
         stateName: '',
+        description: '',
       };
       this.templatedFields = [];
       this.validationErrors = {
@@ -573,11 +613,78 @@ export default {
         !this.validationErrors.template &&
         !this.validationErrors.type &&
         !this.validationErrors.state) {
-        // Proceed to templated fields tab
-        this.currentTab = 'templated';
+        // Proceed to description tab
+        this.currentTab = 'description';
       }
-    },
+    }, goToTemplatedFields() {
+      // Description is optional, so we can proceed without validation
+      this.currentTab = 'templated';
+    }, applyFormatting(type) {
+      // Get the textarea element
+      const textarea = this.$el.querySelector('.description-textarea');
+      if (!textarea) return;
 
+      // Get the current selection
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const selectedText = this.newIssue.description.substring(start, end);
+
+      let formattedText = '';
+      let cursorOffset = 0;
+
+      switch (type) {
+        case 'h':
+          formattedText = `### ${selectedText}`;
+          cursorOffset = 4;
+          break;
+        case 'b':
+          formattedText = `**${selectedText}**`;
+          cursorOffset = 2;
+          break;
+        case 'i':
+          formattedText = `*${selectedText}*`;
+          cursorOffset = 1;
+          break;
+        case 'quote':
+          formattedText = `> ${selectedText}`;
+          cursorOffset = 2;
+          break;
+        case 'link':
+          formattedText = `[${selectedText}](url)`;
+          cursorOffset = 1;
+          break;
+        case 'code':
+          formattedText = `\`${selectedText}\``;
+          cursorOffset = 1;
+          break;
+        case 'ul':
+          formattedText = `- ${selectedText}`;
+          cursorOffset = 2;
+          break;
+        case 'ol':
+          formattedText = `1. ${selectedText}`;
+          cursorOffset = 3;
+          break;
+      }
+
+      // Replace the selected text with the formatted text
+      this.newIssue.description =
+        this.newIssue.description.substring(0, start) +
+        formattedText +
+        this.newIssue.description.substring(end);
+
+      // Reset the selection
+      this.$nextTick(() => {
+        textarea.focus();
+        if (start === end) {
+          // No text was selected, place cursor after the format markers
+          textarea.setSelectionRange(start + cursorOffset, start + cursorOffset);
+        } else {
+          // Text was selected, select the newly formatted text
+          textarea.setSelectionRange(start, start + formattedText.length);
+        }
+      });
+    },
     createIssue() {
       if (!this.componentId) {
         if (this.selectedVersionId) {
