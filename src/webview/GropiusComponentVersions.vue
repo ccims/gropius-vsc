@@ -1,71 +1,79 @@
 <template>
-    <div class="gropius-component-versions">
-        <div v-if="loading" class="loading">
-            <p>Loading component versions...</p>
+    <div> 
+        <!-- Show workspace graph -->
+        <div class="showGraph">
+            <button class="graph-button" @click="openWorkspaceGraph">
+            Graph
+            </button>
         </div>
-        <div v-else-if="treeItems.length === 0" class="empty-state">
-            <p>No component versions found. Please check your folder mappings.</p>
-        </div>
-        <div class="component-tree">
-            <div class="tree-item" v-for="(item, index) in treeItems" :key="index">
-                <!-- Wrap both the node and its description in a single container -->
-                <div class="node-container" @mouseenter="hoveredItem = item" @mouseleave="hoveredItem = null">
-                    <div class="tree-node" :class="{ 'has-children': item.children && item.children.length > 0 }"
-                        @click="handleNodeClick(item)">
-                        <!-- Use the VS Code codicon for twisties -->
-                        <span v-if="item.children && item.children.length > 0" class="twisty">
-                            <span v-if="item.expanded"
-                                class="codicon codicon-chevron-down explorer-arrow expanded"></span>
-                            <span v-else class="codicon codicon-chevron-right explorer-arrow collapsed"></span>
-                        </span>
-                        <img v-else class="custom-icon" :src="customIconPath" alt="Component"
-                            @error="handleImageError" />
-
-                        <span class="node-name">
-                            {{ item.name }}
-                        </span>
-
-                        <span class="version-tags">
-                            <span class="version-tag" v-for="(version, vIndex) in item.versions" :key="vIndex"
-                                @click.stop="handleVersionClick(item, version, vIndex)" :class="{
-                                    'clicked': clickedVersion === `${item.id}-${version}-${vIndex}`,
-                                    'active': activeVersion === `${item.id}-${version}-${vIndex}`
-                                }">
-                                {{ version }}
+        <div class="gropius-component-versions">
+            <div v-if="loading" class="loading">
+                <p>Loading component versions...</p>
+            </div>
+            <div v-else-if="treeItems.length === 0" class="empty-state">
+                <p>No component versions found. Please check your folder mappings.</p>
+            </div>
+            <div class="component-tree">
+                <div class="tree-item" v-for="(item, index) in treeItems" :key="index">
+                    <!-- Wrap both the node and its description in a single container -->
+                    <div class="node-container" @mouseenter="hoveredItem = item" @mouseleave="hoveredItem = null">
+                        <div class="tree-node" :class="{ 'has-children': item.children && item.children.length > 0 }"
+                            @click="handleNodeClick(item)">
+                            <!-- Use the VS Code codicon for twisties -->
+                            <span v-if="item.children && item.children.length > 0" class="twisty">
+                                <span v-if="item.expanded"
+                                    class="codicon codicon-chevron-down explorer-arrow expanded"></span>
+                                <span v-else class="codicon codicon-chevron-right explorer-arrow collapsed"></span>
                             </span>
-                        </span>
-                    </div>
+                            <img v-else class="custom-icon" :src="customIconPath" alt="Component"
+                                @error="handleImageError" />
 
-                    <div class="description-panel" v-if="hoveredItem === item && item.description">
-                        {{ item.description }}
-                    </div>
-                </div>
+                            <span class="node-name">
+                                {{ item.name }}
+                            </span>
 
-                <div class="children" v-if="item.expanded && item.children && item.children.length > 0">
-                    <div class="tree-item" v-for="(child, childIndex) in item.children" :key="childIndex">
-                        <!-- Same pattern for child nodes -->
-                        <div class="node-container" @mouseenter="hoveredItem = child" @mouseleave="hoveredItem = null">
-                            <div class="tree-node child-node" @click="handleNodeClick(child)">
-                                <img class="custom-icon" :src="customIconPath" alt="Component"
-                                    @error="handleImageError" />
-
-                                <span class="node-name">
-                                    {{ child.name }}
+                            <span class="version-tags">
+                                <span class="version-tag" v-for="(version, vIndex) in item.versions" :key="vIndex"
+                                    @click.stop="handleVersionClick(item, version, vIndex)" :class="{
+                                        'clicked': clickedVersion === `${item.id}-${version}-${vIndex}`,
+                                        'active': activeVersion === `${item.id}-${version}-${vIndex}`
+                                    }">
+                                    {{ version }}
                                 </span>
+                            </span>
+                        </div>
 
-                                <span class="version-tags">
-                                    <span class="version-tag" v-for="(version, vIndex) in child.versions" :key="vIndex"
-                                        @click.stop="handleVersionClick(child, version, vIndex)" :class="{
-                                            'clicked': clickedVersion === `${child.id}-${version}-${vIndex}`,
-                                            'active': activeVersion === `${child.id}-${version}-${vIndex}`
-                                        }">
-                                        {{ version }}
+                        <div class="description-panel" v-if="hoveredItem === item && item.description">
+                            {{ item.description }}
+                        </div>
+                    </div>
+
+                    <div class="children" v-if="item.expanded && item.children && item.children.length > 0">
+                        <div class="tree-item" v-for="(child, childIndex) in item.children" :key="childIndex">
+                            <!-- Same pattern for child nodes -->
+                            <div class="node-container" @mouseenter="hoveredItem = child" @mouseleave="hoveredItem = null">
+                                <div class="tree-node child-node" @click="handleNodeClick(child)">
+                                    <img class="custom-icon" :src="customIconPath" alt="Component"
+                                        @error="handleImageError" />
+
+                                    <span class="node-name">
+                                        {{ child.name }}
                                     </span>
-                                </span>
-                            </div>
 
-                            <div class="description-panel" v-if="hoveredItem === child && child.description">
-                                {{ child.description }}
+                                    <span class="version-tags">
+                                        <span class="version-tag" v-for="(version, vIndex) in child.versions" :key="vIndex"
+                                            @click.stop="handleVersionClick(child, version, vIndex)" :class="{
+                                                'clicked': clickedVersion === `${child.id}-${version}-${vIndex}`,
+                                                'active': activeVersion === `${child.id}-${version}-${vIndex}`
+                                            }">
+                                            {{ version }}
+                                        </span>
+                                    </span>
+                                </div>
+
+                                <div class="description-panel" v-if="hoveredItem === child && child.description">
+                                    {{ child.description }}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -202,6 +210,12 @@ export default defineComponent({
                 console.error("[GropiusComponentVersions.vue] handleComponentClick: Missing componentId for", item);
             }
         };
+        const openWorkspaceGraph = () => {
+            console.log("Start workspace graph!");
+            if (vscode) {
+                vscode.postMessage({ command: "showWorkspaceGraph" });
+            }
+        };
 
         onMounted(() => {
             document.body.classList.add('vscode-codicon-host');
@@ -235,7 +249,8 @@ export default defineComponent({
             activeVersion,
             activeComponent,
             handleComponentClick,
-            handleNodeClick
+            handleNodeClick,
+            openWorkspaceGraph
         };
     }
 });
@@ -443,5 +458,27 @@ export default defineComponent({
     width: 16px;
     height: 22px;
     margin-right: 4px;
+}
+
+/* Workspace graph */
+
+.showGraph {
+  position:relative;
+}
+.graph-button {
+  background-color: var(--vscode-button-secondaryBackground, #2d2d2d);
+  color: var(--vscode-button-secondaryForeground, #cccccc);
+  border: none;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+}
+.graph-button:hover{
+  background-color: var(--vscode-button-secondaryHoverBackground, #3d3d3d);
 }
 </style>

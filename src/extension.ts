@@ -30,7 +30,10 @@ import {
   GET_TEMPLATE_OPTIONS,
   GET_ALL_USERS,
   CREATE_ASSIGNMENT_MUTATION,
-  REMOVE_ISSUE_RELATION_MUTATION
+  REMOVE_ISSUE_RELATION_MUTATION,
+  FETCH_ALL_WORKSPACE_COMPONENTS_AND_ISSUES,
+  FETCH_FOR_ISSUE_GRAPH,
+  FETCH_TEMP_ISSUE_GRAPH
 } from "./queries";
 import path from "path";
 
@@ -107,7 +110,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 
   // 3) Register the "Issue Details" view
-  const issueDetailsProvider = new IssueDetailsProvider(context.extensionUri);
+  const issueDetailsProvider = new IssueDetailsProvider(context, globalApiClient, context.extensionUri);
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(IssueDetailsProvider.viewType, issueDetailsProvider)
   );
@@ -444,8 +447,133 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
             vscode.commands.executeCommand('extension.showComponentIssues', message.data);
           }
           break;
+        case 'showWorkspaceGraph':
+          // Opens the workspace graph for the given workspace
+          console.log("Start workspaceGraph");
+          this.openWorkspaceGraphEditor();
       }
     });
+  }
+
+  /**
+   * Opens the graph editor.
+   * Loads the workspace graph.
+   * 
+   */
+  public async openWorkspaceGraphEditor(): Promise<void> {
+    console.log("Start openWorkspaceGraphEditor.");
+    const panel = vscode.window.createWebviewPanel(
+      "graphWorkspaceEditor",
+      "Graph Editor",
+      vscode.ViewColumn.One,
+      {
+        enableScripts: true,
+        localResourceRoots: [
+          vscode.Uri.joinPath(this._context.extensionUri, "out", "webview")
+        ]
+      }
+    );
+    const scriptUri = panel.webview.asWebviewUri(
+      vscode.Uri.joinPath(this._context.extensionUri, "out", "webview", "GraphWorkspaceEditor.js")
+    );
+    panel.webview.html = this.getGraphEditorHtml(scriptUri);
+    if (!panel.webview) {
+      console.error("Webview is undefined!");
+    }
+
+    panel.webview.onDidReceiveMessage((message: any): void => {
+      console.log("START: onDidReceiveMessage in ComponentVersionsProvider");
+      if (message.type === "ready") {
+        (async () => {
+          try {
+            await this.apiClient.authenticate();
+            const workspaceData = await this.fetchWorkspaceGraphData();
+            panel.webview.postMessage({
+              type: "workspaceData",
+              data: workspaceData
+            });
+          } catch (error) {
+            vscode.window.showErrorMessage(`Data fetch failed: ${error}`);
+          }
+        })();
+      } else {
+        console.log("We are in EEEEEEEEEEEEEEEEEELLLLLLLLLLLLLLLLLLSSSSSSSSSSSSSSSSSEEEEEEEEEEEEEEE");
+      }
+      return;
+    });
+
+    panel.reveal(vscode.ViewColumn.One);
+  }
+  /**
+   * Todo: in... all found components or smth different
+   * @returns 
+   */
+  private async fetchWorkspaceGraphData(): Promise<any> {
+    console.log("Start fetchWorkspaceData");
+    try {
+      await this.apiClient.authenticate();
+      const mappings = await loadConfigurations();
+      const workspaceData = await this._buildTreeData(mappings);
+      const components = this.getComponents(workspaceData);
+      const response = await this.apiClient.executeQuery(FETCH_ALL_WORKSPACE_COMPONENTS_AND_ISSUES, { in: components });
+      return response.data;
+    } catch (error) {
+      throw new Error(
+        `Failed to fetch workspace graph: ${error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    }
+  }
+  private getComponents(data: any): string[] {
+    console.log("Start getComponents.");
+    let ids: string[] = [];
+
+    if (Array.isArray(data)) {
+      for (const item of data) {
+        ids = ids.concat(this.getComponents(item));
+      }
+    } else if (typeof data === "object" && data !== null) {
+      for (const key in data) {
+        if (key === "id") {
+          ids.push(data[key]);
+        } else {
+          ids = ids.concat(this.getComponents(data[key]));
+        }
+      }
+    }
+
+    return ids;
+  }
+  getGraphEditorHtml(scriptUri: vscode.Uri): string {
+    console.log("STEP: Generating Webview HTML");
+    console.log("Script URI:", scriptUri.toString());
+    return /* html */ `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Graph Editor</title>
+        <style>
+          html, body {
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+          }
+          #app {
+            height: 100vh;
+            width: 100%;
+          }
+        </style>
+      </head>
+      <body>
+        <div id="app"></div>
+        <script src="${scriptUri}"></script>
+
+      </body>
+      </html>
+    `;
   }
 
   // Refresh the component versions data
@@ -1091,6 +1219,7 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
   private originComponentId: string | null = null; // store origin component ID
   private tempFileUri: vscode.Uri | null = null;
   private descriptionEditData: { bodyId: string, issueId: string } | null = null;
+  private isAuthenticated: boolean = false;
 
   public refreshCurrentIssue(): void {
     if (this._view && this.lastIssueId) {
@@ -1098,8 +1227,13 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  constructor(private readonly _extensionUri: vscode.Uri) { }
+  constructor(
+    private readonly context: vscode.ExtensionContext,
+    private readonly apiClient: APIClient,
+    private readonly _extensionUri: vscode.Uri
+  ) {
 
+  }
   public resolveWebviewView(
     webviewView: vscode.WebviewView,
     _context: vscode.WebviewViewResolveContext,
@@ -1354,9 +1488,329 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
         } catch (error) {
           vscode.window.showErrorMessage(`Failed to remove relation: ${error instanceof Error ? error.message : String(error)}`);
         }
+      } else if (message.command === "showIssueGraph") {
+          console.log("Start issueGraph");
+          this.openIssueGraphEditor();
       }
     });
   }
+
+  /**
+   * Opens the graph editor.
+   * Loads the issue graph.
+   * 
+   */
+  public async openIssueGraphEditor(): Promise<void> {
+    console.log("Start openIssueGraphEditor.");
+    const panel = vscode.window.createWebviewPanel(
+      "graphIssueEditor",
+      "Graph Editor",
+      vscode.ViewColumn.One,
+      {
+        enableScripts: true,
+        localResourceRoots: [
+          vscode.Uri.joinPath(this.context.extensionUri, "out", "webview")
+        ]
+      }
+    );
+    const scriptUri = panel.webview.asWebviewUri(
+      vscode.Uri.joinPath(this.context.extensionUri, "out", "webview", "GraphIssueEditor.js")
+    );
+    panel.webview.html = this.getGraphEditorHtml(scriptUri);
+    if (!panel.webview) {
+      console.error("Webview is undefined!");
+    }
+
+    panel.webview.onDidReceiveMessage((message: any): void => {
+      console.log("START: onDidReceiveMessage in IssueDetailsProvider");
+      if (message.type === "ready") {
+        (async () => {
+          try {
+            await this.apiClient.authenticate();
+            const issueData = await this.fetchIssueGraphData();
+            panel.webview.postMessage({
+              type: "issueData",
+              data: issueData
+            });
+          } catch (error) {
+            vscode.window.showErrorMessage(`Data fetch failed: ${error}`);
+          }
+        })();
+      } else {
+        console.log("We are in EEEEEEEEEEEEEEEEEELLLLLLLLLLLLLLLLLLSSSSSSSSSSSSSSSSSEEEEEEEEEEEEEEE");
+      }
+      return;
+    });
+
+    panel.reveal(vscode.ViewColumn.One);
+  }
+  /**
+   * Fetch issue data
+   * 
+   * @returns 
+   */
+  private async fetchIssueGraphData(): Promise<any> {
+    console.log("Start fetchIssueData");
+    try {
+      await this.apiClient.authenticate();
+      const mappings = await loadConfigurations();
+      const workspaceData = await this._buildTreeData(mappings);
+      const components = this.getComponents(workspaceData);
+      const response = await this.apiClient.executeQuery(FETCH_FOR_ISSUE_GRAPH, { id: this.lastIssueId }); //this.lastIssueId
+      console.log("YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY");
+      console.log(JSON.stringify(response.data.node));
+      console.log("YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY");
+      return response.data;
+    } catch (error) {
+      throw new Error(
+        `Failed to fetch workspace graph: ${error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    }
+  }
+
+  private getComponents(data: any): string[] {
+    console.log("Start getComponents.");
+    let ids: string[] = [];
+
+    if (Array.isArray(data)) {
+      for (const item of data) {
+        ids = ids.concat(this.getComponents(item));
+      }
+    } else if (typeof data === "object" && data !== null) {
+      for (const key in data) {
+        if (key === "id") {
+          ids.push(data[key]);
+        } else {
+          ids = ids.concat(this.getComponents(data[key]));
+        }
+      }
+    }
+
+    return ids;
+  }
+
+  getGraphEditorHtml(scriptUri: vscode.Uri): string {
+    console.log("STEP: Generating Webview HTML");
+    console.log("Script URI:", scriptUri.toString());
+    return /* html */ `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Graph Editor</title>
+      <style>
+        html, body {
+          height: 100vh;
+          margin: 0;
+          padding: 0;
+          overflow: hidden;
+        }
+        #app {
+          height: 100vh;
+          width: 100%;
+        }
+      </style>
+    </head>
+    <body>
+      <div id="app"></div>
+      <script src="${scriptUri}"></script>
+
+    </body>
+    </html>
+  `;
+  }
+
+  private async _fetchComponentVersions(
+    componentId?: string,
+    projectId?: string,
+    componentVersionId?: string
+  ): Promise<{ id?: string, componentVersionIds?: string[], name: string, description?: string, versions: string[] }> {
+    try {
+      // Authenticate if needed
+      if (!this.isAuthenticated) {
+        await this.apiClient.authenticate();
+        this.isAuthenticated = true;
+      }
+
+      // If we have a direct component version ID, fetch that specific version
+      if (componentVersionId) {
+        console.log(`Fetching component version with ID: ${componentVersionId}`);
+
+        const result = await this.apiClient.executeQuery(FETCH_COMPONENT_VERSION_BY_ID_QUERY, { id: componentVersionId });
+        console.log("Direct version query result:", JSON.stringify(result, null, 2));
+
+        if (result.data?.node) {
+          const version = result.data.node;
+          const versionString = version.version.startsWith('v') ? version.version : `v${version.version}`;
+          return {
+            id: version.component?.id,
+            componentVersionIds: [version.id],
+            name: version.component?.name || "Unknown Component",
+            description: version.component?.description || "",
+            versions: [versionString]
+          };
+        }
+      }
+      // For the component+project case
+      else if (componentId && projectId) {
+        console.log(`Fetching versions for component ID: ${componentId} in project: ${projectId}`);
+
+        const result = await this.apiClient.executeQuery(GET_COMPONENT_VERSIONS_IN_PROJECT_QUERY, {
+          projectId: projectId
+        });
+
+        console.log("Component+Project query result:", JSON.stringify(result, null, 2));
+
+        if (result.data?.project) {
+          const project = result.data.project;
+          // Filter to get only versions of our target component
+          const componentVersions = project.components.nodes
+            .filter((node: any) => node.component.id === componentId);
+
+          if (componentVersions.length > 0) {
+            const componentId = componentVersions[0].component.id;
+            const componentName = componentVersions[0].component.name;
+            const componentDescription = componentVersions[0].component.description || "";
+
+            const versionStrings = [];
+            const versionIds = [];
+
+            for (const v of componentVersions) {
+              versionStrings.push(v.version.startsWith('v') ? v.version : `v${v.version}`);
+              versionIds.push(v.id);  // Store the version ID
+            }
+
+            return {
+              id: componentId,
+              name: componentName,
+              componentVersionIds: versionIds,
+              description: componentDescription,
+              versions: versionStrings,
+            };
+          }
+        }
+      }
+
+      return { name: "Unknown", versions: [] };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('Error fetching component version:', errorMessage);
+      vscode.window.showErrorMessage(`Error fetching component version: ${errorMessage}`);
+      return { name: "Error", versions: [] };
+    }
+  }
+
+  private async _buildTreeData(mappings: Map<string, any[]>) {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders) {
+      return [];
+    }
+
+    const treeItems = [];
+
+    // Handle multi-root workspace
+    if (workspaceFolders.length > 1) {
+      for (const folder of workspaceFolders) {
+        const rootPath = folder.uri.fsPath;
+        const folderMappings = mappings.get(rootPath);
+
+        if (folderMappings && folderMappings.length > 0) {
+          // Check if the root folder itself is mapped
+          const rootMapping = folderMappings.find(m => m.path === '/');
+
+          if (rootMapping) {
+            // Root folder is directly mapped to a component version
+            if (rootMapping.componentVersion) {
+              const component = await this._fetchComponentVersions(
+                undefined, undefined, rootMapping.componentVersion
+              );
+
+              if (component.versions.length > 0) {
+                treeItems.push({
+                  id: component.id,
+                  componentVersionIds: component.componentVersionIds,
+                  name: component.name,
+                  description: component.description,
+                  versions: component.versions,
+                  expanded: false
+                });
+              }
+            }
+          } else {
+            // Root contains multiple component mappings
+            const folderItem: ComponentTreeItem = {
+              name: folder.name,
+              expanded: false,
+              children: []
+            };
+
+            // Process each mapping in this folder
+            for (const mapping of folderMappings) {
+              let component;
+
+              if (mapping.componentVersion) {
+                component = await this._fetchComponentVersions(
+                  undefined, undefined, mapping.componentVersion
+                );
+              } else if (mapping.component && mapping.project) {
+                component = await this._fetchComponentVersions(
+                  mapping.component, mapping.project
+                );
+              }
+
+              if (component && component.versions.length > 0) {
+                folderItem.children!.push({
+                  id: component.id,
+                  componentVersionIds: component.componentVersionIds,
+                  name: component.name,
+                  description: component.description,
+                  versions: component.versions,
+                  expanded: false
+                });
+              }
+            }
+
+            if (folderItem.children!.length > 0) {
+              treeItems.push(folderItem);
+            }
+          }
+        }
+      }
+    } else {
+      // Single root workspace - flat list of components
+      for (const [rootPath, folderMappings] of mappings.entries()) {
+        for (const mapping of folderMappings) {
+          let component;
+
+          if (mapping.componentVersion) {
+            component = await this._fetchComponentVersions(
+              undefined, undefined, mapping.componentVersion
+            );
+          } else if (mapping.component && mapping.project) {
+            component = await this._fetchComponentVersions(
+              mapping.component, mapping.project
+            );
+          }
+
+          if (component && component.versions.length > 0) {
+            treeItems.push({
+              id: component.id,
+              componentVersionIds: component.componentVersionIds,
+              name: component.name,
+              description: component.description,
+              versions: component.versions,
+              expanded: false
+            });
+          }
+        }
+      }
+    }
+
+    return treeItems;
+  }
+
 
   private getHtmlForWebview(webview: vscode.Webview): string {
     const scriptUri = webview.asWebviewUri(

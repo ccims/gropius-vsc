@@ -1,5 +1,11 @@
 <template>
   <div id="app" class="issue-details">
+    <!-- Show issue graph -->
+    <div class="showGraph">
+      <button class="graph-button" @click="openIssueGraph">
+        Graph
+      </button>
+    </div>
     <div v-if="issue" class="issue-container">
 
       <!-- Title Section with Edit Button -->
@@ -1402,8 +1408,15 @@ export default {
       // Only close if clicking outside the dropdown
       const dropdown = this.$el.querySelector('.type-dropdown');
       if (dropdown && !dropdown.contains(event.target)) {
-        this.activeTypeDropdown = null;
+        this.activeTypeDropdown = null;k
         document.removeEventListener('click', this.closeTypeDropdown);
+      }
+    },
+    // Graph  
+    openIssueGraph() {
+      console.log("Start issue graph");
+      if (vscode) {
+        vscode.postMessage({ command: "showIssueGraph" });
       }
     }
   },
@@ -2772,5 +2785,27 @@ ul {
 
 .search-result-item:hover {
   background-color: var(--vscode-list-hoverBackground);
+}
+
+/* Issue graph */
+
+.showGraph {
+  position:relative;
+}
+.graph-button {
+  background-color: var(--vscode-button-secondaryBackground, #2d2d2d);
+  color: var(--vscode-button-secondaryForeground, #cccccc);
+  border: none;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+}
+.graph-button:hover{
+  background-color: var(--vscode-button-secondaryHoverBackground, #3d3d3d);
 }
 </style>

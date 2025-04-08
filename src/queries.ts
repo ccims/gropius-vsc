@@ -848,3 +848,392 @@ mutation removeIssueRelation($relationId: ID!) {
   }
 }
 `;
+
+
+/**
+ * Fetch all Components of the given List
+ * List: Workspace components (versions)
+ * All comonents, with issues
+ * Issues concerning a hole component or a specific componentversion
+ * 
+ * For extracting: First check whether there are versions
+ * -> YES: take the issues of versions
+ * -> NO: take the issues for component
+ * --> If a issue is selected to the component and to a comonentversion it will affect all componentversions. Always if the whole component is affected it is for all componentversions 
+ * --> Thats why we do not have to differ.
+ * --> TEST this !
+ */
+export const FETCH_ALL_WORKSPACE_COMPONENTS_AND_ISSUES = `query MyQuery($in: [ID!]) {
+  components(filter: {id: {in: $in}}) {
+    nodes {
+      id
+      name
+      issues {
+        nodes {
+          id
+          title
+          aggregatedBy {
+            nodes {
+              id
+              issues {
+                nodes {
+                  id
+                  title
+                  type {
+                    name
+                    iconPath
+                  }
+                }
+              }
+              count
+              isOpen
+            }
+          }
+        }
+      }
+      versions {
+        nodes {
+          version
+          id
+          aggregatedIssues {
+            nodes {
+              count
+              isOpen
+              id
+              type {
+                id
+                name
+                iconPath
+              }
+              outgoingRelations {
+                nodes {
+                  end {
+                    id
+                    relationPartner {
+                      id
+                    }
+                    type {
+                      id
+                    }
+                  }
+                  start {
+                    id
+                    type {
+                      id
+                    }
+                  }
+                }
+              }
+            }
+          }
+          incomingRelations {
+            nodes {
+              start {
+                id
+              }
+              end {
+                id
+              }
+              template {
+                stroke {
+                  color
+                  dash
+                }
+                markerType
+              }
+              id
+            }
+          }
+          interfaceDefinitions {
+            nodes {
+              visibleInterface {
+                id
+                aggregatedIssues {
+                  nodes {
+                    id
+                    isOpen
+                    count
+                    type {
+                      iconPath
+                      name
+                    }
+                  }
+                }
+              }
+              interfaceSpecificationVersion {
+                interfaceSpecification {
+                  name
+                  template {
+                    fill {
+                      color
+                    }
+                    stroke {
+                      color
+                      dash
+                    }
+                    shapeRadius
+                    shapeType
+                  }
+                  id
+                }
+                version
+                id
+              }
+              id
+            }
+          }
+        }
+      }
+      template {
+        shapeType
+        fill {
+          color
+        }
+        stroke {
+          color
+        }
+      }
+    }
+  }
+}
+`;
+
+/**
+ * Fetch all information of the selected issue
+ * All related issues
+ * All componentversions of those issues
+ */
+export const FETCH_FOR_ISSUE_GRAPH = `query MyQuery($id: ID!) {
+  node(id: $id) {
+    ... on Issue {
+      id
+      state {
+        isOpen
+      }
+      type {
+        name
+        iconPath
+      }
+      affects {
+        nodes {
+          ... on ComponentVersion {
+            id
+            version
+            template {
+              id
+              name
+            }
+            component {
+              name
+            }
+            aggregatedIssues {
+              nodes {
+                count
+                isOpen
+                id
+                type {
+                  id
+                  name
+                  iconPath
+                }
+                outgoingRelations {
+                  nodes {
+                    end {
+                      id
+                      relationPartner {
+                        id
+                      }
+                      type {
+                        id
+                      }
+                    }
+                    start {
+                      id
+                      type {
+                        id
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            incomingRelations {
+              nodes {
+                start {
+                  id
+                }
+                end {
+                  id
+                }
+                template {
+                  stroke {
+                    color
+                    dash
+                  }
+                  markerType
+                }
+                id
+              }
+            }
+            interfaceDefinitions {
+              nodes {
+                visibleInterface {
+                  id
+                  aggregatedIssues {
+                    nodes {
+                      id
+                      isOpen
+                      count
+                      type {
+                        iconPath
+                        name
+                      }
+                    }
+                  }
+                }
+                interfaceSpecificationVersion {
+                  interfaceSpecification {
+                    name
+                    template {
+                      fill {
+                        color
+                      }
+                      stroke {
+                        color
+                        dash
+                      }
+                    }
+                    id
+                  }
+                  version
+                  id
+                }
+                id
+              }
+            }
+          }
+          ... on Interface {
+            id
+          }
+        }
+      }
+    }
+  }
+}`;
+
+/**
+ * TEMP Query for issue graph
+ */
+export const FETCH_TEMP_ISSUE_GRAPH = `query MyQuery($id: ID!) {
+  node(id: $id) {
+    ... on Issue {
+      aggregatedBy {
+        nodes {
+          id
+          count
+          isOpen
+          type {
+            name
+            iconPath
+          }
+        }
+      }
+      incomingRelations {
+        nodes {
+          id
+          issue {
+            id
+            state {
+              isOpen
+            }
+            type {
+              name
+              iconPath
+            }
+            aggregatedBy {
+              nodes {
+                relationPartner {
+                  id
+                  ... on ComponentVersion {
+                    id
+                    version
+                    component {
+                      name
+                      template {
+                        shapeType
+                        fill {
+                          color
+                        }
+                        stroke {
+                          color
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      outgoingRelations {
+        nodes {
+          id
+          issue {
+            id
+            state {
+              isOpen
+            }
+            type {
+              name
+              iconPath
+            }
+            aggregatedBy {
+              nodes {
+                relationPartner {
+                  id
+                  ... on ComponentVersion {
+                    id
+                    version
+                    component {
+                      name
+                      template {
+                        shapeType
+                        fill {
+                          color
+                        }
+                        stroke {
+                          color
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      affects {
+        nodes {
+          ... on ComponentVersion {
+            id
+            version
+            component {
+              name
+              template {
+                shapeType
+                fill {
+                  color
+                }
+                stroke {
+                  color
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}`;
