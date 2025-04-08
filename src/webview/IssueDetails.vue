@@ -253,21 +253,25 @@
               <div class="relations-subheader">Incoming Relations</div>
 
               <!-- Iterate over each relation type group -->
-              <div v-for="(issues, relType) in groupedIncomingRelations" :key="'in-' + relType"
-                style="margin-bottom: 10px;">
+              <div v-for="(issues, relType) in groupedIncomingRelations" :key="'in-' + relType" style="margin-bottom: 10px;">
                 <!-- Show the relation type -->
                 <div class="relation-type-header" style="font-weight: 600; margin-bottom: 4px;">
                   {{ relType }}
                 </div>
 
                 <div class="relations-list">
-                  <div v-for="issueData in issues" :key="issueData.id" class="relation-item"
-                    @click="openRelatedIssue(issueData.id)" style="display: flex; align-items: center; gap: 8px;">
+                  <div 
+                    v-for="issueData in issues" 
+                    :key="issueData.id" 
+                    class="relation-item"
+                    @click="openRelatedIssue(issueData.id)"
+                    style="display: flex; align-items: center; gap: 8px;">
                     <div class="icon-stack">
                       <img class="base-icon" :src="getTypeIconPathFor(issueData)" alt="" />
                       <img class="overlay-icon" :src="getRelationalIconPathFor(issueData)" alt="" />
                     </div>
-                    {{ issueData.title }}
+                    <!-- This span simply displays the title aligned left -->
+                    <span>{{ issueData.title }}</span>
                   </div>
                 </div>
               </div>
@@ -2061,6 +2065,10 @@ ul {
 
 .relation-item:hover {
   background-color: var(--vscode-list-hoverBackground);
+}
+
+.relations-group .relation-item {
+  justify-content: flex-start !important;
 }
 
 .relation-content {
