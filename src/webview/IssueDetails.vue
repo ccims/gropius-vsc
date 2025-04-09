@@ -216,36 +216,62 @@
                 </button>
               </div>
 
-              <!-- Iterate over each relation type group -->
-              <div v-for="(relations, relType) in groupedOutgoingRelations" :key="'out-' + relType" style="margin-bottom: 10px;">
-                <!-- Display the relation type -->
-                <div class="relation-type-header" style="font-weight: 600; margin-bottom: 4px;">
-                  {{ relType }}
-                </div>
-
-                <div class="relations-list">
-                  <div v-for="relation in relations" :key="relation.id" class="relation-item">
-                    <!-- Left side: icon + title -->
-                    <div class="relation-content" @click="openRelatedIssue(relation.relatedIssue.id)">
-                      <div class="icon-stack">
-                        <img class="base-icon" :src="getTypeIconPathFor(relation.relatedIssue)" alt="" />
-                        <img class="overlay-icon" :src="getRelationalIconPathFor(relation.relatedIssue)" alt="" />
+              <!-- When not editing: show grouped relations -->
+              <template v-if="!editingOutgoingRelations">
+                <div v-for="(relations, relType) in groupedOutgoingRelations" :key="'out-' + relType" style="margin-bottom: 10px;">
+                  <!-- Group header displaying the common relation type -->
+                  <div class="relation-type-header" style="font-weight: 600; margin-bottom: 4px;">
+                    {{ relType }}
+                  </div>
+                  <div class="relations-list">
+                    <div v-for="relation in relations" :key="relation.id" class="relation-item">
+                      <!-- Left side: icon + title -->
+                      <div class="relation-content" @click="openRelatedIssue(relation.relatedIssue.id)">
+                        <div class="icon-stack">
+                          <img class="base-icon" :src="getTypeIconPathFor(relation.relatedIssue)" alt="" />
+                          <img class="overlay-icon" :src="getRelationalIconPathFor(relation.relatedIssue)" alt="" />
+                        </div>
+                        <span>{{ relation.relatedIssue.title }}</span>
                       </div>
-                      <span>{{ relation.relatedIssue.title }}</span>
+                      <!-- Right side: delete button (only visible in edit mode, but kept here for safety) -->
+                      <button
+                        v-if="editingOutgoingRelations"
+                        class="remove-relation-button"
+                        @click.stop="onRemoveRelation(relation.id)"
+                        title="Remove Relation"
+                      >
+                        X
+                      </button>
                     </div>
+                  </div>
+                </div>
+              </template>
 
-                    <!-- Right side: the remove X -->
-                    <button
-                      v-if="editingOutgoingRelations"
-                      class="remove-relation-button"
-                      @click.stop="onRemoveRelation(relation.id)"
-                      title="Remove Relation"
-                    >
+              <!-- When editing: show flat list where each relation shows its individual relation type -->
+              <template v-else>
+                <div class="relations-list">
+                  <div v-for="item in flatOutgoingRelations" :key="item.relation.id" class="relation-item">
+                    <div class="relation-content" @click="openRelatedIssue(item.relation.relatedIssue.id)" style="display: flex; align-items: center;">
+                      <div class="icon-stack">
+                        <img class="base-icon" :src="getTypeIconPathFor(item.relation.relatedIssue)" alt="" />
+                        <img class="overlay-icon" :src="getRelationalIconPathFor(item.relation.relatedIssue)" alt="" />
+                      </div>
+                      <div style="display: flex; flex-direction: column; margin-left: 8px;">
+                        <span>{{ item.relation.relatedIssue.title }}</span>
+                        <!-- Show the relation type individually -->
+                        <span class="relation-type-inline" style="font-size: 0.85em; color: #ccc;">
+                          {{ item.relType }}
+                        </span>
+                      </div>
+                    </div>
+                    <button class="remove-relation-button"
+                            @click.stop="onRemoveRelation(item.relation.id)"
+                            title="Remove Relation">
                       X
                     </button>
                   </div>
                 </div>
-              </div>
+              </template>
             </div>
 
             <!-- Incoming Relations SECOND -->
@@ -505,6 +531,21 @@ export default {
         grouped[relType].push(node);
       }
       return grouped;
+    },
+
+    flatOutgoingRelations() {
+      if (!this.issue || !this.issue.outgoingRelations) return [];
+      const nodes = this.issue.outgoingRelations.nodes || [];
+      const edges = this.issue.outgoingRelations.edges || [];
+      const length = Math.min(nodes.length, edges.length);
+      const flat = [];
+      for (let i = 0; i < length; i++) {
+        flat.push({
+          relation: nodes[i],
+          relType: edges[i].node.type?.name || "Unknown"
+        });
+      }
+      return flat;
     },
 
     // NEW: Combine edges + nodes for INCOMING
