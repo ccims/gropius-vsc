@@ -1549,7 +1549,6 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
   private async changeIssueRelationType(data: { relationId: string, typeId: string }): Promise<any> {
     try {
       await globalApiClient.authenticate();
-
       const result = await globalApiClient.executeQuery(
         CHANGE_ISSUE_RELATION_TYPE_MUTATION,
         {
@@ -1559,13 +1558,15 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
           }
         }
       );
-
       if (result.errors) {
         throw new Error(result.errors[0].message);
       }
-
-      // Return the new type from the mutation payload
-      return result.data.changeIssueRelationType.outgoingRelationTypeChangedEvent.newType;
+      const eventData = result.data?.changeIssueRelationType?.outgoingRelationTypeChangedEvent;
+      if (!eventData) {
+        console.info('No change occurred: the relation type was already set to the selected value.');
+        return null;
+      }
+      return eventData.newType;
     } catch (error) {
       console.error('[IssueDetailsProvider] Error changing relation type:', error);
       throw error;

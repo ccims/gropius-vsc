@@ -1261,10 +1261,6 @@ mutation changeIssueRelationType($input: ChangeIssueRelationTypeInput!) {
         id
         name
       }
-      oldType {
-        id
-        name
-      }
     }
   }
 }
