@@ -492,23 +492,16 @@ export default {
       const nodes = this.issue.outgoingRelations.nodes || [];
       const edges = this.issue.outgoingRelations.edges || [];
 
-      // Create a map: relatedIssue.id -> relation type from the corresponding edge
-      const relationTypeMap = new Map();
-      for (const edge of edges) {
-        const relatedIssueId = edge.node.relatedIssue.id;
-        const relType = edge.node.type?.name || "Unknown";
-        relationTypeMap.set(relatedIssueId, relType);
-      }
-
-      // Group the nodes based on the relation type from the map
       const grouped = {};
-      for (const node of nodes) {
-        const relatedIssue = node.relatedIssue;
-        const relType = relationTypeMap.get(relatedIssue.id) || "Unknown";
+      // Ensure we iterate over the minimum length (assuming both arrays are aligned)
+      const length = Math.min(nodes.length, edges.length);
+      for (let i = 0; i < length; i++) {
+        const node = nodes[i];
+        const edge = edges[i];
+        const relType = edge.node.type?.name || "Unknown";
         if (!grouped[relType]) {
           grouped[relType] = [];
         }
-        // Optionally, add the relation type to the node object if needed:
         grouped[relType].push(node);
       }
       return grouped;
