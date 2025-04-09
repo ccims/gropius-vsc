@@ -832,24 +832,6 @@ mutation CreateIssue($input: CreateIssueInput!) {
 }
 `;
 
-export const REMOVE_ISSUE_RELATION_MUTATION = `
-mutation removeIssueRelation($relationId: ID!) {
-  removeIssueRelation(input: { issueRelation: $relationId }) {
-    removedOutgoingRelationEvent {
-      id
-      removedRelation {
-        id
-        relatedIssue {
-          id
-          title
-        }
-      }
-    }
-  }
-}
-`;
-
-
 /**
  * Fetch all Components of the given List
  * List: Workspace components (versions)
@@ -1237,3 +1219,53 @@ export const FETCH_TEMP_ISSUE_GRAPH = `query MyQuery($id: ID!) {
     }
   }
 }`;
+
+export const GET_ISSUE_RELATION_TYPES = `
+query GetIssueRelationTypes(
+  $filter: IssueRelationTypeFilterInput,
+  $first: Int!,
+  $query: String!,
+  $skip: Int
+) {
+  searchIssueRelationTypes(filter: $filter, first: $first, query: $query, skip: $skip) {
+    id
+    name
+    description
+  }
+}
+`;
+
+export const REMOVE_ISSUE_RELATION_MUTATION = `
+mutation removeIssueRelation($relationId: ID!) {
+  removeIssueRelation(input: { issueRelation: $relationId }) {
+    removedOutgoingRelationEvent {
+      id
+      removedRelation {
+        id
+        relatedIssue {
+          id
+          title
+        }
+      }
+    }
+  }
+}
+`;
+
+export const CHANGE_ISSUE_RELATION_TYPE_MUTATION = `
+mutation changeIssueRelationType($input: ChangeIssueRelationTypeInput!) {
+  changeIssueRelationType(input: $input) {
+    outgoingRelationTypeChangedEvent {
+      id
+      newType {
+        id
+        name
+      }
+      oldType {
+        id
+        name
+      }
+    }
+  }
+}
+`;

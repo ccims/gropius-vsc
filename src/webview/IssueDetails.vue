@@ -258,12 +258,28 @@
                       </div>
                       <div style="display: flex; flex-direction: column; margin-left: 8px;">
                         <span>{{ item.relation.relatedIssue.title }}</span>
-                        <!-- Show the relation type individually -->
                         <span class="relation-type-inline" style="font-size: 0.85em; color: #ccc;">
                           {{ item.relType }}
                         </span>
+                        <!-- Show dropdown if this relation is being edited -->
+                        <div v-if="currentlyEditingRelation === item.relation.id" class="field-dropdown" style="margin-top: 4px;">
+                          <div v-if="relationTypesLoading" class="dropdown-loading">Loading...</div>
+                          <div v-else class="dropdown-options">
+                            <div v-for="type in relationTypes" :key="type.id" class="dropdown-option"
+                                @click.stop="selectRelationType(item.relation.id, type.id)">
+                              {{ type.name }}
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
+                    <!-- New edit button for outgoing relation -->
+                    <button class="edit-button title-edit-button"
+                            @click.stop="triggerEditRelation(item.relation.id)"
+                            title="Edit relation type">
+                      <span class="edit-icon">✎</span>
+                    </button>
+                    <!-- Delete button (retained) -->
                     <button class="remove-relation-button"
                             @click.stop="onRemoveRelation(item.relation.id)"
                             title="Remove Relation">
@@ -491,7 +507,10 @@ export default {
       activeTypeDropdown: null,
       assignmentTypes: [],
       assignmentTypesMap: {},
-      editingOutgoingRelations: false
+      editingOutgoingRelations: false,
+      currentlyEditingRelation: null,
+      relationTypes: [],
+      relationTypesLoading: false,
     };
   },
   computed: {
@@ -644,6 +663,35 @@ export default {
     }
   },
   methods: {
+    // When the edit button is clicked for an outgoing relation
+    triggerEditRelation(relationId) {
+      if (this.currentlyEditingRelation === relationId) {
+        // Toggle off if already editing
+        this.currentlyEditingRelation = null;
+        return;
+      }
+      this.currentlyEditingRelation = relationId;
+      this.relationTypesLoading = true;
+      // Request available relation types from the extension host
+      if (vscode) {
+        vscode.postMessage({
+          command: 'getRelationTypes',
+          relationId: relationId
+        });
+      }
+    },
+    // When a user selects a new relation type from the dropdown
+    selectRelationType(relationId, typeId) {
+      if (vscode) {
+        vscode.postMessage({
+          command: 'changeRelationType',
+          relationId: relationId,
+          typeId: typeId
+        });
+      }
+      // Close the dropdown after selection
+      this.currentlyEditingRelation = null;
+    },
     formatDate(dateString) {
       if (!dateString) return 'Unknown';
 
@@ -1618,11 +1666,25 @@ export default {
       } else if (message && message.command === 'userSearchResults') {
         console.log('[IssueDetails.vue] User search results:', message.users);
         this.userSearchResults = message.users || [];
-      }
-      else if (message && message.command === 'assignmentCreated') {
+      } else if (message && message.command === 'assignmentCreated') {
         console.log('[IssueDetails.vue] Assignment created successfully');
         vscode.window.showInformationMessage('Assignment created successfully.');
         // The issue will be refreshed with the new assignment
+      } else if (message && message.command === 'relationTypesLoaded') {
+        if (this.currentlyEditingRelation === message.relationId) {
+          this.relationTypes = message.types;
+          this.relationTypesLoading = false;
+        }
+      } else if (message && message.command === 'relationTypesError') {
+        console.error('Error loading relation types:', message.error);
+        this.relationTypes = [];
+        this.relationTypesLoading = false;
+      } else if (message.command === 'relationTypeChanged') {
+        // You can now use message.newType (with id and name) to update your UI.
+        // Optionally, refresh the issue details or update the specific outgoing relation locally.
+        // For instance:
+        console.log('Outgoing relation updated, new type:', message.newType);
+        // Optionally: this.refreshCurrentIssue();
       }
 
       if (typeof acquireVsCodeApi !== "undefined") {

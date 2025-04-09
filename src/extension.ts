@@ -31,6 +31,8 @@ import {
   GET_ALL_USERS,
   CREATE_ASSIGNMENT_MUTATION,
   REMOVE_ISSUE_RELATION_MUTATION,
+  CHANGE_ISSUE_RELATION_TYPE_MUTATION,
+  GET_ISSUE_RELATION_TYPES,
   FETCH_ALL_WORKSPACE_COMPONENTS_AND_ISSUES,
   FETCH_FOR_ISSUE_GRAPH,
   FETCH_TEMP_ISSUE_GRAPH
@@ -1491,8 +1493,83 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
       } else if (message.command === "showIssueGraph") {
           console.log("Start issueGraph");
           this.openIssueGraphEditor();
+      } else if (message.command === 'getRelationTypes') {
+        try {
+          const relationTypes = await this.fetchIssueRelationTypes();
+          this._view?.webview.postMessage({
+            command: 'relationTypesLoaded',
+            relationId: message.relationId,
+            types: relationTypes
+          });
+        } catch (error) {
+          this._view?.webview.postMessage({
+            command: 'relationTypesError',
+            error: error instanceof Error ? error.message : String(error)
+          });
+        }
+      } else if (message.command === 'changeRelationType') {
+        try {
+          const newType = await this.changeIssueRelationType({
+            relationId: message.relationId,
+            typeId: message.typeId,
+          });
+          this._view?.webview.postMessage({
+            command: 'relationTypeChanged',
+            relationId: message.relationId,
+            newType
+          });
+          // Optionally refresh issue details
+          this.refreshCurrentIssue();
+        } catch (error) {
+          vscode.window.showErrorMessage(`Failed to change relation type: ${error instanceof Error ? error.message : String(error)}`);
+        }
       }
     });
+  }
+
+  private async fetchIssueRelationTypes(): Promise<any[]> {
+    try {
+      await globalApiClient.authenticate();
+      const result = await globalApiClient.executeQuery(GET_ISSUE_RELATION_TYPES, {
+        filter: {},
+        first: 10,
+        query: "*",
+        skip: 0,
+      });
+      if (result.errors) {
+        throw new Error(result.errors[0].message);
+      }
+      return result.data.searchIssueRelationTypes;
+    } catch (error) {
+      console.error('[IssueDetailsProvider] Error fetching relation types:', error);
+      return [];
+    }
+  }
+
+  private async changeIssueRelationType(data: { relationId: string, typeId: string }): Promise<any> {
+    try {
+      await globalApiClient.authenticate();
+
+      const result = await globalApiClient.executeQuery(
+        CHANGE_ISSUE_RELATION_TYPE_MUTATION,
+        {
+          input: {
+            issueRelation: data.relationId,
+            type: data.typeId,
+          }
+        }
+      );
+
+      if (result.errors) {
+        throw new Error(result.errors[0].message);
+      }
+
+      // Return the new type from the mutation payload
+      return result.data.changeIssueRelationType.outgoingRelationTypeChangedEvent.newType;
+    } catch (error) {
+      console.error('[IssueDetailsProvider] Error changing relation type:', error);
+      throw error;
+    }
   }
 
   /**
