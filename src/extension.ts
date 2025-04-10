@@ -1550,6 +1550,23 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
         } catch (error) {
           vscode.window.showErrorMessage(`Error fetching issues: ${error instanceof Error ? error.message : String(error)}`);
         }
+      } else if (message.command === 'getNewRelationTypes') {
+        try {
+          await globalApiClient.authenticate();
+          const result = await globalApiClient.executeQuery(GET_ISSUE_RELATION_TYPES, {
+            filter: {},
+            first: 10,
+            query: "*",
+            skip: 0
+          });
+          const types = result.data && result.data.searchIssueRelationTypes ? result.data.searchIssueRelationTypes : [];
+          this._view?.webview.postMessage({ command: 'newRelationTypesLoaded', types });
+        } catch (error) {
+          this._view?.webview.postMessage({
+            command: 'newRelationTypesError',
+            error: error instanceof Error ? error.message : String(error)
+          });
+        }
       }
     });
   }
