@@ -145,7 +145,7 @@ function extractRelations(componentVersion: any): any[] {
         return [];
     }
     const relations = new Map<string, { id: string; name: string; start: string; end: string; style: {}; contextMenu: {} }>();
-    componentVersion.incomingRelations.nodes.forEach((relation: any) => {
+    componentVersion.incomingRelations?.nodes.forEach((relation: any) => {
         if (!relation.end?.id) {
             return;
         }
@@ -232,7 +232,6 @@ function createGraphData(data: any = null, workspace: any = null): { graph: Grap
         console.log("Something went wrong with issue data in GraphIssue.vue");
         return { graph, layout };
     }
-    let initialIssueCount = 1;    
     let issueTypeOfSelectedIssue: { id: any; name: any; iconPath: any; count: any; isOpen: any; }[] = [];
     issueTypeOfSelectedIssue.push({ 
         id: query.id,
@@ -242,37 +241,60 @@ function createGraphData(data: any = null, workspace: any = null): { graph: Grap
         isOpen: query.state.isOpen,
     });
 
+    interface IssueRelation {
+        start: string;
+        end: string;
+        count: number;
+    }
     let temp_saved_componentVersions = new Map <string, { id: any; name: any; version: any; style: any; interfaces: any, issueTypes: any, contextMenu: any}>();
     let compRelationSize = new Map <string, any>();
-    
-   if (query.aggregatedBy.nodes.length == 1) {
-    console.log("Exact one component version for this issue!!!");
-    const nextIssue = query.aggregatedBy.nodes[0].relationPartner;
-    graph.components.push({
-        id: nextIssue.id,
-        name: nextIssue.component.name,
-        version: nextIssue.version,
-        style: {
-            shape: nextIssue.component.template.shapeType || 'RECT',
-            fill: { color: nextIssue.component.template?.fill?.color || 'transparent'},
-            stroke: { color: nextIssue.component.template?.stroke?.color || 'rgb(209, 213, 219)'}
-        },
-        interfaces: [],
-        issueTypes: issueTypeOfSelectedIssue,
-        contextMenu: {}
-    });
+    let issueRelationsArray = new Map <string, IssueRelation>();
+    // selected issue
+    if (query.aggregatedBy.nodes.length == 1) {
+        console.log("Exact one component version for this issue!!!");
+        const nextIssue = query.aggregatedBy.nodes[0].relationPartner;
+        graph.components.push({
+            id: nextIssue.id,
+            name: nextIssue.component.name,
+            version: nextIssue.version,
+            style: {
+                shape: nextIssue.component.template.shapeType || 'RECT',
+                fill: { color: nextIssue.component.template?.fill?.color || 'transparent'},
+                stroke: { color: nextIssue.component.template?.stroke?.color || 'rgb(209, 213, 219)'}
+            },
+            interfaces: [],
+            issueTypes: issueTypeOfSelectedIssue,
+            contextMenu: {}
+        });
 
-   } else if (query.aggregatedBy.nodes.length > 1) {
-    console.log("More than one component version for this issue!!!");
-    query.aggregatedBy.nodes.forEach((componentVersion: any) => {
-        const nextIssue = componentVersion.relationPartner;
-        if (temp_saved_componentVersions.has(nextIssue.component.name)){
-            if(isInWorkspace(nextIssue.id, workspace)){
-                // componentversion of the new element is in workspace
-                if(isInWorkspace(temp_saved_componentVersions.get(nextIssue.component.name)?.id, workspace)) {
-                    // componentversion of the existing element is in workspace
-                    if(nextIssue.incomingRelations.nodes.length > compRelationSize.get(nextIssue.component.name)) {
-                        compRelationSize.set(nextIssue.component.name, nextIssue.incomingRelations.nodes.length);
+    } else if (query.aggregatedBy.nodes.length > 1) {
+        console.log("More than one component version for this issue!!!");
+        query.aggregatedBy.nodes.forEach((componentVersion: any) => {
+            const nextIssue = componentVersion.relationPartner;
+            if (temp_saved_componentVersions.has(nextIssue.component.name)){
+                if(isInWorkspace(nextIssue.id, workspace)){
+                    // componentversion of the new element is in workspace
+                    if(isInWorkspace(temp_saved_componentVersions.get(nextIssue.component.name)?.id, workspace)) {
+                        // componentversion of the existing element is in workspace
+                        if(nextIssue.incomingRelations?.nodes?.length > compRelationSize.get(nextIssue.component.name)) {
+                            compRelationSize.set(nextIssue.component.name, nextIssue.incomingRelations?.nodes.length);
+                            temp_saved_componentVersions.set(nextIssue.component.name, {
+                                id: nextIssue.id,
+                                name: nextIssue.component.name,
+                                version: nextIssue.version,
+                                style: {
+                                    shape: nextIssue.component.template.shapeType || 'RECT',
+                                    fill: { color: nextIssue.component.template?.fill?.color || 'transparent'},
+                                    stroke: { color: nextIssue.component.template?.stroke?.color || 'rgb(209, 213, 219)'}
+                                },
+                                interfaces: [],
+                                issueTypes: issueTypeOfSelectedIssue,
+                                contextMenu: {}
+                            });
+                        }
+                        // ELSE: no change
+                    } else {
+                        compRelationSize.set(nextIssue.component.name, nextIssue.incomingRelations?.nodes.length);
                         temp_saved_componentVersions.set(nextIssue.component.name, {
                             id: nextIssue.id,
                             name: nextIssue.component.name,
@@ -287,17 +309,137 @@ function createGraphData(data: any = null, workspace: any = null): { graph: Grap
                             contextMenu: {}
                         });
                     }
+                } else {
+                    if(!isInWorkspace(temp_saved_componentVersions.get(nextIssue.component.name)?.id, workspace)) {
+                        if(nextIssue.incomingRelations?.nodes?.length > compRelationSize.get(nextIssue.component.name)) {
+                            compRelationSize.set(nextIssue.component.name, nextIssue.incomingRelations?.nodes.length);
+                            temp_saved_componentVersions.set(nextIssue.component.name, {
+                                id: nextIssue.id,
+                                name: nextIssue.component.name,
+                                version: nextIssue.version,
+                                style: {
+                                    shape: nextIssue.component.template.shapeType || 'RECT',
+                                    fill: { color: nextIssue.component.template?.fill?.color || 'transparent'},
+                                    stroke: { color: nextIssue.component.template?.stroke?.color || 'rgb(209, 213, 219)'}
+                                },
+                                interfaces: [],
+                                issueTypes: issueTypeOfSelectedIssue,
+                                contextMenu: {}
+                            });
+                        }
+                        // ELSE: no change
+                    }
+                    // ELSE: no change
+                }
+            } else {
+                compRelationSize.set(nextIssue.component.name, nextIssue.incomingRelations?.nodes.length);
+                temp_saved_componentVersions.set(nextIssue.component.name, {
+                    id: nextIssue.id,
+                    name: nextIssue.component.name,
+                    version: nextIssue.version,
+                    style: {
+                        shape: nextIssue.component.template.shapeType || 'RECT',
+                        fill: { color: nextIssue.component.template?.fill?.color || 'transparent'},
+                        stroke: { color: nextIssue.component.template?.stroke?.color || 'rgb(209, 213, 219)'}
+                    },
+                    interfaces: [],
+                    issueTypes: issueTypeOfSelectedIssue,
+                    contextMenu: {}
+                });
+            }
+
+        });
+
+    }
+    /*
+        query.affects.nodes.forEach((componentversion: any) => {
+                    //graph.issueRelations.push(...extractIssueRelations(component.version));
+                    //graph.relations.push(...extractRelations(component.version));
+                    //const compInterfaces = extractInterfaces(version);
+                    //console.log("Interface: " + JSON.stringify(compInterfaces));
+
+                    
+                    graph.components.push({
+                        id: componentversion.id,
+                        name: componentversion.component.name,
+                        version: componentversion.version,
+                        style: {
+                            shape: componentversion?.template?.shapeType || 'RECT',
+                            fill: { color: componentversion?.template?.fill?.color || 'transparent' },
+                            stroke: { color: componentversion?.template?.stroke?.color || 'rgb(209, 213, 219)' }
+                        },
+                        interfaces: [], //compInterfaces,
+                        issueTypes: extractIssueTypes(componentversion) || [],
+                        contextMenu: {}
+                    });
+        });
+        */
+
+    // Incoming issue relations
+    query.incomingRelations?.nodes.forEach((issueRelation: any) => {
+      const startId = query.id;
+      const endId = issueRelation.issue.id;
+      const key = `${startId}-${endId}`;
+      if (startId != endId) {
+        if(issueRelationsArray.has(key)) {
+            issueRelationsArray.get(key)!.count ++;
+        } else {
+            issueRelationsArray.set(key, { start: startId, end: endId, count: 1});
+        }
+      }
+   if (issueRelation.issue.aggregatedBy.nodes.length == 1) {
+    console.log("Exact one component version for this issue!!!");
+    const nextComponent = issueRelation.issue.aggregatedBy.nodes[0].relationPartner;
+    graph.components.push({
+        id: nextComponent.id,
+        name: nextComponent.component.name,
+        version: nextComponent.version,
+        style: {
+            shape: nextComponent.component.template.shapeType || 'RECT',
+            fill: { color: nextComponent.component.template?.fill?.color || 'transparent'},
+            stroke: { color: nextComponent.component.template?.stroke?.color || 'rgb(209, 213, 219)'}
+        },
+        interfaces: [],
+        issueTypes: issueTypeOfSelectedIssue,
+        contextMenu: {}
+    });
+
+   } else if (issueRelation.issue.aggregatedBy.nodes.length > 1) {
+    console.log("More than one component version for this issue!!!");
+    issueRelation.issue.aggregatedBy.nodes.forEach((componentVersion: any) => {
+        const nextComponent = componentVersion.relationPartner;
+        if (temp_saved_componentVersions.has(nextComponent.component.name)){
+            if(isInWorkspace(nextComponent.id, workspace)){
+                // componentversion of the new element is in workspace
+                if(isInWorkspace(temp_saved_componentVersions.get(nextComponent.component.name)?.id, workspace)) {
+                    // componentversion of the existing element is in workspace
+                    if(nextComponent.incomingRelations?.nodes?.length > compRelationSize.get(nextComponent.component.name)) {
+                        compRelationSize.set(nextComponent.component.name, nextComponent.incomingRelations?.nodes.length);
+                        temp_saved_componentVersions.set(nextComponent.component.name, {
+                            id: nextComponent.id,
+                            name: nextComponent.component.name,
+                            version: nextComponent.version,
+                            style: {
+                                shape: nextComponent.component.template.shapeType || 'RECT',
+                                fill: { color: nextComponent.component.template?.fill?.color || 'transparent'},
+                                stroke: { color: nextComponent.component.template?.stroke?.color || 'rgb(209, 213, 219)'}
+                            },
+                            interfaces: [],
+                            issueTypes: issueTypeOfSelectedIssue,
+                            contextMenu: {}
+                        });
+                    }
                     // ELSE: no change
                 } else {
-                    compRelationSize.set(nextIssue.component.name, nextIssue.incomingRelations.nodes.length);
-                    temp_saved_componentVersions.set(nextIssue.component.name, {
-                        id: nextIssue.id,
-                        name: nextIssue.component.name,
-                        version: nextIssue.version,
+                    compRelationSize.set(nextComponent.component.name, nextComponent.incomingRelations?.nodes.length);
+                    temp_saved_componentVersions.set(nextComponent.component.name, {
+                        id: nextComponent.id,
+                        name: nextComponent.component.name,
+                        version: nextComponent.version,
                         style: {
-                            shape: nextIssue.component.template.shapeType || 'RECT',
-                            fill: { color: nextIssue.component.template?.fill?.color || 'transparent'},
-                            stroke: { color: nextIssue.component.template?.stroke?.color || 'rgb(209, 213, 219)'}
+                            shape: nextComponent.component.template.shapeType || 'RECT',
+                            fill: { color: nextComponent.component.template?.fill?.color || 'transparent'},
+                            stroke: { color: nextComponent.component.template?.stroke?.color || 'rgb(209, 213, 219)'}
                         },
                         interfaces: [],
                         issueTypes: issueTypeOfSelectedIssue,
@@ -305,17 +447,17 @@ function createGraphData(data: any = null, workspace: any = null): { graph: Grap
                     });
                 }
             } else {
-                if(!isInWorkspace(temp_saved_componentVersions.get(nextIssue.component.name)?.id, workspace)) {
-                    if(nextIssue.incomingRelations.nodes.length > compRelationSize.get(nextIssue.component.name)) {
-                        compRelationSize.set(nextIssue.component.name, nextIssue.incomingRelations.nodes.length);
-                        temp_saved_componentVersions.set(nextIssue.component.name, {
-                            id: nextIssue.id,
-                            name: nextIssue.component.name,
-                            version: nextIssue.version,
+                if(!isInWorkspace(temp_saved_componentVersions.get(nextComponent.component.name)?.id, workspace)) {
+                    if(nextComponent.incomingRelations?.nodes?.length > compRelationSize.get(nextComponent.component.name)) {
+                        compRelationSize.set(nextComponent.component.name, nextComponent.incomingRelations?.nodes.length);
+                        temp_saved_componentVersions.set(nextComponent.component.name, {
+                            id: nextComponent.id,
+                            name: nextComponent.component.name,
+                            version: nextComponent.version,
                             style: {
-                                shape: nextIssue.component.template.shapeType || 'RECT',
-                                fill: { color: nextIssue.component.template?.fill?.color || 'transparent'},
-                                stroke: { color: nextIssue.component.template?.stroke?.color || 'rgb(209, 213, 219)'}
+                                shape: nextComponent.component.template.shapeType || 'RECT',
+                                fill: { color: nextComponent.component.template?.fill?.color || 'transparent'},
+                                stroke: { color: nextComponent.component.template?.stroke?.color || 'rgb(209, 213, 219)'}
                             },
                             interfaces: [],
                             issueTypes: issueTypeOfSelectedIssue,
@@ -327,8 +469,42 @@ function createGraphData(data: any = null, workspace: any = null): { graph: Grap
                 // ELSE: no change
             }
         } else {
-            compRelationSize.set(nextIssue.component.name, nextIssue.incomingRelations.nodes.length);
-            temp_saved_componentVersions.set(nextIssue.component.name, {
+            compRelationSize.set(nextComponent.component.name, nextComponent.incomingRelations?.nodes.length);
+            temp_saved_componentVersions.set(nextComponent.component.name, {
+                id: nextComponent.id,
+                name: nextComponent.component.name,
+                version: nextComponent.version,
+                style: {
+                    shape: nextComponent.component.template.shapeType || 'RECT',
+                    fill: { color: nextComponent.component.template?.fill?.color || 'transparent'},
+                    stroke: { color: nextComponent.component.template?.stroke?.color || 'rgb(209, 213, 219)'}
+                },
+                interfaces: [],
+                issueTypes: issueTypeOfSelectedIssue,
+                contextMenu: {}
+            });
+        }
+        });
+    }
+    });
+    
+    // Outgoing issue relations
+    query.outgoingRelations.nodes.forEach((issueRelation: any) => {
+      const startId = query.id;
+      const endId = issueRelation.relatedIssue.id;
+      const key = `${startId}-${endId}`;
+      if (startId != endId) {
+        if(issueRelationsArray.has(key)) {
+            issueRelationsArray.get(key)!.count ++;
+        } else {
+            issueRelationsArray.set(key, { start: startId, end: endId, count: 1});
+        }
+        }
+        if (issueRelation.relatedIssue.aggregatedBy.nodes.length == 1) {
+            console.log("Just one relationpartner!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+            console.log("Exact one component version for this issue!!!");
+            const nextIssue = issueRelation.relatedIssue.aggregatedBy.nodes[0].relationPartner;
+            graph.components.push({
                 id: nextIssue.id,
                 name: nextIssue.component.name,
                 version: nextIssue.version,
@@ -341,38 +517,103 @@ function createGraphData(data: any = null, workspace: any = null): { graph: Grap
                 issueTypes: issueTypeOfSelectedIssue,
                 contextMenu: {}
             });
+
+        } else if (issueRelation.relatedIssue.aggregatedBy.nodes.length > 1) {
+            console.log("MOre than one relationpartner?????????????????????????");
+            console.log("More than one component version for this issue!!!");
+            issueRelation.relatedIssue.aggregatedBy.nodes.forEach((componentVersion: any) => {
+                const partnerComponent = componentVersion.relationPartner;
+                if (temp_saved_componentVersions.has(partnerComponent.component.name)){
+                    if(isInWorkspace(partnerComponent.id, workspace)){
+                        // componentversion of the new element is in workspace
+                        if(isInWorkspace(temp_saved_componentVersions.get(partnerComponent.component.name)?.id, workspace)) {
+                            // componentversion of the existing element is in workspace
+                            if(partnerComponent.incomingRelations.nodes?.length > compRelationSize.get(partnerComponent.component.name)) {
+                                compRelationSize.set(partnerComponent.component.name, partnerComponent.incomingRelations?.nodes.length);
+                                temp_saved_componentVersions.set(partnerComponent.component.name, {
+                                    id: partnerComponent.id,
+                                    name: partnerComponent.component.name,
+                                    version: partnerComponent.version,
+                                    style: {
+                                        shape: partnerComponent.component.template.shapeType || 'RECT',
+                                        fill: { color: partnerComponent.component.template?.fill?.color || 'transparent'},
+                                        stroke: { color: partnerComponent.component.template?.stroke?.color || 'rgb(209, 213, 219)'}
+                                    },
+                                    interfaces: [],
+                                    issueTypes: issueTypeOfSelectedIssue,
+                                    contextMenu: {}
+                                });
+                            }
+                            // ELSE: no change
+                        } else {
+                            compRelationSize.set(partnerComponent.component.name, partnerComponent.incomingRelations?.nodes.length);
+                            temp_saved_componentVersions.set(partnerComponent.component.name, {
+                                id: partnerComponent.id,
+                                name: partnerComponent.component.name,
+                                version: partnerComponent.version,
+                                style: {
+                                    shape: partnerComponent.component.template.shapeType || 'RECT',
+                                    fill: { color: partnerComponent.component.template?.fill?.color || 'transparent'},
+                                    stroke: { color: partnerComponent.component.template?.stroke?.color || 'rgb(209, 213, 219)'}
+                                },
+                                interfaces: [],
+                                issueTypes: issueTypeOfSelectedIssue,
+                                contextMenu: {}
+                            });
+                        }
+                    } else {
+                        if(!isInWorkspace(temp_saved_componentVersions.get(partnerComponent.component.name)?.id, workspace)) {
+                            if(partnerComponent.incomingRelations.nodes?.length > compRelationSize.get(partnerComponent.component.name)) {
+                                compRelationSize.set(partnerComponent.component.name, partnerComponent.incomingRelations?.nodes.length);
+                                temp_saved_componentVersions.set(partnerComponent.component.name, {
+                                    id: partnerComponent.id,
+                                    name: partnerComponent.component.name,
+                                    version: partnerComponent.version,
+                                    style: {
+                                        shape: partnerComponent.component.template.shapeType || 'RECT',
+                                        fill: { color: partnerComponent.component.template?.fill?.color || 'transparent'},
+                                        stroke: { color: partnerComponent.component.template?.stroke?.color || 'rgb(209, 213, 219)'}
+                                    },
+                                    interfaces: [],
+                                    issueTypes: issueTypeOfSelectedIssue,
+                                    contextMenu: {}
+                                });
+                            }
+                            // ELSE: no change
+                        }
+                        // ELSE: no change
+                    }
+                } else {
+                    compRelationSize.set(partnerComponent.component.name, partnerComponent.incomingRelations?.nodes.length);
+                    temp_saved_componentVersions.set(partnerComponent.component.name, {
+                        id: partnerComponent.id,
+                        name: partnerComponent.component.name,
+                        version: partnerComponent.version,
+                        style: {
+                            shape: partnerComponent.component.template.shapeType || 'RECT',
+                            fill: { color: partnerComponent.component.template?.fill?.color || 'transparent'},
+                            stroke: { color: partnerComponent.component.template?.stroke?.color || 'rgb(209, 213, 219)'}
+                        },
+                        interfaces: [],
+                        issueTypes: issueTypeOfSelectedIssue,
+                        contextMenu: {}
+                    });
+                }
+
+
+            });
+
         }
-
     });
 
-   }
-   /*
-    query.affects.nodes.forEach((componentversion: any) => {
-                //graph.issueRelations.push(...extractIssueRelations(component.version));
-                //graph.relations.push(...extractRelations(component.version));
-                //const compInterfaces = extractInterfaces(version);
-                //console.log("Interface: " + JSON.stringify(compInterfaces));
+    //graph.issueRelations.push(...Array.from(issueRelationsArray.values()));
 
-                
-                graph.components.push({
-                    id: componentversion.id,
-                    name: componentversion.component.name,
-                    version: componentversion.version,
-                    style: {
-                        shape: componentversion?.template?.shapeType || 'RECT',
-                        fill: { color: componentversion?.template?.fill?.color || 'transparent' },
-                        stroke: { color: componentversion?.template?.stroke?.color || 'rgb(209, 213, 219)' }
-                    },
-                    interfaces: [], //compInterfaces,
-                    issueTypes: extractIssueTypes(componentversion) || [],
-                    contextMenu: {}
-                });
-    });
-    */
+    console.log("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
+    console.log(temp_saved_componentVersions);
+    console.log("YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY");
 
     temp_saved_componentVersions.forEach((component) => {
         graph.relations.push();
-        graph.issueRelations.push();
         graph.components.push(component);
     });
     console.log("__________________________________________");

@@ -1198,7 +1198,7 @@ export const FETCH_TEMP_ISSUE_GRAPH = `query MyQuery($id: ID!) {
       }
       incomingRelations {
         nodes {
-          relatedIssue {
+          issue {
             id
             type {
               name
@@ -1223,6 +1223,62 @@ export const FETCH_TEMP_ISSUE_GRAPH = `query MyQuery($id: ID!) {
                       }
                     }
                     version
+                    incomingRelations {
+                      nodes {
+                        start {
+                          id
+                        }
+                        end {
+                          id
+                        }
+                        template {
+                          stroke {
+                            color
+                            dash
+                          }
+                          markerType
+                        }
+                        id
+                      }
+                    }
+                    interfaceDefinitions {
+                      nodes {
+                        visibleInterface {
+                          id
+                          aggregatedIssues {
+                            nodes {
+                              id
+                              isOpen
+                              count
+                              type {
+                                iconPath
+                                name
+                              }
+                            }
+                          }
+                        }
+                        interfaceSpecificationVersion {
+                          interfaceSpecification {
+                            name
+                            template {
+                              fill {
+                                color
+                              }
+                              stroke {
+                                color
+                                dash
+                              }
+                              shapeRadius
+                              shapeType
+                            }
+                            id
+                          }
+                          version
+                          id
+                        }
+                        id
+                      }
+                    }
                   }
                 }
                 id
@@ -1259,6 +1315,62 @@ export const FETCH_TEMP_ISSUE_GRAPH = `query MyQuery($id: ID!) {
                       }
                     }
                     version
+                    incomingRelations {
+                      nodes {
+                        start {
+                          id
+                        }
+                        end {
+                          id
+                        }
+                        template {
+                          stroke {
+                            color
+                            dash
+                          }
+                          markerType
+                        }
+                        id
+                      }
+                    }
+                    interfaceDefinitions {
+                      nodes {
+                        visibleInterface {
+                          id
+                          aggregatedIssues {
+                            nodes {
+                              id
+                              isOpen
+                              count
+                              type {
+                                iconPath
+                                name
+                              }
+                            }
+                          }
+                        }
+                        interfaceSpecificationVersion {
+                          interfaceSpecification {
+                            name
+                            template {
+                              fill {
+                                color
+                              }
+                              stroke {
+                                color
+                                dash
+                              }
+                              shapeRadius
+                              shapeType
+                            }
+                            id
+                          }
+                          version
+                          id
+                        }
+                        id
+                      }
+                    }
                   }
                 }
                 id
@@ -1316,28 +1428,4 @@ mutation changeIssueRelationType($input: ChangeIssueRelationTypeInput!) {
     }
   }
 }
-`;
-
-export const GET_COMPONENT_ISSUES_BY_ID_QUERY = `
-  query getComponentIssuesById($componentId: ID!, $first: Int!, $query: String!, $skip: Int) {
-    searchComponents(
-      filter: { id: { eq: $componentId } },
-      first: $first,
-      query: $query,
-      skip: $skip
-    ) {
-      id
-      name
-      issues {
-        nodes {
-          id
-          title
-          state { isOpen }
-          type { name }
-          outgoingRelations { totalCount }
-          incomingRelations { totalCount }
-        }
-      }
-    }
-  }
 `;
