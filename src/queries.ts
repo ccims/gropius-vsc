@@ -1109,36 +1109,51 @@ export const FETCH_FOR_ISSUE_GRAPH = `query MyQuery($id: ID!) {
 export const FETCH_TEMP_ISSUE_GRAPH = `query MyQuery($id: ID!) {
   node(id: $id) {
     ... on Issue {
+      id
+      state {
+        isOpen
+      }
+      type {
+        name
+        iconPath
+      }
       aggregatedBy {
         nodes {
-          id
           count
-          isOpen
-          type {
-            name
-            iconPath
+          relationPartner {
+            ... on ComponentVersion {
+              id
+              component {
+                name
+                template {
+                  shapeType
+                  fill {
+                    color
+                  }
+                  stroke {
+                    color
+                  }
+                }
+              }
+              version
+            }
           }
         }
       }
       incomingRelations {
         nodes {
-          id
-          issue {
+          relatedIssue {
             id
-            state {
-              isOpen
-            }
             type {
               name
               iconPath
             }
             aggregatedBy {
               nodes {
+                count
                 relationPartner {
-                  id
                   ... on ComponentVersion {
                     id
-                    version
                     component {
                       name
                       template {
@@ -1151,8 +1166,11 @@ export const FETCH_TEMP_ISSUE_GRAPH = `query MyQuery($id: ID!) {
                         }
                       }
                     }
+                    version
                   }
                 }
+                id
+                isOpen
               }
             }
           }
@@ -1160,23 +1178,18 @@ export const FETCH_TEMP_ISSUE_GRAPH = `query MyQuery($id: ID!) {
       }
       outgoingRelations {
         nodes {
-          id
-          issue {
+          relatedIssue {
             id
-            state {
-              isOpen
-            }
             type {
               name
               iconPath
             }
             aggregatedBy {
               nodes {
+                count
                 relationPartner {
-                  id
                   ... on ComponentVersion {
                     id
-                    version
                     component {
                       name
                       template {
@@ -1189,28 +1202,11 @@ export const FETCH_TEMP_ISSUE_GRAPH = `query MyQuery($id: ID!) {
                         }
                       }
                     }
+                    version
                   }
                 }
-              }
-            }
-          }
-        }
-      }
-      affects {
-        nodes {
-          ... on ComponentVersion {
-            id
-            version
-            component {
-              name
-              template {
-                shapeType
-                fill {
-                  color
-                }
-                stroke {
-                  color
-                }
+                id
+                isOpen
               }
             }
           }
