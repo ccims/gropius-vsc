@@ -1136,6 +1136,62 @@ export const FETCH_TEMP_ISSUE_GRAPH = `query MyQuery($id: ID!) {
                 }
               }
               version
+              incomingRelations {
+                nodes {
+                  start {
+                    id
+                  }
+                  end {
+                    id
+                  }
+                  template {
+                    stroke {
+                      color
+                      dash
+                    }
+                    markerType
+                  }
+                  id
+                }
+              }
+              interfaceDefinitions {
+                nodes {
+                  visibleInterface {
+                    id
+                    aggregatedIssues {
+                      nodes {
+                        id
+                        isOpen
+                        count
+                        type {
+                          iconPath
+                          name
+                        }
+                      }
+                    }
+                  }
+                  interfaceSpecificationVersion {
+                    interfaceSpecification {
+                      name
+                      template {
+                        fill {
+                          color
+                        }
+                        stroke {
+                          color
+                          dash
+                        }
+                        shapeRadius
+                        shapeType
+                      }
+                      id
+                    }
+                    version
+                    id
+                  }
+                  id
+                }
+              }
             }
           }
         }
