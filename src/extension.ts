@@ -38,6 +38,7 @@ import {
   FETCH_TEMP_ISSUE_GRAPH
 } from "./queries";
 import path from "path";
+import { workerData } from "worker_threads";
 
 // Create a single, global API client instance
 const globalApiClient = new APIClient(API_URL, CLIENT_ID, CLIENT_SECRET);
@@ -1605,10 +1606,13 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
         (async () => {
           try {
             await this.apiClient.authenticate();
+            const mappings = await loadConfigurations();
+            const workspaceData = await this._buildTreeData(mappings);
             const issueData = await this.fetchIssueGraphData();
             panel.webview.postMessage({
               type: "issueData",
-              data: issueData
+              data: issueData,
+              workspace: workspaceData
             });
           } catch (error) {
             vscode.window.showErrorMessage(`Data fetch failed: ${error}`);
@@ -1634,7 +1638,7 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
       const mappings = await loadConfigurations();
       const workspaceData = await this._buildTreeData(mappings);
       const components = this.getComponents(workspaceData);
-      const response = await this.apiClient.executeQuery(FETCH_FOR_ISSUE_GRAPH, { id: this.lastIssueId }); //this.lastIssueId
+      const response = await this.apiClient.executeQuery(FETCH_TEMP_ISSUE_GRAPH, { id: this.lastIssueId }); //this.lastIssueId
       console.log("YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY");
       console.log(JSON.stringify(response.data.node));
       console.log("YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY");

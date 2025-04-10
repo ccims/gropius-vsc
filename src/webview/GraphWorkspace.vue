@@ -425,8 +425,6 @@ onMounted(() => {
 :deep(.sprotty svg) {
   width: 100%;
   height: 100%;
-  background-color: rgb(5, 5, 7);
-  --diagram-grid: rgba(255, 255, 255, 0.1);
   background-image: radial-gradient(circle, var(--diagram-grid) 1px, transparent 1px);
   background-size: 20px 20px;
   --background-overlay-color: rgba(255, 255, 255, 0.05);

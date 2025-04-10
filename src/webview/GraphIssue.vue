@@ -216,7 +216,7 @@ function extractInterfaces(componentVersion: any): any[] {
  * @param data : Workspace data to create the necessary graph data.
  * @returns graph and layout
  */
-function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout } {
+function createGraphData(data: any = null, workspace: any = null): { graph: Graph; layout: GraphLayout } {
     console.log("111111111111111111111111111111111111111");
     console.log(JSON.stringify(data));
     console.log("333333333333333333333333333333333333333333");
@@ -235,16 +235,66 @@ function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout 
 
     let initialIssueCount = 1;
     
-    /*
-    let issueType: { id: any; name: any; iconPath: any; count: any; isOpen: any; }[] = [];
-                issueType.push({ 
-                    id: query.aggregatedBy.nodes[1].id,
-                    name: query.aggregatedBy.nodes[1].type.name,
-                    iconPath: query.aggregatedBy.nodes[1].type.iconPath,
-                    count: query.aggregatedBy.nodes[1].count,
-                    isOpen: query.aggregatedBy.nodes[1].isOpen,
-                });
-    */
+    
+    let issueTypeOfSelectedIssue: { id: any; name: any; iconPath: any; count: any; isOpen: any; }[] = [];
+    issueTypeOfSelectedIssue.push({ 
+        id: query.id,
+        name: query.type.name,
+        iconPath: query.type.iconPath,
+        count: 1,
+        isOpen: query.state.isOpen,
+    });
+
+    let temp_saved_componentVersions = new Map <string, { id: any; name: any; version: any; style: any; interfaces: any, issueTypes: any, contextMenu: any}>();
+    
+   if (query.aggregatedBy.nodes.length == 1) {
+    const componentVersionOfSelectedIssue = query.aggregatedBy.nodes[0].relationPartner;
+    graph.components.push({
+        id: componentVersionOfSelectedIssue.id,
+        name: componentVersionOfSelectedIssue.component.name,
+        version: componentVersionOfSelectedIssue.version,
+        style: {
+            shape: componentVersionOfSelectedIssue.component.template.shapeType || 'RECT',
+            fill: { color: componentVersionOfSelectedIssue.component.template?.fill?.color || 'transparent'},
+            stroke: { color: componentVersionOfSelectedIssue.component.template?.stroke?.color || 'rgb(209, 213, 219)'}
+        },
+        interfaces: [],
+        issueTypes: issueTypeOfSelectedIssue,
+        contextMenu: {}
+    });
+
+   } else if (query.aggregatedBy.nodes.length > 1) {
+    query.aggregatedBy.nodes.forEach((componentVersion: any) => {
+        const componentVersionOfSelectedIssue = componentVersion.relationPartner;
+        if (temp_saved_componentVersions.has(componentVersionOfSelectedIssue.component.name)){
+            if(true){
+                // componentversion of the new element is in workspace
+                if(true) {
+                    // componentversion nof the existing element is in workspace
+
+                }
+            }
+
+        } else {
+            temp_saved_componentVersions.set(componentVersionOfSelectedIssue.component.name, {
+                id: componentVersionOfSelectedIssue.id,
+                name: componentVersionOfSelectedIssue.component.name,
+                version: componentVersionOfSelectedIssue.version,
+                style: {
+                    shape: componentVersionOfSelectedIssue.component.template.shapeType || 'RECT',
+                    fill: { color: componentVersionOfSelectedIssue.component.template?.fill?.color || 'transparent'},
+                    stroke: { color: componentVersionOfSelectedIssue.component.template?.stroke?.color || 'rgb(209, 213, 219)'}
+                },
+                interfaces: [],
+                issueTypes: issueTypeOfSelectedIssue,
+                contextMenu: {}
+            });
+        }
+
+    });
+
+   }
+   /*
     query.affects.nodes.forEach((componentversion: any) => {
                 //graph.issueRelations.push(...extractIssueRelations(component.version));
                 //graph.relations.push(...extractRelations(component.version));
@@ -266,6 +316,7 @@ function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout 
                     contextMenu: {}
                 });
     });
+    */
 
     console.log("__________________________________________");
     console.log("Komponenten: ");
@@ -304,18 +355,18 @@ function handleMessage(event: MessageEvent) {
 
     if (message.type === "issueData") {
         issueData.value = message.data;
-        updateGraph(message.data);
+        updateGraph(message.data, message.workspace);
     }
 }
 
-async function updateGraph(data: any = null) {
+async function updateGraph(data: any = null, workspace: any = null) {
     console.log("Start updateGraph issue.");
     if (!modelSource.value) {
         console.warn('ModelSource not initialized');
         return;
     }
 
-    const { graph, layout } = createGraphData(data);
+    const { graph, layout } = createGraphData(data, workspace);
     const finalLayout = Object.keys(layout).length === 0 ?
         await autolayout(graph) : layout;
 
@@ -366,8 +417,6 @@ onMounted(() => {
 :deep(.sprotty svg) {
     width: 100%;
     height: 100%;
-    background-color: rgb(5, 5, 7);
-    --diagram-grid: rgba(255, 255, 255, 0.1);
     background-image: radial-gradient(circle, var(--diagram-grid) 1px, transparent 1px);
     background-size: 20px 20px;
     --background-overlay-color: rgba(255, 255, 255, 0.05);
