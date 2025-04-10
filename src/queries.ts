@@ -1332,7 +1332,7 @@ export const GET_COMPONENT_ISSUES_BY_ID_QUERY = `
         nodes {
           id
           title
-          state { name }
+          state { isOpen }
           type { name }
           outgoingRelations { totalCount }
           incomingRelations { totalCount }
