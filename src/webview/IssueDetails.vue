@@ -1721,7 +1721,12 @@ export default {
         console.log('Outgoing relation updated, new type:', message.newType);
         // Optionally: this.refreshCurrentIssue();
       } else if (message && message.command === "newOutgoingRelationList") {
-        this.newRelationIssues = message.issues;
+        // If an issue is currently loaded, filter out that issue from the list.
+        if (this.issue && this.issue.id) {
+          this.newRelationIssues = message.issues.filter(issue => issue.id !== this.issue.id);
+        } else {
+          this.newRelationIssues = message.issues;
+        }
       }
 
       if (typeof acquireVsCodeApi !== "undefined") {
