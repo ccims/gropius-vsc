@@ -35,7 +35,8 @@ import {
   GET_ISSUE_RELATION_TYPES,
   FETCH_ALL_WORKSPACE_COMPONENTS_AND_ISSUES,
   FETCH_FOR_ISSUE_GRAPH,
-  FETCH_TEMP_ISSUE_GRAPH
+  FETCH_TEMP_ISSUE_GRAPH,
+  GET_COMPONENT_ISSUES_BY_ID_QUERY
 } from "./queries";
 import path from "path";
 import { workerData } from "worker_threads";
@@ -1523,6 +1524,31 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
           this.refreshCurrentIssue();
         } catch (error) {
           vscode.window.showErrorMessage(`Failed to change relation type: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      } else if (message.command === 'createOutgoingRelation') {
+        const componentId = this.originComponentId;
+        if (!componentId) {
+          vscode.window.showErrorMessage('Origin component ID is missing.');
+          return;
+        }
+        try {
+          await this.apiClient.authenticate();
+          const result = await this.apiClient.executeQuery(GET_COMPONENT_ISSUES_BY_ID_QUERY, {
+            componentId,
+            first: 20,
+            query: "*",
+            skip: 0
+          });
+          // Correctly extract issues from the query response.
+          // Assuming the response returns an array of components.
+          const components = result.data?.searchComponents || [];
+          let issues = [];
+          if (components.length > 0) {
+            issues = components[0].issues?.nodes || [];
+          }
+          this._view?.webview.postMessage({ command: 'newOutgoingRelationList', issues });
+        } catch (error) {
+          vscode.window.showErrorMessage(`Error fetching issues: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
     });

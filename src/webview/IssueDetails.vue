@@ -206,14 +206,34 @@
           <div class="section-content" v-if="expandedSections.relatedIssues">
             <!-- Outgoing Relations FIRST -->
             <div v-if="hasOutgoingRelations" class="relations-group">
-              <div class="relations-subheader" style="display: flex; align-items: center; justify-content: space-between;">
-                <span>Outgoing Relations</span>
-                <!-- Edit button toggles editing mode -->
-                <button class="edit-button"
-                        @click="editingOutgoingRelations = !editingOutgoingRelations"
-                        :title="editingOutgoingRelations ? 'Done editing relations' : 'Edit outgoing relations'">
-                  <span class="edit-icon">✎</span>
-                </button>
+              <!-- Header with buttons inside a relative container -->
+              <div style="position: relative;">
+                <div class="relations-subheader" style="display: flex; align-items: center; justify-content: space-between;">
+                  <span>Outgoing Relations</span>
+                  <div>
+                    <!-- Edit button toggles editing mode -->
+                    <button class="edit-button"
+                            @click="editingOutgoingRelations = !editingOutgoingRelations"
+                            :title="editingOutgoingRelations ? 'Done editing relations' : 'Edit outgoing relations'">
+                      <span class="edit-icon">✎</span>
+                    </button>
+                    <!-- New "Add Outgoing Relation" button (placed right next to edit button) -->
+                    <button class="remove-relation-button" @click.stop="toggleNewRelationDropdown" title="Add Outgoing Relation" style="margin-left: 4px;">
+                      <span class="edit-icon">+</span>
+                    </button>
+                  </div>
+                </div>
+                <!-- NEW: Dropdown for new relation issues -->
+                <div v-if="newRelationDropdownVisible" class="field-dropdown"
+                    style="position: absolute; top: 100%; right: 0; z-index: 1000; background: var(--vscode-dropdown-background);">
+                  <div v-if="newRelationIssues.length === 0" class="dropdown-loading">No issues found</div>
+                  <div v-else class="dropdown-options">
+                    <div v-for="issue in newRelationIssues" :key="issue.id" class="dropdown-option"
+                        @click.stop="selectNewRelationIssue(issue)">
+                      {{ issue.title }} ({{ issue.state.name }})
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <!-- When not editing: show grouped relations -->
@@ -233,13 +253,12 @@
                         </div>
                         <span>{{ relation.relatedIssue.title }}</span>
                       </div>
-                      <!-- Right side: delete button (only visible in edit mode, but kept here for safety) -->
+                      <!-- Right side: delete button -->
                       <button
                         v-if="editingOutgoingRelations"
                         class="remove-relation-button"
                         @click.stop="onRemoveRelation(relation.id)"
-                        title="Remove Relation"
-                      >
+                        title="Remove Relation">
                         X
                       </button>
                     </div>
@@ -511,6 +530,8 @@ export default {
       currentlyEditingRelation: null,
       relationTypes: [],
       relationTypesLoading: false,
+      newRelationDropdownVisible: false,
+      newRelationIssues: []
     };
   },
   computed: {
@@ -663,6 +684,20 @@ export default {
     }
   },
   methods: {
+    toggleNewRelationDropdown() {
+      this.newRelationDropdownVisible = !this.newRelationDropdownVisible;
+      if (this.newRelationDropdownVisible) {
+        // Request issues for creating a new outgoing relation.
+        if (vscode) {
+          vscode.postMessage({ command: 'createOutgoingRelation' });
+        }
+      }
+    },
+    selectNewRelationIssue(issue) {
+      // Close the dropdown and process the selected issue (placeholder for now)
+      console.log("Selected new relation issue:", issue);
+      this.newRelationDropdownVisible = false;
+    },
     // When the edit button is clicked for an outgoing relation
     triggerEditRelation(relationId) {
       if (this.currentlyEditingRelation === relationId) {
@@ -1685,6 +1720,8 @@ export default {
         // For instance:
         console.log('Outgoing relation updated, new type:', message.newType);
         // Optionally: this.refreshCurrentIssue();
+      } else if (message && message.command === "newOutgoingRelationList") {
+        this.newRelationIssues = message.issues;
       }
 
       if (typeof acquireVsCodeApi !== "undefined") {

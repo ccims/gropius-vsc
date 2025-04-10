@@ -1317,3 +1317,27 @@ mutation changeIssueRelationType($input: ChangeIssueRelationTypeInput!) {
   }
 }
 `;
+
+export const GET_COMPONENT_ISSUES_BY_ID_QUERY = `
+  query getComponentIssuesById($componentId: ID!, $first: Int!, $query: String!, $skip: Int) {
+    searchComponents(
+      filter: { id: { eq: $componentId } },
+      first: $first,
+      query: $query,
+      skip: $skip
+    ) {
+      id
+      name
+      issues {
+        nodes {
+          id
+          title
+          state { name }
+          type { name }
+          outgoingRelations { totalCount }
+          incomingRelations { totalCount }
+        }
+      }
+    }
+  }
+`;
