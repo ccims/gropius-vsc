@@ -1878,6 +1878,15 @@ export default {
       } else if (message && message.command === "allLabelsError") {
         console.error("Error loading labels:", message.error);
         this.allLabels = [];
+      } else if (message.command === "addLabelToIssueError") {
+        // Log the error and show a notification (if needed).
+        // You might want to display a toast or simply log; VS Code has already shown a notification via the extension.
+        console.error("Error adding label:", message.error);
+        // Optionally, you could use an in-app notification package or even alert.
+        alert("Error adding label: " + message.error);
+      } else if (message.command === "labelAddedToIssue") {
+        console.log("Label added successfully:", message.label);
+        // Optionally update your local state or simply refresh the issue.
       }
 
       if (typeof acquireVsCodeApi !== "undefined") {
