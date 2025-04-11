@@ -166,15 +166,25 @@
               </div>
             </template>
           </div>
-          <!-- New Label Dropdown (for adding a label) -->
+          <!-- New Label Dropdown with Search Field -->
           <div v-if="newLabelDropdownVisible" class="field-dropdown" style="position: relative;">
+            <!-- Search field at the top -->
+            <input 
+              type="text" 
+              v-model="labelSearchQuery" 
+              placeholder="Search labels..." 
+              class="dropdown-search-input"
+            />
+            
+            <!-- Label list -->
             <div v-if="labelsLoading" class="dropdown-loading">Loading...</div>
-            <div v-else-if="availableLabels.length === 0" class="dropdown-loading">No labels found</div>
+            <div v-else-if="filteredLabels.length === 0" class="dropdown-loading">No labels found</div>
             <div v-else class="dropdown-options">
-              <div v-for="label in availableLabels" :key="label.id" class="dropdown-option"
+              <div v-for="label in filteredLabels" :key="label.id" class="dropdown-option"
                   @click.stop="selectNewLabel(label)"
                   style="display: flex; align-items: center; gap: 4px;">
-                <div class="badge label-badge" :style="{ backgroundColor: label.color || 'rgba(0,0,0,0.2)', color: '#ffffff' }">
+                <div class="badge label-badge" 
+                    :style="{ backgroundColor: label.color || 'rgba(0,0,0,0.2)', color: '#ffffff' }">
                   {{ label.name }}
                 </div>
               </div>
@@ -598,10 +608,17 @@ export default {
       newLabelDropdownVisible: false,
       allLabels: [],
       labelsLoading: false,
-      editingLabels: false
+      editingLabels: false,
+      labelSearchQuery: ""
     };
   },
   computed: {
+    filteredLabels() {
+      // Ensure that availableLabels has been computed and that labelSearchQuery is available
+      return this.availableLabels.filter(label => {
+        return label.name.toLowerCase().includes(this.labelSearchQuery.toLowerCase());
+      });
+    },
     hasIncomingRelations() {
       return this.issue &&
         this.issue.incomingRelations &&
@@ -3161,4 +3178,16 @@ ul {
 .graph-button:hover{
   background-color: var(--vscode-button-secondaryHoverBackground, #3d3d3d);
 }
+
+/* Labels */
+
+.dropdown-search-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px;
+  border: 1px solid var(--vscode-dropdown-border);
+  border-bottom: none;
+  outline: none;
+}
+
 </style>
