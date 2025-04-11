@@ -39,7 +39,8 @@ import {
   GET_COMPONENT_ISSUES_BY_ID_QUERY,
   CREATE_ISSUE_RELATION_MUTATION,
   GET_ALL_LABELS_QUERY,
-  ADD_LABEL_TO_ISSUE_MUTATION
+  ADD_LABEL_TO_ISSUE_MUTATION,
+  REMOVE_LABEL_FROM_ISSUE_MUTATION
 } from "./queries";
 import path from "path";
 import { workerData } from "worker_threads";
@@ -1664,6 +1665,33 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
           // Send the error back to the webview if further handling is needed
           this._view?.webview.postMessage({
             command: 'addLabelToIssueError',
+            error: errorMsg,
+          });
+        }
+      } else if (message.command === 'removeLabelFromIssue') {
+        try {
+          await globalApiClient.authenticate();
+          const result = await globalApiClient.executeQuery(REMOVE_LABEL_FROM_ISSUE_MUTATION, {
+            input: message.input, // { issue: string, label: string }
+          });
+          if (!result.data?.removeLabelFromIssue?.removedLabelEvent?.removedLabel) {
+            throw new Error(
+              result.errors && result.errors.length > 0
+                ? result.errors[0].message
+                : "Label removal failed."
+            );
+          }
+          this._view?.webview.postMessage({
+            command: 'labelRemovedFromIssue',
+            removedLabel: result.data.removeLabelFromIssue.removedLabelEvent.removedLabel,
+          });
+          // Optionally, trigger a refresh of the issue details view:
+          vscode.commands.executeCommand('extension.refreshCurrentIssue');
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          vscode.window.showErrorMessage(`Failed to remove label: ${errorMsg}`);
+          this._view?.webview.postMessage({
+            command: 'removeLabelFromIssueError',
             error: errorMsg,
           });
         }

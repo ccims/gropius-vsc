@@ -138,20 +138,35 @@
             <div class="section-header">Labels:</div>
             <!-- Buttons for label editing and adding -->
             <div style="display: flex; gap: 4px;">
-              <button class="edit-button" title="Edit Labels">✎</button>
+              <!-- Toggle label edit mode -->
+              <button class="edit-button" @click="toggleEditLabels" title="Edit Labels">
+                <span class="edit-icon">✎</span>
+              </button>
               <button class="remove-relation-button" @click.stop="toggleNewLabelDropdown" title="Add Label">
                 <span class="edit-icon">+</span>
               </button>
             </div>
           </div>
           <div class="section-content inline-content">
-            <div v-for="(label, index) in issue.labels.nodes" :key="index" class="badge label-badge"
-                :style="{ backgroundColor: label.color || 'rgba(0, 0, 0, 0.2)', color: '#ffffff' }"
-                :title="label.description">
-              {{ label.name }}
-            </div>
+            <!-- If editingLabels is true, show a delete "X" on each label -->
+            <template v-if="editingLabels">
+              <div v-for="(label, index) in issue.labels.nodes" :key="index" class="badge label-badge"
+                  :style="{ backgroundColor: label.color || 'rgba(0, 0, 0, 0.2)', color: '#ffffff' }"
+                  :title="label.description">
+                {{ label.name }}
+                <button class="remove-relation-button" @click.stop="removeLabel(label)" title="Remove Label">X</button>
+              </div>
+            </template>
+            <!-- Otherwise, just list the labels normally -->
+            <template v-else>
+              <div v-for="(label, index) in issue.labels.nodes" :key="index" class="badge label-badge"
+                  :style="{ backgroundColor: label.color || 'rgba(0, 0, 0, 0.2)', color: '#ffffff' }"
+                  :title="label.description">
+                {{ label.name }}
+              </div>
+            </template>
           </div>
-          <!-- New Label Dropdown -->
+          <!-- New Label Dropdown (for adding a label) -->
           <div v-if="newLabelDropdownVisible" class="field-dropdown" style="position: relative;">
             <div v-if="labelsLoading" class="dropdown-loading">Loading...</div>
             <div v-else-if="availableLabels.length === 0" class="dropdown-loading">No labels found</div>
@@ -159,8 +174,7 @@
               <div v-for="label in availableLabels" :key="label.id" class="dropdown-option"
                   @click.stop="selectNewLabel(label)"
                   style="display: flex; align-items: center; gap: 4px;">
-                <div class="badge label-badge" 
-                    :style="{ backgroundColor: label.color || 'rgba(0,0,0,0.2)', color: '#ffffff' }">
+                <div class="badge label-badge" :style="{ backgroundColor: label.color || 'rgba(0,0,0,0.2)', color: '#ffffff' }">
                   {{ label.name }}
                 </div>
               </div>
@@ -584,6 +598,7 @@ export default {
       newLabelDropdownVisible: false,
       allLabels: [],
       labelsLoading: false,
+      editingLabels: false
     };
   },
   computed: {
@@ -605,25 +620,22 @@ export default {
         return [];
       }
       // Build a set of identifiers already present on the issue.
-      // If label.id is missing, use label.name.
-      let existing = new Set();
+      const existing = new Set();
       if (this.issue &&
           this.issue.labels &&
           this.issue.labels.nodes &&
           this.issue.labels.nodes.length > 0) {
         this.issue.labels.nodes.forEach(label => {
-          if (label) {
-            if (label.id) {
-              existing.add(label.id);
-            } else if (label.name) {
-              existing.add(label.name);
-            }
+          if (label && label.id) {  // ensure label and label.id exist
+            existing.add(label.id);
+          } else if (label && label.name) {
+            existing.add(label.name);
           }
         });
       }
-      // Filter allLabels: do not include any label whose id or name matches one in the existing set.
+      // Filter: only show labels that do not exist on the issue.
       const filtered = this.allLabels.filter(label => {
-        return !existing.has(label.id) && !existing.has(label.name);
+        return label.id && !existing.has(label.id);
       });
       console.log("[availableLabels] All fetched labels:", this.allLabels);
       console.log("[availableLabels] Labels already on issue:", Array.from(existing));
@@ -767,6 +779,29 @@ export default {
     }
   },
   methods: {
+    // Toggle whether the labels are in edit mode
+    toggleEditLabels() {
+      this.editingLabels = !this.editingLabels;
+    },
+    // Called when a delete button is clicked on a label in edit mode
+    removeLabel(label) {
+      if (!label || !label.id) {
+        console.error("Cannot remove label – label or its id is missing.");
+        return;
+      }
+      console.log("Removing label:", label);
+      if (vscode) {
+        vscode.postMessage({
+          command: 'removeLabelFromIssue',
+          input: {
+            issue: this.issue.id,  // The ID of the issue in view
+            label: label.id        // The ID of the label (must not be null)
+          }
+        });
+      }
+      // Optionally, update the client UI immediately:
+      this.issue.labels.nodes = this.issue.labels.nodes.filter(l => l && l.id !== label.id);
+    },
     // Toggle the label dropdown
     toggleNewLabelDropdown() {
       this.labelsLoading = true;
@@ -1887,6 +1922,18 @@ export default {
       } else if (message.command === "labelAddedToIssue") {
         console.log("Label added successfully:", message.label);
         // Optionally update your local state or simply refresh the issue.
+      } else if (message.command === "labelRemovedFromIssue") {
+        // You may choose to update the labels in the current issue,
+        // for example by filtering out the removed label:
+        const removed = message.removedLabel;
+        if (this.issue && this.issue.labels && this.issue.labels.nodes) {
+          this.issue.labels.nodes = this.issue.labels.nodes.filter(label => label.id !== removed.id);
+        }
+        // Optionally, display a success message:
+        console.log("Label removed successfully:", removed);
+      } else if (message.command === "removeLabelFromIssueError") {
+        console.error("Error removing label:", message.error);
+        vscode.postMessage({ command: 'showErrorNotification', message: "Error: " + message.error });
       }
 
       if (typeof acquireVsCodeApi !== "undefined") {

@@ -165,6 +165,7 @@ query GetIssueDetails($id: ID!) {
       }
       labels {
         nodes {
+          id
           name
           color
           description
@@ -1492,4 +1493,18 @@ export const ADD_LABEL_TO_ISSUE_MUTATION = `
       }
     }
   }
+`;
+
+export const REMOVE_LABEL_FROM_ISSUE_MUTATION = `
+mutation RemoveLabelFromIssue($input: RemoveLabelFromIssueInput!) {
+  removeLabelFromIssue(input: $input) {
+    removedLabelEvent {
+      removedLabel {
+        id
+        name
+        color
+      }
+    }
+  }
+}
 `;
