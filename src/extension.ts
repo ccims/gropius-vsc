@@ -37,7 +37,9 @@ import {
   FETCH_FOR_ISSUE_GRAPH,
   FETCH_TEMP_ISSUE_GRAPH,
   GET_COMPONENT_ISSUES_BY_ID_QUERY,
-  CREATE_ISSUE_RELATION_MUTATION
+  CREATE_ISSUE_RELATION_MUTATION,
+  GET_ALL_LABELS_QUERY,
+  ADD_LABEL_TO_ISSUE_MUTATION
 } from "./queries";
 import path from "path";
 import { workerData } from "worker_threads";
@@ -118,6 +120,12 @@ export function activate(context: vscode.ExtensionContext) {
   const issueDetailsProvider = new IssueDetailsProvider(context, globalApiClient, context.extensionUri);
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(IssueDetailsProvider.viewType, issueDetailsProvider)
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('extension.refreshCurrentIssue', () => {
+      issueDetailsProvider.refreshCurrentIssue();
+    })
   );
 
   // Command to create Artifacts 
@@ -1606,6 +1614,43 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
         } catch (error) {
           this._view?.webview.postMessage({
             command: 'issueRelationCreationError',
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      } else if (message.command === 'getAllLabels') {
+        try {
+          await globalApiClient.authenticate();
+          const result = await globalApiClient.executeQuery(GET_ALL_LABELS_QUERY, {
+            first: message.first || 20,
+            query: message.query || "*",
+            skip: message.skip || 0
+          });
+          const labels = result.data?.searchLabels || [];
+          this._view?.webview.postMessage({ command: 'allLabelsLoaded', labels });
+        } catch (error) {
+          this._view?.webview.postMessage({
+            command: 'allLabelsError',
+            error: error instanceof Error ? error.message : String(error)
+          });
+        }
+      } else if (message.command === 'addLabelToIssue') {
+        try {
+          await globalApiClient.authenticate();
+          const result = await globalApiClient.executeQuery(ADD_LABEL_TO_ISSUE_MUTATION, {
+            input: {
+              issue: message.input.issue,   // Current issue's ID
+              label: message.input.label      // Selected label's ID
+            },
+          });
+          // In the updated mutation, the data is found under "addedLabelEvent.addedLabel"
+          this._view?.webview.postMessage({
+            command: 'labelAddedToIssue',
+            label: result.data?.addLabelToIssue?.addedLabelEvent?.addedLabel || null
+          });
+          vscode.commands.executeCommand('extension.refreshCurrentIssue');
+        } catch (error) {
+          this._view?.webview.postMessage({
+            command: 'addLabelToIssueError',
             error: error instanceof Error ? error.message : String(error),
           });
         }

@@ -133,15 +133,36 @@
         </div>
 
         <!-- Labels Section -->
-        <div class="info-section" v-if="issue.labels && issue.labels.nodes.length > 0">
-          <div class="section-header-row">
+        <div class="info-section" v-if="issue">
+          <div class="section-header-row" style="justify-content: space-between;">
             <div class="section-header">Labels:</div>
-            <div class="section-content inline-content">
-              <div v-for="(label, index) in issue.labels.nodes" :key="index" class="badge label-badge" :style="{
-                backgroundColor: label.color || 'rgba(0, 0, 0, 0.2)',
-                color: '#ffffff'
-              }" :title="label.description">
-                {{ label.name }}
+            <!-- Buttons for label editing and adding -->
+            <div style="display: flex; gap: 4px;">
+              <button class="edit-button" title="Edit Labels">✎</button>
+              <button class="remove-relation-button" @click.stop="toggleNewLabelDropdown" title="Add Label">
+                <span class="edit-icon">+</span>
+              </button>
+            </div>
+          </div>
+          <div class="section-content inline-content">
+            <div v-for="(label, index) in issue.labels.nodes" :key="index" class="badge label-badge"
+                :style="{ backgroundColor: label.color || 'rgba(0, 0, 0, 0.2)', color: '#ffffff' }"
+                :title="label.description">
+              {{ label.name }}
+            </div>
+          </div>
+          <!-- New Label Dropdown -->
+          <div v-if="newLabelDropdownVisible" class="field-dropdown" style="position: relative;">
+            <div v-if="labelsLoading" class="dropdown-loading">Loading...</div>
+            <div v-else-if="availableLabels.length === 0" class="dropdown-loading">No labels found</div>
+            <div v-else class="dropdown-options">
+              <div v-for="label in availableLabels" :key="label.id" class="dropdown-option"
+                  @click.stop="selectNewLabel(label)"
+                  style="display: flex; align-items: center; gap: 4px;">
+                <div class="badge label-badge" 
+                    :style="{ backgroundColor: label.color || 'rgba(0,0,0,0.2)', color: '#ffffff' }">
+                  {{ label.name }}
+                </div>
               </div>
             </div>
           </div>
@@ -559,7 +580,10 @@ export default {
       newOutgoingRelation: null,
       newRelationTypeDropdownVisible: false,
       relationTypes: [],
-      relationTypesLoading: false
+      relationTypesLoading: false,
+      newLabelDropdownVisible: false,
+      allLabels: [],
+      labelsLoading: false,
     };
   },
   computed: {
@@ -574,6 +598,37 @@ export default {
         this.issue.outgoingRelations &&
         this.issue.outgoingRelations.nodes &&
         this.issue.outgoingRelations.nodes.length > 0;
+    },
+    availableLabels() {
+      // If no labels have been fetched, return an empty array.
+      if (!this.allLabels || this.allLabels.length === 0) {
+        return [];
+      }
+      // Build a set of identifiers already present on the issue.
+      // If label.id is missing, use label.name.
+      let existing = new Set();
+      if (this.issue &&
+          this.issue.labels &&
+          this.issue.labels.nodes &&
+          this.issue.labels.nodes.length > 0) {
+        this.issue.labels.nodes.forEach(label => {
+          if (label) {
+            if (label.id) {
+              existing.add(label.id);
+            } else if (label.name) {
+              existing.add(label.name);
+            }
+          }
+        });
+      }
+      // Filter allLabels: do not include any label whose id or name matches one in the existing set.
+      const filtered = this.allLabels.filter(label => {
+        return !existing.has(label.id) && !existing.has(label.name);
+      });
+      console.log("[availableLabels] All fetched labels:", this.allLabels);
+      console.log("[availableLabels] Labels already on issue:", Array.from(existing));
+      console.log("[availableLabels] Filtered (to be shown):", filtered);
+      return filtered;
     },
     hasRelations() {
       return this.hasIncomingRelations || this.hasOutgoingRelations;
@@ -712,6 +767,34 @@ export default {
     }
   },
   methods: {
+    // Toggle the label dropdown
+    toggleNewLabelDropdown() {
+      this.labelsLoading = true;
+      this.newLabelDropdownVisible = true;
+      console.log("[toggleNewLabelDropdown] Requesting all labels from extension");
+      if (vscode) {
+        // Send message with parameters (first:20, query:"*", skip:0)
+        vscode.postMessage({ command: 'getAllLabels', first: 20, query: "*", skip: 0 });
+      }
+    },
+    // Called when a label is selected from the dropdown
+    selectNewLabel(label) {
+      console.log("Selected label:", label);
+      if (vscode) {
+        vscode.postMessage({
+          command: 'addLabelToIssue',
+          input: {
+            issue: this.issue.id,  // Use the id of the issue displayed in the issue details
+            label: label.id        // Use the id from the fetched labels
+          }
+        });
+      }
+      this.newLabelDropdownVisible = false;
+      // Optionally trigger a refresh to update the labels shown in the issue details:
+      if (vscode) {
+        vscode.postMessage({ command: 'refreshCurrentIssue' });
+      }
+    },
     // Toggle the candidate issues dropdown
     toggleNewRelationDropdown() {
       this.newOutgoingRelation = null;
@@ -1788,6 +1871,13 @@ export default {
         console.error("Error loading new relation types:", message.error);
         this.relationTypes = [];
         this.relationTypesLoading = false;
+      } else if (message && message.command === "allLabelsLoaded") {
+        console.log("[IssueDetails.vue] allLabelsLoaded received:", message.labels);
+        this.labelsLoading = false;
+        this.allLabels = message.labels;
+      } else if (message && message.command === "allLabelsError") {
+        console.error("Error loading labels:", message.error);
+        this.allLabels = [];
       }
 
       if (typeof acquireVsCodeApi !== "undefined") {

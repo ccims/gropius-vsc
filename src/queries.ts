@@ -1469,3 +1469,27 @@ export const CREATE_ISSUE_RELATION_MUTATION = `
     }
   }
 `;
+
+export const GET_ALL_LABELS_QUERY = `
+  query GetAllLabels($first: Int!, $query: String!, $skip: Int) {
+    searchLabels(filter: {}, first: $first, query: $query, skip: $skip) {
+      id
+      name
+      color
+    }
+  }
+`;
+
+export const ADD_LABEL_TO_ISSUE_MUTATION = `
+  mutation AddLabelToIssue($input: AddLabelToIssueInput!) {
+    addLabelToIssue(input: $input) {
+      addedLabelEvent {
+        addedLabel {
+          id
+          name
+          color
+        }
+      }
+    }
+  }
+`;
