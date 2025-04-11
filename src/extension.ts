@@ -1699,25 +1699,26 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
       } else if (message.command === 'createNewLabel') {
         try {
           await globalApiClient.authenticate();
+          const labelInput = {
+            name: message.data.name,
+            description: message.data.description,
+            color: message.data.color,
+            // Use the origin component ID instead of the issue ID
+            trackables: [this.originComponentId]
+          };
+          console.log('Creating label with input:', labelInput);
+
           const result = await globalApiClient.executeQuery(CREATE_LABEL_MUTATION, {
-            input: {
-              name: message.data.name,
-              description: message.data.description,
-              color: message.data.color,
-              // Use the current issue id as the sole trackable:
-              trackables: [this.lastIssueId]
-            }
+            input: labelInput
           });
           if (result.errors) {
             throw new Error(result.errors[0].message);
           }
-          // Optionally, send the new label back to the webview.
           this._view?.webview.postMessage({
             command: 'newLabelCreated',
             label: result.data.createLabel.label
           });
           vscode.window.showInformationMessage('Label created successfully.');
-          // Reload the dropdown by fetching all labels (using GET_ALL_LABELS_QUERY)
           const labelsResult = await globalApiClient.executeQuery(GET_ALL_LABELS_QUERY, {
             first: 20,
             query: "*",
