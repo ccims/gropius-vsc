@@ -1472,12 +1472,24 @@ export const CREATE_ISSUE_RELATION_MUTATION = `
 `;
 
 export const GET_ALL_LABELS_QUERY = `
-  query GetAllLabels($first: Int!, $query: String!, $skip: Int) {
-    searchLabels(filter: {}, first: $first, query: $query, skip: $skip) {
+  query GetAllLabels($originComponentId: ID, $first: Int!, $query: String!, $skip: Int) {
+    searchLabels(
+      filter: {
+        trackables: {
+          any: {
+            id: {
+              eq: $originComponentId
+            }
+          }
+        }
+      },
+      first: $first,
+      query: $query,
+      skip: $skip
+    ) {
       id
       name
       color
-      description
     }
   }
 `;

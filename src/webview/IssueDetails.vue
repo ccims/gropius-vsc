@@ -148,7 +148,7 @@
               </button>
             </div>
           </div>
-          <div class="section-content inline-content">
+          <div class="section-content inline-content labels-row">
             <!-- Show delete button for each label if editing is enabled -->
             <template v-if="editingLabels">
               <div
@@ -910,9 +910,15 @@ export default {
         this.labelsLoading = true;
         this.newLabelDropdownVisible = true;
         console.log("[toggleNewLabelDropdown] Requesting all labels from extension");
-        // Request all labels from your extension.
+        // Request all labels from your extension including originComponentId.
         if (vscode) {
-          vscode.postMessage({ command: 'getAllLabels', first: 20, query: "*", skip: 0 });
+          vscode.postMessage({
+            command: 'getAllLabels',
+            originComponentId: this.originComponentId, // Pass the originComponentId here
+            first: 20,
+            query: "*",
+            skip: 0
+          });
         }
       }
     },
@@ -3381,6 +3387,10 @@ ul {
 .label-form-actions button:hover {
   color: #0078d4;
   border-color: #0078d4;
+}
+
+.labels-row {
+  margin-left: 16px; /* or whatever spacing you prefer */
 }
 
 </style>

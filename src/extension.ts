@@ -1623,6 +1623,7 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
         try {
           await globalApiClient.authenticate();
           const result = await globalApiClient.executeQuery(GET_ALL_LABELS_QUERY, {
+            originComponentId: message.originComponentId, // Added parameter
             first: message.first || 20,
             query: message.query || "*",
             skip: message.skip || 0
@@ -1703,7 +1704,7 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
             name: message.data.name,
             description: message.data.description,
             color: message.data.color,
-            // Use the origin component ID instead of the issue ID
+            // Use originComponentId for trackables instead of the issue id.
             trackables: [this.originComponentId]
           };
           console.log('Creating label with input:', labelInput);
@@ -1719,7 +1720,9 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
             label: result.data.createLabel.label
           });
           vscode.window.showInformationMessage('Label created successfully.');
+          // Pass originComponentId into the GET_ALL_LABELS_QUERY call.
           const labelsResult = await globalApiClient.executeQuery(GET_ALL_LABELS_QUERY, {
+            originComponentId: this.originComponentId,
             first: 20,
             query: "*",
             skip: 0
