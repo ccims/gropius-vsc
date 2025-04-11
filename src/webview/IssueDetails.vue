@@ -218,7 +218,7 @@
                             :title="editingOutgoingRelations ? 'Done editing relations' : 'Edit outgoing relations'">
                       <span class="edit-icon">✎</span>
                     </button>
-                    <!-- New "Add Outgoing Relation" button placed next to the edit button -->
+                    <!-- New "Add Outgoing Relation" button -->
                     <button class="remove-relation-button"
                             @click.stop="toggleNewRelationDropdown"
                             title="Add Outgoing Relation"
@@ -227,8 +227,8 @@
                     </button>
                   </div>
                 </div>
-
-                <!-- Candidate Issues Dropdown -->
+                
+                <!-- Candidate Issues Dropdown: Shown when no new relation is selected -->
                 <div v-if="newRelationDropdownVisible && !newOutgoingRelation" class="field-dropdown"
                     style="position: absolute; top: 100%; right: 0; z-index: 1000; background: var(--vscode-dropdown-background);">
                   <div v-if="newRelationIssues.length === 0" class="dropdown-loading">No issues found</div>
@@ -240,13 +240,12 @@
                         <img class="base-icon" :src="getTypeIconPathFor(issue)" alt="Type icon" />
                         <img class="overlay-icon" :src="getRelationalIconPathFor(issue)" alt="Relation icon" />
                       </div>
-                      <!-- If you previously used state.name, update it to derive text from isOpen -->
                       <span>{{ issue.title }} ({{ issue.state.isOpen ? 'Open' : 'Closed' }})</span>
                     </div>
                   </div>
                 </div>
-
-                <!-- New Relation Info and Relation Types Dropdown -->
+                
+                <!-- New Relation Info and Relation Type Dropdown: Shown once a candidate issue is selected -->
                 <div v-if="newOutgoingRelation" class="new-outgoing-relation-container"
                     style="margin-top: 8px; display: flex; align-items: center; gap: 6px;">
                   <div class="new-outgoing-issue-info" style="display: flex; align-items: center; gap: 6px;">
@@ -269,8 +268,8 @@
                   </div>
                 </div>
               </div>
-
-              <!-- Existing outgoing relations section -->
+              
+              <!-- Existing outgoing relations section remains unchanged -->
               <template v-if="!editingOutgoingRelations">
                 <div v-for="(relations, relType) in groupedOutgoingRelations" :key="'out-' + relType" style="margin-bottom: 10px;">
                   <div class="relation-type-header" style="font-weight: 600; margin-bottom: 4px;">
@@ -734,10 +733,25 @@ export default {
       }
     },
     // When a relation type is selected:
-    selectNewRelationType(type) {
+     selectNewRelationType(type) {
       console.log("Selected new relation type:", type);
+      if (vscode) {
+        vscode.postMessage({
+          command: 'createIssueRelation',
+          input: {
+            issue: this.issue.id,                   // ID of the current issue
+            issueRelationType: type.id,               // Selected relation type ID
+            relatedIssue: this.newOutgoingRelation.id // ID of the candidate issue
+          }
+        });
+      }
+      // Collapse the relation type dropdown and clear the candidate selection
       this.newRelationTypeDropdownVisible = false;
-      // Additional logic to process the selection (e.g., calling a mutation) can be added here.
+      this.newOutgoingRelation = null;
+      // Optionally, trigger a refresh of outgoing relations
+      if (vscode) {
+        vscode.postMessage({ command: 'refreshOutgoingRelations' });
+      }
     },
     // When the edit button is clicked for an outgoing relation
     triggerEditRelation(relationId) {

@@ -1453,3 +1453,19 @@ query getComponentIssuesById($componentId: ID!, $first: Int!, $query: String!, $
   }
 }
 `;
+
+export const CREATE_ISSUE_RELATION_MUTATION = `
+  mutation CreateIssueRelation($input: CreateIssueRelationInput!) {
+    createIssueRelation(input: $input) {
+      issueRelation {
+        id
+        type {
+          id
+          name
+          inverseName
+          description
+        }
+      }
+    }
+  }
+`;

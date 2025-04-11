@@ -36,7 +36,8 @@ import {
   FETCH_ALL_WORKSPACE_COMPONENTS_AND_ISSUES,
   FETCH_FOR_ISSUE_GRAPH,
   FETCH_TEMP_ISSUE_GRAPH,
-  GET_COMPONENT_ISSUES_BY_ID_QUERY
+  GET_COMPONENT_ISSUES_BY_ID_QUERY,
+  CREATE_ISSUE_RELATION_MUTATION
 } from "./queries";
 import path from "path";
 import { workerData } from "worker_threads";
@@ -397,6 +398,12 @@ export function activate(context: vscode.ExtensionContext) {
           // Optionally, refresh affected webviews here.
         }
       });
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('extension.refreshOutgoingRelations', () => {
+      issueDetailsProvider.refreshCurrentIssue();
     })
   );
 }
@@ -1565,6 +1572,41 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
           this._view?.webview.postMessage({
             command: 'newRelationTypesError',
             error: error instanceof Error ? error.message : String(error)
+          });
+        }
+      } else if (message.command === 'createIssueRelation') {
+        try {
+          await globalApiClient.authenticate();
+          // Execute the mutation passing in the three IDs: 
+          //   - issue: the currently viewed issue ID,
+          //   - issueRelationType: the selected relation type ID,
+          //   - relatedIssue: the candidate issue ID chosen from the dropdown
+          const result = await globalApiClient.executeQuery(CREATE_ISSUE_RELATION_MUTATION, {
+            input: {
+              issue: message.input.issue,
+              issueRelationType: message.input.issueRelationType,
+              relatedIssue: message.input.relatedIssue,
+            },
+          });
+          if (!result.data?.createIssueRelation?.issueRelation) {
+            this._view?.webview.postMessage({
+              command: 'issueRelationCreationError',
+              error: "No data returned from mutation",
+            });
+          } else {
+            // You can either pass back the created relation,
+            // or simply post a refresh command.
+            this._view?.webview.postMessage({
+              command: 'issueRelationCreated',
+              issueRelation: result.data.createIssueRelation.issueRelation,
+            });
+            // Optionally, trigger a refresh:
+            vscode.commands.executeCommand('extension.refreshOutgoingRelations');
+          }
+        } catch (error) {
+          this._view?.webview.postMessage({
+            command: 'issueRelationCreationError',
+            error: error instanceof Error ? error.message : String(error),
           });
         }
       }
