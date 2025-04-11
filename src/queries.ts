@@ -1509,3 +1509,16 @@ mutation RemoveLabelFromIssue($input: RemoveLabelFromIssueInput!) {
   }
 }
 `;
+
+export const CREATE_LABEL_MUTATION = `
+mutation CreateLabel($input: CreateLabelInput!) {
+  createLabel(input: $input) {
+    label {
+      id
+      name
+      color
+      description
+    }
+  }
+}
+`;

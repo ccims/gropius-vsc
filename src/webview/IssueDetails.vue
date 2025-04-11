@@ -134,73 +134,94 @@
 
         <!-- Labels Section -->
         <div class="info-section" v-if="issue">
-        <div class="section-header-row" style="justify-content: space-between;">
-          <div class="section-header">Labels:</div>
-          <!-- Buttons for label editing and adding -->
-          <div style="display: flex; gap: 4px;">
-            <!-- Toggle label edit mode -->
-            <button class="edit-button" @click="toggleEditLabels" title="Edit Labels">
-              <span class="edit-icon">✎</span>
-            </button>
-            <!-- + button toggles the new label dropdown -->
-            <button class="remove-relation-button" @click.stop="toggleNewLabelDropdown" title="Add Label">
-              <span class="edit-icon">+</span>
-            </button>
+          <div class="section-header-row" style="justify-content: space-between;">
+            <div class="section-header">Labels:</div>
+            <!-- Buttons for label editing and adding -->
+            <div style="display: flex; gap: 4px;">
+              <!-- Toggle label edit mode -->
+              <button class="edit-button" @click="toggleEditLabels" title="Edit Labels">
+                <span class="edit-icon">✎</span>
+              </button>
+              <!-- + button toggles the new label dropdown -->
+              <button class="remove-relation-button" @click.stop="toggleNewLabelDropdown" title="Add Label">
+                <span class="edit-icon">+</span>
+              </button>
+            </div>
           </div>
-        </div>
-        <div class="section-content inline-content">
-          <!-- Show delete button for each label if editing is enabled -->
-          <template v-if="editingLabels">
-            <div
-              v-for="(label, index) in issue.labels.nodes"
-              :key="index"
-              class="badge label-badge"
-              :style="{ backgroundColor: label.color || 'rgba(0, 0, 0, 0.2)', color: '#ffffff' }"
-              :title="label.description">
-              {{ label.name }}
-              <button class="remove-relation-button" @click.stop="removeLabel(label)" title="Remove Label">X</button>
-            </div>
-          </template>
-          <!-- Otherwise simply show the labels -->
-          <template v-else>
-            <div
-              v-for="(label, index) in issue.labels.nodes"
-              :key="index"
-              class="badge label-badge"
-              :style="{ backgroundColor: label.color || 'rgba(0, 0, 0, 0.2)', color: '#ffffff' }"
-              :title="label.description">
-              {{ label.name }}
-            </div>
-          </template>
-        </div>
-        <!-- New Label Dropdown with Search Field -->
-        <div v-if="newLabelDropdownVisible" class="field-dropdown" style="position: relative;">
-          <!-- Search field at the top -->
-          <input 
-            type="text" 
-            v-model="labelSearchQuery" 
-            placeholder="Search labels..." 
-            class="dropdown-search-input"
-          />
-          <!-- Label list -->
-          <div v-if="labelsLoading" class="dropdown-loading">Loading...</div>
-          <div v-else-if="filteredLabels.length === 0" class="dropdown-loading">No labels found</div>
-          <div v-else class="dropdown-options">
-            <div 
-              v-for="label in filteredLabels" 
-              :key="label.id" 
-              class="dropdown-option"
-              @click.stop="selectNewLabel(label)"
-              style="display: flex; align-items: center; gap: 4px;">
-              <div class="badge label-badge" 
-                  :style="{ backgroundColor: label.color || 'rgba(0,0,0,0.2)', color: '#ffffff' }">
+          <div class="section-content inline-content">
+            <!-- Show delete button for each label if editing is enabled -->
+            <template v-if="editingLabels">
+              <div
+                v-for="(label, index) in issue.labels.nodes"
+                :key="index"
+                class="badge label-badge"
+                :style="{ backgroundColor: label.color || 'rgba(0, 0, 0, 0.2)', color: '#ffffff' }"
+                :title="label.description">
+                {{ label.name }}
+                <button class="remove-relation-button" @click.stop="removeLabel(label)" title="Remove Label">X</button>
+              </div>
+            </template>
+            <!-- Otherwise simply show the labels -->
+            <template v-else>
+              <div
+                v-for="(label, index) in issue.labels.nodes"
+                :key="index"
+                class="badge label-badge"
+                :style="{ backgroundColor: label.color || 'rgba(0, 0, 0, 0.2)', color: '#ffffff' }"
+                :title="label.description">
                 {{ label.name }}
               </div>
-              <span class="label-description">{{ label.description }}</span>
+            </template>
+          </div>
+          <!-- New Label Dropdown with Search Field -->
+          <div v-if="newLabelDropdownVisible" class="field-dropdown" style="position: relative;">
+            <div v-if="showNewLabelModal" class="create-label-form" style="padding: 10px; background-color: var(--vscode-dropdown-background);">
+              <div style="font-weight: bold; margin-bottom: 8px;">Create New Label</div>
+              <label>Name:</label>
+              <input type="text" v-model="newLabelName" placeholder="Label name" style="width: 100%; margin-bottom: 6px;" />
+              <label>Description:</label>
+              <input type="text" v-model="newLabelDescription" placeholder="Label description" style="width: 100%; margin-bottom: 6px;" />
+              <label>Color:</label>
+              <input type="color" v-model="newLabelColor" style="margin-bottom: 6px;" />
+              <div style="display: flex; justify-content: flex-end; gap: 6px;">
+                <button @click="cancelCreateLabel" style="padding: 4px 8px;">Cancel</button>
+                <button @click="createLabel" style="padding: 4px 8px;">Create Label</button>
+              </div>
+            </div>
+            <div v-else>
+              <!-- New "Create new" option -->
+              <div class="dropdown-option"
+                  @click.stop="openCreateNewLabelModal"
+                  style="font-weight: bold; cursor: pointer;">
+                Create new
+              </div>
+              <!-- Existing search field -->
+              <input 
+                type="text" 
+                v-model="labelSearchQuery" 
+                placeholder="Search labels..." 
+                class="dropdown-search-input"
+              />
+              <!-- Existing dropdown options -->
+              <div v-if="labelsLoading" class="dropdown-loading">Loading...</div>
+              <div v-else-if="filteredLabels.length === 0" class="dropdown-loading">No labels found</div>
+              <div v-else class="dropdown-options">
+                <div 
+                  v-for="label in filteredLabels" 
+                  :key="label.id" 
+                  class="dropdown-option"
+                  @click.stop="selectNewLabel(label)"
+                  style="display: flex; align-items: center; gap: 4px;">
+                  <div class="badge label-badge" 
+                      :style="{ backgroundColor: label.color || 'rgba(0,0,0,0.2)', color: '#ffffff' }">
+                    {{ label.name }}
+                  </div>
+                  <span class="label-description">{{ label.description }}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
         <!-- Affected Entities Section -->
         <div class="info-section" v-if="issue.affects && issue.affects.nodes.length > 0">
@@ -619,7 +640,11 @@ export default {
       allLabels: [],
       labelsLoading: false,
       editingLabels: false,
-      labelSearchQuery: ""
+      labelSearchQuery: "",
+      showNewLabelModal: false,
+      newLabelName: '',
+      newLabelDescription: '',
+      newLabelColor: '#0c94d8',
     };
   },
   computed: {
@@ -806,6 +831,35 @@ export default {
     }
   },
   methods: {
+    openCreateNewLabelModal() {
+      this.showNewLabelModal = true;
+      // Optionally close the dropdown search if desired:
+      // this.newLabelDropdownVisible = false;
+    },
+    cancelCreateLabel() {
+      this.showNewLabelModal = false;
+      this.newLabelName = '';
+      this.newLabelDescription = '';
+      this.newLabelColor = '#0c94d8';
+    },
+    async createLabel() {
+      if (!this.newLabelName || !this.newLabelDescription || !this.newLabelColor) {
+        alert("Please fill in all fields.");
+        return;
+      }
+      if (vscode) {
+        vscode.postMessage({
+          command: 'createNewLabel',
+          data: {
+            name: this.newLabelName,
+            description: this.newLabelDescription,
+            color: this.newLabelColor
+          }
+        });
+      }
+      // Close the creation form and reset fields
+      this.cancelCreateLabel();
+    },
     // Toggle whether the labels are in edit mode
     toggleEditLabels() {
       this.editingLabels = !this.editingLabels;
@@ -3202,6 +3256,7 @@ ul {
   padding: 6px;
   border: 1px solid var(--vscode-dropdown-border);
   background-color: #2d2d2d;
+  color: white;
   border-bottom: none;
   outline: none;
 }
@@ -3209,6 +3264,48 @@ ul {
 .label-description {
   font-size: 0.85em;
   color: #cccccc;
+}
+
+/* Labels Create New */
+
+.create-label-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+.create-label-modal .modal-content {
+  background: #2d2d2d;
+  color: white;
+  padding: 20px;
+  border-radius: 6px;
+  width: 300px;
+}
+.create-label-modal label {
+  display: block;
+  margin-top: 10px;
+}
+.create-label-modal input[type="text"],
+.create-label-modal input[type="color"] {
+  width: 100%;
+  margin-top: 4px;
+  padding: 4px;
+}
+.create-label-modal .modal-actions {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.create-label-modal .modal-actions button {
+  padding: 6px 12px;
+  cursor: pointer;
 }
 
 </style>
