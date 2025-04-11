@@ -175,17 +175,35 @@
           </div>
           <!-- New Label Dropdown with Search Field -->
           <div v-if="newLabelDropdownVisible" class="field-dropdown" style="position: relative;">
-            <div v-if="showNewLabelModal" class="create-label-form" style="padding: 10px; background-color: var(--vscode-dropdown-background);">
-              <div style="font-weight: bold; margin-bottom: 8px;">Create New Label</div>
+            <div v-if="showNewLabelModal" class="create-label-form">
+              <div class="label-form-header">Create New Label</div>
+
               <label>Name:</label>
-              <input type="text" v-model="newLabelName" placeholder="Label name" style="width: 100%; margin-bottom: 6px;" />
+              <input
+                type="text"
+                v-model="newLabelName"
+                class="label-input"
+                placeholder="Label name"
+              />
+
               <label>Description:</label>
-              <input type="text" v-model="newLabelDescription" placeholder="Label description" style="width: 100%; margin-bottom: 6px;" />
+              <input
+                type="text"
+                v-model="newLabelDescription"
+                class="label-input"
+                placeholder="Label description"
+              />
+
               <label>Color:</label>
-              <input type="color" v-model="newLabelColor" style="margin-bottom: 6px;" />
-              <div style="display: flex; justify-content: flex-end; gap: 6px;">
-                <button @click="cancelCreateLabel" style="padding: 4px 8px;">Cancel</button>
-                <button @click="createLabel" style="padding: 4px 8px;">Create Label</button>
+              <input
+                type="color"
+                v-model="newLabelColor"
+                class="label-input"
+              />
+
+              <div class="label-form-actions">
+                <button @click="cancelCreateLabel">Cancel</button>
+                <button @click="createLabel">Create Label</button>
               </div>
             </div>
             <div v-else>
@@ -3306,6 +3324,63 @@ ul {
 .create-label-modal .modal-actions button {
   padding: 6px 12px;
   cursor: pointer;
+}
+
+/* Main container for the create-label form */
+.create-label-form {
+  /* Fill entire dropdown width */
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px;
+  color: #ffffff;  
+  background-color: var(--vscode-dropdown-background); /* Lighter grey, matching dropdown */
+}
+
+.label-form-header {
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+/* Inputs remain dark (#2d2d2d) but with white borders & text */
+.label-input {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 6px;
+  padding: 6px;
+  background-color: #2d2d2d; 
+  border: 1px solid #ffffff;  
+  color: #ffffff;
+  transition: border-color 0.2s;
+}
+
+/* Keep border white on hover/focus */
+.label-input:hover,
+.label-input:focus {
+  outline: none;
+  border-color: #ffffff;
+}
+
+/* Button row */
+.label-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.label-form-actions button {
+  background: none;
+  color: #ffffff;
+  border: 1px solid transparent;
+  padding: 4px 8px;
+  font-size: 0.9em;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.label-form-actions button:hover {
+  color: #0078d4;
+  border-color: #0078d4;
 }
 
 </style>
