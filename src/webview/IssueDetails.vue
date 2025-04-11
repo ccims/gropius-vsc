@@ -148,7 +148,7 @@
               </button>
             </div>
           </div>
-          <div class="section-content inline-content labels-row">
+          <div class="section-content inline-content labels-row" style="margin-left: 20px;">
             <!-- Show delete button for each label if editing is enabled -->
             <template v-if="editingLabels">
               <div
@@ -234,7 +234,9 @@
                       :style="{ backgroundColor: label.color || 'rgba(0,0,0,0.2)', color: '#ffffff' }">
                     {{ label.name }}
                   </div>
-                  <span class="label-description">{{ label.description }}</span>
+                  <span class="label-description" style="color: #ffffff;">
+                    {{ label.description }}
+                  </span>
                 </div>
               </div>
             </div>

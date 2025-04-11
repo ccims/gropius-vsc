@@ -1490,6 +1490,7 @@ export const GET_ALL_LABELS_QUERY = `
       id
       name
       color
+      description
     }
   }
 `;
