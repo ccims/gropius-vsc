@@ -195,11 +195,23 @@
               />
 
               <label>Color:</label>
-              <input
-                type="color"
-                v-model="newLabelColor"
-                class="label-input"
-              />
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <!-- Color picker input -->
+                <input
+                  type="color"
+                  v-model="newLabelColor"
+                  class="label-input"
+                  style="padding: 0; width: 40px; height: 40px;"
+                />
+                <!-- Text input to show/paste the color value -->
+                <input
+                  type="text"
+                  v-model="newLabelColor"
+                  class="label-input"
+                  placeholder="#ffffff"
+                  style="max-width: 100px;"
+                />
+              </div>
 
               <div class="label-form-actions">
                 <button @click="cancelCreateLabel">Cancel</button>
