@@ -1637,21 +1637,34 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
         try {
           await globalApiClient.authenticate();
           const result = await globalApiClient.executeQuery(ADD_LABEL_TO_ISSUE_MUTATION, {
-            input: {
-              issue: message.input.issue,   // Current issue's ID
-              label: message.input.label      // Selected label's ID
-            },
+            input: message.input, // { issue: string, label: string }
           });
-          // In the updated mutation, the data is found under "addedLabelEvent.addedLabel"
+
+          // Check whether the mutation returned a valid label
+          if (!result.data?.addLabelToIssue?.addedLabelEvent?.addedLabel) {
+            throw new Error(
+              result.errors && result.errors.length > 0
+                ? result.errors[0].message
+                : "No label was added."
+            );
+          }
+
+          // Send the added label back to the webview
           this._view?.webview.postMessage({
             command: 'labelAddedToIssue',
-            label: result.data?.addLabelToIssue?.addedLabelEvent?.addedLabel || null
+            label: result.data.addLabelToIssue.addedLabelEvent.addedLabel,
           });
+
+          // Optionally trigger a refresh of the issue view
           vscode.commands.executeCommand('extension.refreshCurrentIssue');
         } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          // Display the error notification in VS Code
+          vscode.window.showErrorMessage(`Failed to add label: ${errorMsg}`);
+          // Send the error back to the webview if further handling is needed
           this._view?.webview.postMessage({
             command: 'addLabelToIssueError',
-            error: error instanceof Error ? error.message : String(error),
+            error: errorMsg,
           });
         }
       }
