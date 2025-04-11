@@ -134,63 +134,73 @@
 
         <!-- Labels Section -->
         <div class="info-section" v-if="issue">
-          <div class="section-header-row" style="justify-content: space-between;">
-            <div class="section-header">Labels:</div>
-            <!-- Buttons for label editing and adding -->
-            <div style="display: flex; gap: 4px;">
-              <!-- Toggle label edit mode -->
-              <button class="edit-button" @click="toggleEditLabels" title="Edit Labels">
-                <span class="edit-icon">✎</span>
-              </button>
-              <button class="remove-relation-button" @click.stop="toggleNewLabelDropdown" title="Add Label">
-                <span class="edit-icon">+</span>
-              </button>
+        <div class="section-header-row" style="justify-content: space-between;">
+          <div class="section-header">Labels:</div>
+          <!-- Buttons for label editing and adding -->
+          <div style="display: flex; gap: 4px;">
+            <!-- Toggle label edit mode -->
+            <button class="edit-button" @click="toggleEditLabels" title="Edit Labels">
+              <span class="edit-icon">✎</span>
+            </button>
+            <!-- + button toggles the new label dropdown -->
+            <button class="remove-relation-button" @click.stop="toggleNewLabelDropdown" title="Add Label">
+              <span class="edit-icon">+</span>
+            </button>
+          </div>
+        </div>
+        <div class="section-content inline-content">
+          <!-- Show delete button for each label if editing is enabled -->
+          <template v-if="editingLabels">
+            <div
+              v-for="(label, index) in issue.labels.nodes"
+              :key="index"
+              class="badge label-badge"
+              :style="{ backgroundColor: label.color || 'rgba(0, 0, 0, 0.2)', color: '#ffffff' }"
+              :title="label.description">
+              {{ label.name }}
+              <button class="remove-relation-button" @click.stop="removeLabel(label)" title="Remove Label">X</button>
             </div>
-          </div>
-          <div class="section-content inline-content">
-            <!-- If editingLabels is true, show a delete "X" on each label -->
-            <template v-if="editingLabels">
-              <div v-for="(label, index) in issue.labels.nodes" :key="index" class="badge label-badge"
-                  :style="{ backgroundColor: label.color || 'rgba(0, 0, 0, 0.2)', color: '#ffffff' }"
-                  :title="label.description">
+          </template>
+          <!-- Otherwise simply show the labels -->
+          <template v-else>
+            <div
+              v-for="(label, index) in issue.labels.nodes"
+              :key="index"
+              class="badge label-badge"
+              :style="{ backgroundColor: label.color || 'rgba(0, 0, 0, 0.2)', color: '#ffffff' }"
+              :title="label.description">
+              {{ label.name }}
+            </div>
+          </template>
+        </div>
+        <!-- New Label Dropdown with Search Field -->
+        <div v-if="newLabelDropdownVisible" class="field-dropdown" style="position: relative;">
+          <!-- Search field at the top -->
+          <input 
+            type="text" 
+            v-model="labelSearchQuery" 
+            placeholder="Search labels..." 
+            class="dropdown-search-input"
+          />
+          <!-- Label list -->
+          <div v-if="labelsLoading" class="dropdown-loading">Loading...</div>
+          <div v-else-if="filteredLabels.length === 0" class="dropdown-loading">No labels found</div>
+          <div v-else class="dropdown-options">
+            <div 
+              v-for="label in filteredLabels" 
+              :key="label.id" 
+              class="dropdown-option"
+              @click.stop="selectNewLabel(label)"
+              style="display: flex; align-items: center; gap: 4px;">
+              <div class="badge label-badge" 
+                  :style="{ backgroundColor: label.color || 'rgba(0,0,0,0.2)', color: '#ffffff' }">
                 {{ label.name }}
-                <button class="remove-relation-button" @click.stop="removeLabel(label)" title="Remove Label">X</button>
               </div>
-            </template>
-            <!-- Otherwise, just list the labels normally -->
-            <template v-else>
-              <div v-for="(label, index) in issue.labels.nodes" :key="index" class="badge label-badge"
-                  :style="{ backgroundColor: label.color || 'rgba(0, 0, 0, 0.2)', color: '#ffffff' }"
-                  :title="label.description">
-                {{ label.name }}
-              </div>
-            </template>
-          </div>
-          <!-- New Label Dropdown with Search Field -->
-          <div v-if="newLabelDropdownVisible" class="field-dropdown" style="position: relative;">
-            <!-- Search field at the top -->
-            <input 
-              type="text" 
-              v-model="labelSearchQuery" 
-              placeholder="Search labels..." 
-              class="dropdown-search-input"
-            />
-            
-            <!-- Label list -->
-            <div v-if="labelsLoading" class="dropdown-loading">Loading...</div>
-            <div v-else-if="filteredLabels.length === 0" class="dropdown-loading">No labels found</div>
-            <div v-else class="dropdown-options">
-              <div v-for="label in filteredLabels" :key="label.id" class="dropdown-option"
-                  @click.stop="selectNewLabel(label)"
-                  style="display: flex; align-items: center; gap: 4px;">
-                <div class="badge label-badge" 
-                    :style="{ backgroundColor: label.color || 'rgba(0,0,0,0.2)', color: '#ffffff' }">
-                  {{ label.name }}
-                </div>
-              </div>
+              <span class="label-description">{{ label.description }}</span>
             </div>
           </div>
         </div>
+      </div>
 
         <!-- Affected Entities Section -->
         <div class="info-section" v-if="issue.affects && issue.affects.nodes.length > 0">
@@ -821,12 +831,17 @@ export default {
     },
     // Toggle the label dropdown
     toggleNewLabelDropdown() {
-      this.labelsLoading = true;
-      this.newLabelDropdownVisible = true;
-      console.log("[toggleNewLabelDropdown] Requesting all labels from extension");
-      if (vscode) {
-        // Send message with parameters (first:20, query:"*", skip:0)
-        vscode.postMessage({ command: 'getAllLabels', first: 20, query: "*", skip: 0 });
+      if (this.newLabelDropdownVisible) {
+        // If already visible, close it.
+        this.newLabelDropdownVisible = false;
+      } else {
+        this.labelsLoading = true;
+        this.newLabelDropdownVisible = true;
+        console.log("[toggleNewLabelDropdown] Requesting all labels from extension");
+        // Request all labels from your extension.
+        if (vscode) {
+          vscode.postMessage({ command: 'getAllLabels', first: 20, query: "*", skip: 0 });
+        }
       }
     },
     // Called when a label is selected from the dropdown
@@ -3179,15 +3194,21 @@ ul {
   background-color: var(--vscode-button-secondaryHoverBackground, #3d3d3d);
 }
 
-/* Labels */
+/* Labels Search Field */
 
 .dropdown-search-input {
   width: 100%;
   box-sizing: border-box;
   padding: 6px;
   border: 1px solid var(--vscode-dropdown-border);
+  background-color: #2d2d2d;
   border-bottom: none;
   outline: none;
+}
+
+.label-description {
+  font-size: 0.85em;
+  color: #cccccc;
 }
 
 </style>
