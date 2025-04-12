@@ -423,27 +423,51 @@ export default {
             vscode.postMessage({ command: "refreshRequested" });
           }
         }
-      } else if (message && message.command === "issueTemplatesLoaded") {
-        // Handle templates loaded from backend
+      } else if (message.command === "fetchIssueTemplates") {
+        // Handle fetching templates
+        this.fetchIssueTemplates()
+          .then(templates => {
+            webviewView.webview.postMessage({
+              command: 'issueTemplatesLoaded',
+              templates: templates
+            });
+          })
+          .catch(error => {
+            console.error("Error fetching issue templates:", error);
+            webviewView.webview.postMessage({
+              command: 'issueTemplatesLoaded',
+              templates: [],
+              error: error.message
+            });
+          });
+      } else if (message.command === "createIssue") {
+        // Handle creating issue
+        this.createIssue(message.input)
+          .then(newIssue => {
+            webviewView.webview.postMessage({
+              command: 'issueCreated',
+              issue: newIssue
+            });
+
+            // Refresh the issues list
+            this.refreshCurrentIssues();
+          })
+          .catch(error => {
+            console.error("Error creating issue:", error);
+            webviewView.webview.postMessage({
+              command: 'issueCreationError',
+              error: error.message
+            });
+          });
+      } else if (message.command === "issueTemplatesLoaded") {
+        console.log("Received issue templates:", message.templates);
         this.issueTemplates = message.templates || [];
-        console.log("Templates loaded:", this.issueTemplates.length);
-      } else if (message && message.command === "issueCreated") {
-        // Handle successful issue creation
-        if (message.issue) {
-          // Add the new issue to our list if not already there
-          const issueExists = this.issues.some(i => i.id === message.issue.id);
-          if (!issueExists) {
-            this.issues = [...this.issues, message.issue];
-            this.saveState();
-          }
 
-          // Show success notification or auto-open the new issue
-          console.log("Issue created successfully:", message.issue.id);
-
-          // Optionally, open the newly created issue
-          this.openIssueDetails(message.issue.id);
+        if (message.error) {
+          console.error("Error loading templates:", message.error);
         }
       }
+      return;
     });
 
     // Close filter menu when clicking outside
@@ -707,10 +731,12 @@ export default {
         template: this.newIssue.templateId,
         type: this.newIssue.typeId,
         state: this.newIssue.stateId,
-        body: "", // Empty body initially
-        trackables: this.componentId,
+        body: this.newIssue.description || "", // Include the description if provided
+        trackables: [this.componentId], // Make sure this is an array as required by the API
         templatedFields: formattedFields
       };
+
+      console.log("Creating issue with input:", input);
 
       // Send the creation request to the extension
       if (vscode) {

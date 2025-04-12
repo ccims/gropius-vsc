@@ -41,7 +41,9 @@ import {
   GET_ALL_LABELS_QUERY,
   ADD_LABEL_TO_ISSUE_MUTATION,
   REMOVE_LABEL_FROM_ISSUE_MUTATION,
-  CREATE_LABEL_MUTATION
+  CREATE_LABEL_MUTATION,
+  GET_ISSUE_TEMPLATES,
+  CREATE_ISSUE_MUTATION
 } from "./queries";
 import path from "path";
 import { workerData } from "worker_threads";
@@ -910,6 +912,40 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
         });
       } else if (message.command === "refreshRequested") {
         this.refreshCurrentIssues();
+      } else if (message.command === "fetchIssueTemplates") {
+        this.fetchIssueTemplates()
+          .then(templates => {
+            webviewView.webview.postMessage({
+              command: 'issueTemplatesLoaded',
+              templates: templates
+            });
+          })
+          .catch(error => {
+            console.error("Error fetching issue templates:", error);
+            webviewView.webview.postMessage({
+              command: 'issueTemplatesLoaded',
+              templates: [],
+              error: error.message
+            });
+          });
+      } else if (message.command === "createIssue") {
+        this.createIssue(message.input)
+          .then(newIssue => {
+            webviewView.webview.postMessage({
+              command: 'issueCreated',
+              issue: newIssue
+            });
+
+            // Refresh the issues list
+            this.refreshCurrentIssues();
+          })
+          .catch(error => {
+            console.error("Error creating issue:", error);
+            webviewView.webview.postMessage({
+              command: 'issueCreationError',
+              error: error.message
+            });
+          });
       }
       return;
     });
@@ -977,6 +1013,45 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
       vscode.window.showErrorMessage(
         `Failed to fetch component issues: ${error instanceof Error ? error.message : String(error)}`
       );
+    }
+  }
+
+  private async fetchIssueTemplates() {
+    try {
+      await this.apiClient.authenticate();
+
+      const result = await this.apiClient.executeQuery(
+        GET_ISSUE_TEMPLATES
+      );
+
+      if (result.errors) {
+        throw new Error(result.errors[0].message);
+      }
+
+      return result.data?.issueTemplates?.nodes || [];
+    } catch (error) {
+      console.error("Error fetching issue templates:", error);
+      throw error;
+    }
+  }
+
+  private async createIssue(input: any) {
+    try {
+      await this.apiClient.authenticate();
+
+      const result = await this.apiClient.executeQuery(
+        CREATE_ISSUE_MUTATION,
+        { input }
+      );
+
+      if (result.errors) {
+        throw new Error(result.errors[0].message);
+      }
+
+      return result.data?.createIssue?.issue;
+    } catch (error) {
+      console.error("Error creating issue:", error);
+      throw error;
     }
   }
 
@@ -1510,8 +1585,8 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
           vscode.window.showErrorMessage(`Failed to remove relation: ${error instanceof Error ? error.message : String(error)}`);
         }
       } else if (message.command === "showIssueGraph") {
-          console.log("Start issueGraph");
-          this.openIssueGraphEditor();
+        console.log("Start issueGraph");
+        this.openIssueGraphEditor();
       } else if (message.command === 'getRelationTypes') {
         try {
           const relationTypes = await this.fetchIssueRelationTypes();
