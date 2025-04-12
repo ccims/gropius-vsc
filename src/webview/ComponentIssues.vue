@@ -193,68 +193,141 @@
 
         <!-- Description Tab -->
         <div v-else-if="currentTab === 'description'" class="tab-content">
-          <div class="description-editor">
-            <div class="editor-toolbar">
-              <button class="toolbar-button" @click="applyFormatting('h')"><span class="toolbar-icon">H</span></button>
-              <button class="toolbar-button" @click="applyFormatting('b')"><span class="toolbar-icon">B</span></button>
-              <button class="toolbar-button" @click="applyFormatting('i')"><span class="toolbar-icon">I</span></button>
-              <button class="toolbar-button" @click="applyFormatting('quote')"><span
-                  class="toolbar-icon">"</span></button>
-              <button class="toolbar-button" @click="applyFormatting('link')"><span
-                  class="toolbar-icon">🔗</span></button>
-              <button class="toolbar-button" @click="applyFormatting('code')"><span class="toolbar-icon">{
-                  }</span></button>
-              <button class="toolbar-button" @click="applyFormatting('ul')"><span class="toolbar-icon">•
-                </span></button>
-              <button class="toolbar-button" @click="applyFormatting('ol')"><span class="toolbar-icon">1.
-                </span></button>
+          <div class="github-editor">
+            <!-- Editor Tabs -->
+            <div class="editor-tabs">
+              <button class="editor-tab" :class="{ 'active': !previewMode }" @click="previewMode = false">
+                Write
+              </button>
+              <button class="editor-tab" :class="{ 'active': previewMode }" @click="previewMode = true">
+                Preview
+              </button>
             </div>
 
-            <textarea class="description-textarea" v-model="newIssue.description" placeholder="Description (optional)"
-              rows="8"></textarea>
+            <!-- Toolbar (only visible in write mode) -->
+            <div class="editor-toolbar" v-if="!previewMode">
+              <button class="toolbar-button" @click="applyFormatting('h')" title="Add header text">
+                <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
+                  <path
+                    d="M3.75 2a.75.75 0 0 1 .75.75V7h7V2.75a.75.75 0 0 1 1.5 0v10.5a.75.75 0 0 1-1.5 0V8.5h-7v4.75a.75.75 0 0 1-1.5 0V2.75A.75.75 0 0 1 3.75 2Z">
+                  </path>
+                </svg>
+              </button>
+              <button class="toolbar-button" @click="applyFormatting('b')" title="Bold">
+                <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
+                  <path
+                    d="M4 2h4.5a3.501 3.501 0 0 1 2.852 5.53A3.499 3.499 0 0 1 9.5 14H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1Zm1 7v3h4.5a1.5 1.5 0 0 0 0-3Zm3.5-2a1.5 1.5 0 0 0 0-3H5v3Z">
+                  </path>
+                </svg>
+              </button>
+              <button class="toolbar-button" @click="applyFormatting('i')" title="Italic">
+                <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
+                  <path
+                    d="M5 2.75a.75.75 0 0 1 .75-.75h8.5a.75.75 0 0 1 0 1.5h-3.5v9h3.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1 0-1.5h3.5v-9h-3.5a.75.75 0 0 1-.75-.75Z">
+                  </path>
+                </svg>
+              </button>
+              <div class="toolbar-divider"></div>
+              <button class="toolbar-button" @click="applyFormatting('link')" title="Add a link">
+                <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
+                  <path
+                    d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z">
+                  </path>
+                </svg>
+              </button>
+              <button class="toolbar-button" @click="applyFormatting('quote')" title="Add a quote">
+                <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
+                  <path
+                    d="M1.75 2.5h10.5a.75.75 0 0 1 0 1.5H1.75a.75.75 0 0 1 0-1.5Zm4 5h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1 0-1.5Zm0 5h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1 0-1.5ZM2.5 7.75v6a.75.75 0 0 1-1.5 0v-6a.75.75 0 0 1 1.5 0Z">
+                  </path>
+                </svg>
+              </button>
+              <button class="toolbar-button" @click="applyFormatting('code')" title="Add code">
+                <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
+                  <path
+                    d="m11.28 3.22 4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.749.749 0 0 1-1.275-.326.749.749 0 0 1 .215-.734L13.94 8l-3.72-3.72a.749.749 0 0 1 .326-1.275.749.749 0 0 1 .734.215Zm-6.56 0a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042L2.06 8l3.72 3.72a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L.47 8.53a.75.75 0 0 1 0-1.06Z">
+                  </path>
+                </svg>
+              </button>
+              <div class="toolbar-divider"></div>
+              <button class="toolbar-button" @click="applyFormatting('ul')" title="Add a bulleted list">
+                <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
+                  <path
+                    d="M2 4a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm3.75-1.5a.75.75 0 0 0 0 1.5h8.5a.75.75 0 0 0 0-1.5Zm0 5a.75.75 0 0 0 0 1.5h8.5a.75.75 0 0 0 0-1.5Zm0 5a.75.75 0 0 0 0 1.5h8.5a.75.75 0 0 0 0-1.5ZM3 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0Zm-1 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z">
+                  </path>
+                </svg>
+              </button>
+              <button class="toolbar-button" @click="applyFormatting('ol')" title="Add a numbered list">
+                <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
+                  <path
+                    d="M2.003 2.5a.5.5 0 0 0-.723-.447l-1.003.5a.5.5 0 0 0 .446.895l.28-.14V6H.5a.5.5 0 0 0 0 1h2.006a.5.5 0 1 0 0-1h-.503V2.5ZM5 3.25a.75.75 0 0 1 .75-.75h8.5a.75.75 0 0 1 0 1.5h-8.5A.75.75 0 0 1 5 3.25Zm0 5a.75.75 0 0 1 .75-.75h8.5a.75.75 0 0 1 0 1.5h-8.5A.75.75 0 0 1 5 8.25Zm0 5a.75.75 0 0 1 .75-.75h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1-.75-.75ZM.924 10.32a.5.5 0 0 1 .153-.68L1.62 9.25a.5.5 0 1 1 .52.851l-.151.092v.834H2.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1-.038-.969l.224-.11V10.32Zm.128 4.238a.5.5 0 0 1 .669.225l.16.37c.161.218.091.412.024.131-.15-.5.151 0 0 0-.01.07.07-.032.024-.13l-.159-.368a.5.5 0 0 1 .225-.669l.683-.297a.5.5 0 0 1 .117.943l-.225.98a.5.5 0 0 1-.111.99H.5a.5.5 0 0 1 0-1h1.057l.224-.976a.5.5 0 0 1 .116-.943l.683.297Z">
+                  </path>
+                </svg>
+              </button>
+              <button class="toolbar-button" @click="applyFormatting('task')" title="Add a task list">
+                <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
+                  <path
+                    d="M2.5 3.5a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-1ZM2 7.5a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-1ZM2.5 11.5a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-1Z">
+                  </path>
+                </svg>
+              </button>
+            </div>
+
+            <!-- Write mode: Textarea -->
+            <div v-if="!previewMode" class="editor-content">
+              <textarea class="github-textarea" v-model="newIssue.description"
+                placeholder="Leave a description (optional)" ref="descriptionTextarea" rows="15"></textarea>
+            </div>
+
+            <!-- Preview mode: Rendered markdown -->
+            <div v-else class="editor-preview markdown-content">
+              <div v-if="newIssue.description" v-html="markdownToHtml(newIssue.description)"></div>
+              <div v-else class="preview-placeholder">Nothing to preview</div>
+            </div>
 
             <div class="editor-footer">
-              <span class="editor-info">Markdown supported</span>
+              <div class="markdown-info">
+                <a href="https://docs.github.com/github/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax"
+                  target="_blank" class="markdown-link">
+                  <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" class="markdown-icon">
+                    <path
+                      d="M14.85 3H1.15C.52 3 0 3.52 0 4.15v7.69C0 12.48.52 13 1.15 13h13.69c.64 0 1.15-.52 1.15-1.15v-7.7C16 3.52 15.48 3 14.85 3zM9 11H7V8L5.5 9.92 4 8v3H2V5h2l1.5 2L7 5h2v6zm2.99.5L9.5 8H11V5h2v3h1.5l-2.51 3.5z">
+                    </path>
+                  </svg>
+                  Markdown is supported
+                </a>
+              </div>
+              <div class="textarea-controls">
+                <span class="textarea-tip">You can attach files by dragging & dropping or selecting them.</span>
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- Templated Fields Tab -->
-        <div v-else class="tab-content">
-          <div v-if="newIssue.templateId" class="templated-fields">
-            <div v-for="(field, index) in templatedFields" :key="index" class="form-group">
-              <label>{{ field.name }}</label>
-              <input type="text" v-model="field.value" class="form-input" />
-            </div>
-          </div>
-          <div v-else class="no-template-message">
-            Please select a template first
-          </div>
+        <div class="modal-footer">
+          <button v-if="currentTab === 'description'" class="button secondary" @click="currentTab = 'general'">
+            Previous
+          </button>
+          <button v-else-if="currentTab === 'templated'" class="button secondary" @click="currentTab = 'description'">
+            Previous
+          </button>
+
+          <button v-if="currentTab === 'general'" class="button primary" @click="validateAndProceed">
+            Next
+          </button>
+          <button v-else-if="currentTab === 'description'" class="button primary" @click="goToTemplatedFields">
+            Next
+          </button>
+          <button v-else class="button primary" @click="createIssue">
+            Create
+          </button>
+
+          <button class="button secondary" @click="closeCreateIssue">
+            Cancel
+          </button>
         </div>
       </div>
 
-      <div class="modal-footer">
-        <button v-if="currentTab === 'description'" class="button secondary" @click="currentTab = 'general'">
-          Previous
-        </button>
-        <button v-else-if="currentTab === 'templated'" class="button secondary" @click="currentTab = 'description'">
-          Previous
-        </button>
-
-        <button v-if="currentTab === 'general'" class="button primary" @click="validateAndProceed">
-          Next
-        </button>
-        <button v-else-if="currentTab === 'description'" class="button primary" @click="goToTemplatedFields">
-          Next
-        </button>
-        <button v-else class="button primary" @click="createIssue">
-          Create
-        </button>
-
-        <button class="button secondary" @click="closeCreateIssue">
-          Cancel
-        </button>
-      </div>
     </div>
   </div>
 </template>
@@ -265,6 +338,7 @@ export default {
   name: "ComponentIssues",
   data() {
     return {
+      previewMode: false,
       issues: [],
       searchQuery: '',
       statusFilter: null, // null, 'open', or 'closed'
@@ -477,6 +551,153 @@ export default {
     document.removeEventListener('click', this.handleClickOutside);
   },
   methods: {
+    applyFormatting(type) {
+      // Get the textarea element
+      const textarea = this.$refs.descriptionTextarea;
+      if (!textarea) return;
+
+      // Get the current selection
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const selectedText = this.newIssue.description.substring(start, end);
+
+      let formattedText = '';
+      let cursorOffset = 0;
+
+      switch (type) {
+        case 'h':
+          formattedText = `### ${selectedText}`;
+          cursorOffset = 4;
+          break;
+        case 'b':
+          formattedText = `**${selectedText}**`;
+          cursorOffset = 2;
+          break;
+        case 'i':
+          formattedText = `*${selectedText}*`;
+          cursorOffset = 1;
+          break;
+        case 'quote':
+          // GitHub style: add a newline first if we're not at the start of a line
+          if (start > 0 && this.newIssue.description.charAt(start - 1) !== '\n' && start > 0) {
+            formattedText = `\n> ${selectedText}`;
+            cursorOffset = 3;
+          } else {
+            formattedText = `> ${selectedText}`;
+            cursorOffset = 2;
+          }
+          break;
+        case 'link':
+          formattedText = selectedText.length > 0
+            ? `[${selectedText}](url)`
+            : '[title](url)';
+          cursorOffset = selectedText.length > 0 ? 1 : 7;
+          break;
+        case 'code':
+          // Check if it's a multiline selection
+          if (selectedText.includes('\n')) {
+            formattedText = `\`\`\`\n${selectedText}\n\`\`\``;
+            cursorOffset = 4;
+          } else {
+            formattedText = `\`${selectedText}\``;
+            cursorOffset = 1;
+          }
+          break;
+        case 'ul':
+          // If multiline, add bullet to each line
+          if (selectedText.includes('\n')) {
+            formattedText = selectedText
+              .split('\n')
+              .map(line => line.trim() ? `- ${line}` : line)
+              .join('\n');
+          } else {
+            formattedText = `- ${selectedText}`;
+          }
+          cursorOffset = 2;
+          break;
+        case 'ol':
+          // If multiline, add numbers to each line
+          if (selectedText.includes('\n')) {
+            formattedText = selectedText
+              .split('\n')
+              .map((line, index) => line.trim() ? `${index + 1}. ${line}` : line)
+              .join('\n');
+          } else {
+            formattedText = `1. ${selectedText}`;
+          }
+          cursorOffset = 3;
+          break;
+        case 'task':
+          // If multiline, add task checkbox to each line
+          if (selectedText.includes('\n')) {
+            formattedText = selectedText
+              .split('\n')
+              .map(line => line.trim() ? `- [ ] ${line}` : line)
+              .join('\n');
+          } else {
+            formattedText = `- [ ] ${selectedText}`;
+          }
+          cursorOffset = 6;
+          break;
+      }
+
+      // Replace the selected text with the formatted text
+      this.newIssue.description =
+        this.newIssue.description.substring(0, start) +
+        formattedText +
+        this.newIssue.description.substring(end);
+
+      // Reset the selection
+      this.$nextTick(() => {
+        textarea.focus();
+        if (start === end) {
+          // No text was selected, place cursor after the format markers
+          textarea.setSelectionRange(start + cursorOffset, start + cursorOffset);
+        } else {
+          // Text was selected, select the newly formatted text
+          textarea.setSelectionRange(start, start + formattedText.length);
+        }
+      });
+    }, markdownToHtml(markdown) {
+      if (!markdown) return '';
+
+      // You can either:
+      // 1. Use a simple regex-based markdown converter (limited but lightweight)
+      // 2. Import a library like marked.js (more complete but requires import)
+
+      // For this example, I'll provide a very simple implementation
+      // that handles basic markdown formatting:
+      let html = markdown
+        // Headers
+        .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+        .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+        .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+        // Bold
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        // Italic
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        // Code blocks
+        .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
+        // Inline code
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        // Lists
+        .replace(/^\s*- (.*$)/gim, '<ul><li>$1</li></ul>')
+        .replace(/^\s*\d+\. (.*$)/gim, '<ol><li>$1</li></ol>')
+        // Task lists
+        .replace(/- \[ \] (.*$)/gim, '<div class="task-list-item"><input type="checkbox" disabled> $1</div>')
+        .replace(/- \[x\] (.*$)/gim, '<div class="task-list-item"><input type="checkbox" checked disabled> $1</div>')
+        // Links
+        .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2">$1</a>')
+        // Quotes
+        .replace(/^\> (.*$)/gim, '<blockquote>$1</blockquote>')
+        // Line breaks
+        .replace(/\n/g, '<br>');
+
+      // Fix nested list rendering by removing extra ul/ol tags
+      html = html.replace(/<\/ul><ul>/g, '').replace(/<\/ol><ol>/g, '');
+
+      return html;
+    },
     getIconPath(type, isOpen) {
       switch (type) {
         case "Bug":
@@ -1394,5 +1615,222 @@ export default {
   padding: 20px;
   color: var(--vscode-descriptionForeground);
   font-style: italic;
+}
+
+
+/* GitHub-like editor styles */
+.github-editor {
+  border: 1px solid var(--vscode-dropdown-border, #444);
+  border-radius: 6px;
+  overflow: hidden;
+  background-color: var(--vscode-input-background, #252526);
+}
+
+/* Editor tabs (Write/Preview) */
+.editor-tabs {
+  display: flex;
+  background-color: var(--vscode-panel-background, #1e1e1e);
+  border-bottom: 1px solid var(--vscode-panel-border, #444);
+}
+
+.editor-tab {
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  border-right: 1px solid var(--vscode-panel-border, #444);
+  color: var(--vscode-foreground, #ccc);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.editor-tab:hover {
+  background-color: var(--vscode-button-secondaryHoverBackground, #3d3d3d);
+}
+
+.editor-tab.active {
+  color: var(--vscode-activityBarBadge-foreground, #fff);
+  background-color: var(--vscode-input-background, #252526);
+  border-bottom: 2px solid var(--vscode-focusBorder, #007acc);
+  margin-bottom: -1px;
+}
+
+/* Editor toolbar */
+.editor-toolbar {
+  display: flex;
+  padding: 8px;
+  background-color: var(--vscode-panel-background, #1e1e1e);
+  border-bottom: 1px solid var(--vscode-panel-border, #444);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.toolbar-button {
+  background: none;
+  border: none;
+  color: var(--vscode-foreground, #ccc);
+  padding: 4px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.2s, background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toolbar-button:hover {
+  background-color: var(--vscode-button-secondaryHoverBackground, #3d3d3d);
+  opacity: 1;
+}
+
+.toolbar-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 16px;
+  background-color: var(--vscode-panel-border, #444);
+  margin: 0 8px;
+}
+
+/* Editor content area */
+.editor-content {
+  padding: 0;
+}
+
+.github-textarea {
+  width: 100%;
+  min-height: 50px;
+  padding: 8px 16px;
+  border: none;
+  resize: vertical;
+  background-color: var(--vscode-input-background, #252526);
+  color: var(--vscode-input-foreground, #ccc);
+  font-family: var(--vscode-font-family, sans-serif);
+  font-size: var(--vscode-font-size, 13px);
+  line-height: 1.5;
+}
+
+.github-textarea:focus {
+  outline: none;
+}
+
+/* Preview area */
+.editor-preview {
+  padding: 16px;
+  min-height: 50px;
+  color: var(--vscode-foreground, #ccc);
+  overflow: auto;
+}
+
+.preview-placeholder {
+  color: var(--vscode-descriptionForeground, #999);
+  font-style: italic;
+}
+
+/* Editor footer */
+.editor-footer {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background-color: var(--vscode-panel-background, #1e1e1e);
+  border-top: 1px solid var(--vscode-panel-border, #444);
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground, #999);
+}
+
+.markdown-link {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--vscode-textLink-foreground, #3794ff);
+  text-decoration: none;
+}
+
+.markdown-link:hover {
+  text-decoration: underline;
+}
+
+.markdown-icon {
+  opacity: 0.8;
+}
+
+.textarea-tip {
+  font-style: italic;
+}
+
+/* Markdown content in preview mode */
+.markdown-content h1, 
+.markdown-content h2,
+.markdown-content h3 {
+  margin-top: 24px;
+  margin-bottom: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.markdown-content h1 {
+  font-size: 1.5em;
+}
+
+.markdown-content h2 {
+  font-size: 1.25em;
+}
+
+.markdown-content h3 {
+  font-size: 1em;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  padding-left: 2em;
+  margin-bottom: 16px;
+}
+
+.markdown-content blockquote {
+  padding: 0 1em;
+  color: var(--vscode-descriptionForeground, #999);
+  border-left: 0.25em solid var(--vscode-panel-border, #444);
+  margin: 0 0 16px 0;
+}
+
+.markdown-content pre {
+  background-color: var(--vscode-editor-background, #1e1e1e);
+  border-radius: 3px;
+  padding: 16px;
+  overflow: auto;
+  margin-bottom: 16px;
+}
+
+.markdown-content code {
+  font-family: var(--vscode-editor-font-family, monospace);
+  background-color: rgba(255, 255, 255, 0.1);
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+}
+
+.markdown-content pre code {
+  background-color: transparent;
+  padding: 0;
+}
+
+.markdown-content .task-list-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.markdown-content a {
+  color: var(--vscode-textLink-foreground, #3794ff);
+  text-decoration: none;
+}
+
+.markdown-content a:hover {
+  text-decoration: underline;
 }
 </style>
