@@ -278,7 +278,8 @@
             <!-- Write mode: Textarea -->
             <div v-if="!previewMode" class="editor-content">
               <textarea class="github-textarea" v-model="newIssue.description"
-                placeholder="Leave a description (optional)" ref="descriptionTextarea" rows="15"></textarea>
+                placeholder="Leave a description (optional)" ref="descriptionTextarea" rows="6">
+</textarea>
             </div>
 
             <!-- Preview mode: Rendered markdown -->
@@ -563,108 +564,93 @@ export default {
     applyFormatting(type) {
       // Get the textarea element
       const textarea = this.$refs.descriptionTextarea;
-      if (!textarea) return;
+      if (!textarea) {
+        console.error('Textarea reference not found');
+        return;
+      }
 
-      // Get the current selection
+      // Get the current selection/cursor position
       const start = textarea.selectionStart;
       const end = textarea.selectionEnd;
-      const selectedText = this.newIssue.description.substring(start, end);
+      const hasSelection = start !== end;
+      const text = this.newIssue.description;
+      const selectedText = text.substring(start, end);
 
-      let formattedText = '';
+      // Define formatting templates
+      let prefix = '';
+      let suffix = '';
       let cursorOffset = 0;
 
       switch (type) {
         case 'h':
-          formattedText = `### ${selectedText}`;
-          cursorOffset = 4;
+          prefix = '### ';
+          cursorOffset = prefix.length;
           break;
         case 'b':
-          formattedText = `**${selectedText}**`;
-          cursorOffset = 2;
+          prefix = '**';
+          suffix = '**';
+          cursorOffset = prefix.length;
           break;
         case 'i':
-          formattedText = `*${selectedText}*`;
-          cursorOffset = 1;
+          prefix = '*';
+          suffix = '*';
+          cursorOffset = prefix.length;
           break;
         case 'quote':
-          // GitHub style: add a newline first if we're not at the start of a line
-          if (start > 0 && this.newIssue.description.charAt(start - 1) !== '\n' && start > 0) {
-            formattedText = `\n> ${selectedText}`;
-            cursorOffset = 3;
-          } else {
-            formattedText = `> ${selectedText}`;
-            cursorOffset = 2;
-          }
+          prefix = '> ';
+          cursorOffset = prefix.length;
           break;
         case 'link':
-          formattedText = selectedText.length > 0
-            ? `[${selectedText}](url)`
-            : '[title](url)';
-          cursorOffset = selectedText.length > 0 ? 1 : 7;
+          prefix = '[';
+          suffix = '](url)';
+          cursorOffset = prefix.length;
           break;
         case 'code':
-          // Check if it's a multiline selection
-          if (selectedText.includes('\n')) {
-            formattedText = `\`\`\`\n${selectedText}\n\`\`\``;
-            cursorOffset = 4;
-          } else {
-            formattedText = `\`${selectedText}\``;
-            cursorOffset = 1;
-          }
+          prefix = '`';
+          suffix = '`';
+          cursorOffset = prefix.length;
           break;
         case 'ul':
-          // If multiline, add bullet to each line
-          if (selectedText.includes('\n')) {
-            formattedText = selectedText
-              .split('\n')
-              .map(line => line.trim() ? `- ${line}` : line)
-              .join('\n');
-          } else {
-            formattedText = `- ${selectedText}`;
-          }
-          cursorOffset = 2;
+          prefix = '- ';
+          cursorOffset = prefix.length;
           break;
         case 'ol':
-          // If multiline, add numbers to each line
-          if (selectedText.includes('\n')) {
-            formattedText = selectedText
-              .split('\n')
-              .map((line, index) => line.trim() ? `${index + 1}. ${line}` : line)
-              .join('\n');
-          } else {
-            formattedText = `1. ${selectedText}`;
-          }
-          cursorOffset = 3;
+          prefix = '1. ';
+          cursorOffset = prefix.length;
           break;
         case 'task':
-          // If multiline, add task checkbox to each line
-          if (selectedText.includes('\n')) {
-            formattedText = selectedText
-              .split('\n')
-              .map(line => line.trim() ? `- [ ] ${line}` : line)
-              .join('\n');
-          } else {
-            formattedText = `- [ ] ${selectedText}`;
-          }
-          cursorOffset = 6;
+          prefix = '- [ ] ';
+          cursorOffset = prefix.length;
           break;
       }
 
-      // Replace the selected text with the formatted text
-      this.newIssue.description =
-        this.newIssue.description.substring(0, start) +
-        formattedText +
-        this.newIssue.description.substring(end);
+      // Apply the formatting
+      let newText;
+      let newCursorPos;
 
-      // Reset the selection
+      if (hasSelection) {
+        // If text is selected, wrap it with formatting
+        newText = text.substring(0, start) + prefix + selectedText + suffix + text.substring(end);
+        newCursorPos = start + prefix.length + selectedText.length + suffix.length;
+      } else {
+        // If no selection, insert formatting template with cursor in the middle
+        newText = text.substring(0, start) + prefix + suffix + text.substring(end);
+        newCursorPos = start + cursorOffset;
+      }
+
+      // Update the text
+      this.newIssue.description = newText;
+
+      // Focus and position cursor
       this.$nextTick(() => {
         textarea.focus();
-        if (start === end) {
-          // No text was selected, place cursor after the format markers
-          textarea.setSelectionRange(start + cursorOffset, start + cursorOffset);
+
+        if (hasSelection) {
+          // If there was a selection, select the formatted text
+          textarea.setSelectionRange(start, start + prefix.length + selectedText.length + suffix.length);
         } else {
-          // Text was selected, select the newly formatted text
-          textarea.setSelectionRange(start, start + formattedText.length);
+          // If no selection, position cursor between markers
+          textarea.setSelectionRange(start + cursorOffset, start + cursorOffset);
         }
       });
     }, markdownToHtml(markdown) {
@@ -1725,7 +1711,9 @@ export default {
 
 .github-textarea {
   width: 100%;
-  min-height: 50px;
+  height: 120px;
+  min-height: 120px;
+  max-height: 120px;
   padding: 8px 16px;
   border: none;
   resize: vertical;
@@ -1734,6 +1722,7 @@ export default {
   font-family: var(--vscode-font-family, sans-serif);
   font-size: var(--vscode-font-size, 13px);
   line-height: 1.5;
+  overflow-y: auto;
 }
 
 .github-textarea:focus {
@@ -1743,9 +1732,11 @@ export default {
 /* Preview area */
 .editor-preview {
   padding: 16px;
-  min-height: 50px;
+  height: 120px;
+  min-height: 120px;
+  max-height: 120px;
+  overflow-y: auto;
   color: var(--vscode-foreground, #ccc);
-  overflow: auto;
 }
 
 .preview-placeholder {
