@@ -1930,7 +1930,7 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
       return response.data;
     } catch (error) {
       throw new Error(
-        `Failed to fetch workspace graph: ${error instanceof Error ? error.message : "Unknown error"
+        `Failed to fetch issue graph: ${error instanceof Error ? error.message : "Unknown error"
         }`
       );
     }

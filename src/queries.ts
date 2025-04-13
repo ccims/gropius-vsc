@@ -1121,6 +1121,7 @@ export const FETCH_TEMP_ISSUE_GRAPH = `query MyQuery($id: ID!) {
       aggregatedBy {
         nodes {
           count
+          id
           relationPartner {
             ... on ComponentVersion {
               id

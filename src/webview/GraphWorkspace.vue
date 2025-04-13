@@ -76,7 +76,7 @@ async function autolayout(graph: Graph): Promise<GraphLayout> {
 
   // Extracts issues
   componentversion.aggregatedIssues.nodes.forEach((issue: any) => {
-      extractedIssues.push({
+    extractedIssues.push({
           id: issue.id,
           name: issue.type.name,
           iconPath: issue.type.iconPath,
