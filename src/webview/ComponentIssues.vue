@@ -51,7 +51,8 @@
       </div>
 
       <div class="create-issue-container">
-        <button class="create-issue-button" @click="showCreateIssue" title="Create new issue">
+        <button class="create-issue-button" @click="showCreateIssue" title="Create new issue"
+          :class="{ 'disabled': !hasComponentSelected }" :disabled="!hasComponentSelected">
           <span class="create-icon">+</span>
         </button>
       </div>
@@ -76,7 +77,8 @@
       <button @click="clearSearch" class="clear-button">Clear search</button>
     </div>
     <div v-else-if="issues.length === 0" class="no-results">
-      <p>No issues available.</p>
+      <p v-if="hasComponentSelected">No issues available for this component.</p>
+      <p v-else>Please select a component to view or create issues.</p>
     </div>
     <div v-else class="no-results">
       <p>No {{ statusFilter }} issues found.</p>
@@ -380,6 +382,9 @@ export default {
     currentSortLabel() {
       const option = this.sortOptions.find(opt => opt.value === this.sortBy);
       return option ? option.label : 'Alphabetical';
+    }, hasComponentSelected() {
+      // Return true if either componentId or selectedVersionId is set
+      return Boolean(this.componentId);
     },
     filteredIssues() {
       let result = [...this.issues];
@@ -450,15 +455,19 @@ export default {
         // Reset the issue source map
         this.issueSourceMap = {};
 
-        // If we have metadata about issue sources, update the map
-        if (message.metadata && message.metadata.versionOnlyIssues) {
-          message.metadata.versionOnlyIssues.forEach(issueId => {
-            this.issueSourceMap[issueId] = { versionOnly: true };
-          });
-        }
-
-        // Store the selected version ID
+        // Track the component ID when issues are loaded
         if (message.metadata) {
+          if (message.metadata.componentId) {
+            this.componentId = message.metadata.componentId;
+          }
+
+          if (message.metadata.versionOnlyIssues) {
+            message.metadata.versionOnlyIssues.forEach(issueId => {
+              this.issueSourceMap[issueId] = { versionOnly: true };
+            });
+          }
+
+          // Store the selected version ID
           if (message.metadata.selectedVersionId) {
             this.selectedVersionId = message.metadata.selectedVersionId;
           } else {
@@ -742,13 +751,25 @@ export default {
       }
     },// Create Issue Dialog Methods
     showCreateIssue() {
+
+      // Only allow creating an issue if a component is selected
+      if (!this.hasComponentSelected) {
+        // Optionally show a message to the user
+        if (vscode) {
+          vscode.postMessage({
+            command: "showMessage",
+            message: "Please select a component first to create an issue."
+          });
+        }
+        return;  // Prevent the modal from opening
+      }
       this.showCreateIssueModal = true;
       this.currentTab = 'general';
       this.resetForm();
       this.fetchIssueTemplates();
 
       // Get the current component ID from the metadata
-      if (this.selectedVersionId) {
+      if (this.selectedVersionId && !this.componentId) {
         this.componentId = this.selectedVersionId;
       }
 
@@ -1764,7 +1785,7 @@ export default {
 }
 
 /* Markdown content in preview mode */
-.markdown-content h1, 
+.markdown-content h1,
 .markdown-content h2,
 .markdown-content h3 {
   margin-top: 24px;
@@ -1832,5 +1853,15 @@ export default {
 
 .markdown-content a:hover {
   text-decoration: underline;
+}
+
+.create-issue-button.disabled {
+  background-color: var(--vscode-button-secondaryBackground, #3d3d3d);
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.create-issue-button:disabled {
+  pointer-events: none;
 }
 </style>

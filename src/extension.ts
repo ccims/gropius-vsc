@@ -946,6 +946,8 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
               error: error.message
             });
           });
+      } else if (message.command === "showMessage") {
+        vscode.window.showInformationMessage(message.message);
       }
       return;
     });
@@ -1002,7 +1004,8 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
           data: issues,
           metadata: {
             versionOnlyIssues: [],
-            selectedVersionId: null
+            selectedVersionId: null,
+            componentId: componentId, 
           }
         });
       }
@@ -1193,7 +1196,7 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
         throw new Error("Could not find component ID for this version");
       }
 
-      // *** NEW: Set the originComponentId when a version is clicked ***
+      // Set the originComponentId when a version is clicked
       this.originComponentId = componentId;
 
       // Get ALL component issues (same as clicking the component)
@@ -1231,6 +1234,7 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
           command: "updateComponentIssues",
           data: allIssues,
           metadata: {
+            componentId: componentId,
             selectedVersionId: componentVersionId,
             affectedIssueIds: Array.from(affectedIssueIds)
           }
@@ -1274,6 +1278,7 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
             command: "updateComponentIssues",
             data: componentIssues,
             metadata: {
+              componentId: componentId,  // Include componentId in metadata
               versionOnlyIssues: [] // No version-only issues when viewing component issues
             }
           });
