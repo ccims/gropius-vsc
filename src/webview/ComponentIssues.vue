@@ -279,7 +279,7 @@
             <div v-if="!previewMode" class="editor-content">
               <textarea class="github-textarea" v-model="newIssue.description"
                 placeholder="Leave a description (optional)" ref="descriptionTextarea" rows="6">
-</textarea>
+              </textarea>
             </div>
 
             <!-- Preview mode: Rendered markdown -->
@@ -304,6 +304,49 @@
                 <span class="textarea-tip">You can attach files by dragging & dropping or selecting them.</span>
               </div>
             </div>
+          </div>
+        </div>
+
+        <!-- Templated Fields Tab -->
+        <div v-else class="tab-content">
+          <div v-if="newIssue.templateId" class="templated-fields">
+            <div v-if="templatedFields.length === 0" class="no-fields-message">
+              No templated fields available for this template.
+            </div>
+            <div v-for="(field, index) in templatedFields" :key="index" class="form-group">
+              <label>
+                {{ field.name }}
+              </label>
+
+              <!-- Different input types based on field type -->
+              <template v-if="field.type === 'select' && field.options.length > 0">
+                <select v-model="field.value" class="form-input">
+                  <option value="">-- Select a value --</option>
+                  <option v-for="option in field.options" :key="option" :value="option">
+                    {{ option }}
+                  </option>
+                </select>
+              </template>
+
+              <template v-else-if="field.type === 'boolean'">
+                <div class="checkbox-container">
+                  <input type="checkbox" :id="`field-${index}`" v-model="field.value">
+                </div>
+              </template>
+
+              <template v-else>
+                <!-- Default to text input -->
+                <input type="text" v-model="field.value" class="form-input" placeholder="Enter value" />
+              </template>
+
+              <!-- Show required message if field is required -->
+              <div v-if="field.required" class="field-required-message">
+                This field is required
+              </div>
+            </div>
+          </div>
+          <div v-else class="no-template-message">
+            Please select a template first
           </div>
         </div>
 
@@ -844,11 +887,49 @@ export default {
     },
 
     setupTemplatedFields(template) {
-      // TODO: get templated fields from the template
-      this.templatedFields = [
-        { name: 'Priority', value: '' },
-        { name: 'Estimated Time', value: '' }
-      ];
+      // Check if the template has field specifications
+      if (template.templateFieldSpecifications &&
+        template.templateFieldSpecifications.length > 0) {
+
+        // Map template field specifications to templated fields
+        this.templatedFields = template.templateFieldSpecifications.map(field => {
+          // Parse the value to determine field type and options
+          let fieldType = 'string';
+          let fieldOptions = [];
+          let isRequired = false;
+
+          if (field.value) {
+            // Handle different value structures
+            if (field.value.type) {
+              fieldType = field.value.type;
+            }
+
+            // Check for enum/options
+            if (field.value.enum && Array.isArray(field.value.enum)) {
+              fieldType = 'select';
+              fieldOptions = field.value.enum;
+            }
+
+            // Check if field is required
+            if (field.value.nullable === false) {
+              isRequired = true;
+            }
+          }
+
+          return {
+            name: field.name,
+            // Don't use the label as description - it's just metadata
+            // description: field.value?.metadata?.label || '',
+            type: fieldType,
+            options: fieldOptions,
+            required: isRequired,
+            value: ''  // Initialize with empty value
+          };
+        });
+      } else {
+        // Fallback to empty array if no fields
+        this.templatedFields = [];
+      }
     },
 
     validateAndProceed() {
@@ -1854,5 +1935,11 @@ export default {
 
 .create-issue-button:disabled {
   pointer-events: none;
+}
+
+.field-required-message {
+  color: var(--vscode-errorForeground, #f48771);
+  font-size: 0.85em;
+  margin-top: 4px;
 }
 </style>

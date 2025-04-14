@@ -811,6 +811,10 @@ query GetIssueTemplates {
           isOpen
         }
       }
+      templateFieldSpecifications {
+        name
+        value
+      }
     }
   }
 }
