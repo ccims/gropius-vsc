@@ -897,7 +897,7 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
     this.refreshCurrentIssues();
 
     // Listen for messages from the Vue app
-    webviewView.webview.onDidReceiveMessage((message: any): void => {
+    webviewView.webview.onDidReceiveMessage(async (message: any): Promise<void> => {
       if (message.command === "vueAppReady") {
         this.refreshCurrentIssues();
       } else if (message.command === "issueClicked") {
@@ -935,7 +935,6 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
               command: 'issueCreated',
               issue: newIssue
             });
-
             // Refresh the issues list
             this.refreshCurrentIssues();
           })
@@ -943,7 +942,7 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
             console.error("Error creating issue:", error);
             webviewView.webview.postMessage({
               command: 'issueCreationError',
-              error: error.message
+              error: error instanceof Error ? error.message : String(error)
             });
           });
       } else if (message.command === "showMessage") {
@@ -1005,7 +1004,7 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
           metadata: {
             versionOnlyIssues: [],
             selectedVersionId: null,
-            componentId: componentId, 
+            componentId: componentId,
           }
         });
       }
@@ -1042,6 +1041,7 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
     try {
       await this.apiClient.authenticate();
 
+      // Execute the CreateIssue mutation with the provided input
       const result = await this.apiClient.executeQuery(
         CREATE_ISSUE_MUTATION,
         { input }
@@ -1051,9 +1051,30 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
         throw new Error(result.errors[0].message);
       }
 
-      return result.data?.createIssue?.issue;
+      if (!result.data?.createIssue?.issue) {
+        throw new Error('Failed to create issue: No issue data returned');
+      }
+
+      const newIssue = result.data.createIssue.issue;
+
+      // Send the created issue back to the webview
+      if (this._view) {
+        this._view.webview.postMessage({
+          command: 'issueCreated',
+          issue: newIssue
+        });
+      }
+
+      // Show success message
+      vscode.window.showInformationMessage(`Issue "${newIssue.title}" created successfully.`);
+
+      // Refresh the issues list
+      this.refreshCurrentIssues();
+
+      return newIssue;
     } catch (error) {
       console.error("Error creating issue:", error);
+      vscode.window.showErrorMessage(`Failed to create issue: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }

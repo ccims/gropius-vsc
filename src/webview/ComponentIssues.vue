@@ -593,6 +593,18 @@ export default {
         if (message.error) {
           console.error("Error loading templates:", message.error);
         }
+      } else if (message.command === 'issueCreated') {
+        console.log("Issue created successfully:", message.issue);
+        // Optionally add the new issue to the local list for immediate display
+        if (message.issue) {
+          this.issues = [message.issue, ...this.issues];
+          this.saveState();
+        }
+      }
+      else if (message.command === 'issueCreationError') {
+        console.error("Error creating issue:", message.error);
+        // Show error to the user
+        alert(`Error creating issue: ${message.error}`);
       }
       return;
     });
@@ -1018,30 +1030,52 @@ export default {
         }
       });
     },
-    createIssue() {
+    async createIssue() {
+      // Validate all required fields
+      if (!this.newIssue.title || !this.newIssue.templateId || !this.newIssue.typeId || !this.newIssue.stateId) {
+        // Show validation errors
+        this.validationErrors = {
+          title: !this.newIssue.title,
+          template: !this.newIssue.templateId,
+          type: !this.newIssue.typeId,
+          state: !this.newIssue.stateId
+        };
+
+        // Switch to the general tab to show validation errors
+        this.currentTab = 'general';
+        return;
+      }
+
+      // Make sure we have a component ID to create the issue for
       if (!this.componentId) {
         if (this.selectedVersionId) {
           this.componentId = this.selectedVersionId;
         } else {
           console.error("Cannot create issue: Missing component ID");
+          vscode.postMessage({
+            command: 'showMessage',
+            message: 'Error: Missing component ID. Please select a component first.'
+          });
           return;
         }
       }
 
-      // Format templated fields
-      const formattedFields = this.templatedFields.map(field => ({
-        name: field.name,
-        value: field.value
-      })).filter(field => field.value !== '');
+      // Format templated fields - filter out empty fields
+      const formattedFields = this.templatedFields
+        .filter(field => field.value !== '')
+        .map(field => ({
+          name: field.name,
+          value: field.value
+        }));
 
-      // Prepare the issue creation input
+      // Prepare the issue creation input according to the API requirements
       const input = {
         title: this.newIssue.title,
         template: this.newIssue.templateId,
         type: this.newIssue.typeId,
         state: this.newIssue.stateId,
         body: this.newIssue.description || "", // Include the description if provided
-        trackables: [this.componentId], // Make sure this is an array as required by the API
+        trackables: [this.componentId], // Track the selected component (array as required by API)
         templatedFields: formattedFields
       };
 
@@ -1056,6 +1090,12 @@ export default {
 
         // Close the dialog
         this.closeCreateIssue();
+
+        // Show loading indicator or message
+        vscode.postMessage({
+          command: 'showMessage',
+          message: 'Creating issue...'
+        });
       }
     },
     setStatusFilter(status) {
