@@ -110,13 +110,15 @@
         <!-- General Tab -->
         <div v-if="currentTab === 'general'" class="tab-content">
           <div class="form-group">
+            <label class="required-field">Title</label>
             <input type="text" v-model="newIssue.title" placeholder="Title" class="form-input" />
-            <div v-if="validationErrors.title" class="validation-error">
+            <div v-if="validationErrors.title && showValidationErrors" class="validation-error show">
               Title is a required field
             </div>
           </div>
 
           <div class="form-group">
+            <label class="required-field">Template</label>
             <div class="select-container" @click.stop="showTemplateDropdown = !showTemplateDropdown">
               <div class="dropdown-display">
                 {{ newIssue.templateName || 'Template' }}
@@ -133,13 +135,14 @@
                 </div>
               </div>
             </div>
-            <div v-if="validationErrors.template" class="validation-error">
+            <div v-if="validationErrors.template && showValidationErrors" class="validation-error show">
               Template is a required field
             </div>
           </div>
 
           <div class="form-row">
             <div class="form-group">
+              <label class="required-field">Type</label>
               <div class="select-container"
                 @click.stop="!newIssue.templateId ? null : showTypeDropdown = !showTypeDropdown">
                 <div class="dropdown-display" :class="{ 'disabled': !newIssue.templateId }">
@@ -158,12 +161,13 @@
                   </div>
                 </div>
               </div>
-              <div v-if="validationErrors.type" class="validation-error">
+              <div v-if="validationErrors.type && showValidationErrors" class="validation-error show">
                 Type is a required field
               </div>
             </div>
 
             <div class="form-group">
+              <label class="required-field">State</label>
               <div class="select-container"
                 @click.stop="!newIssue.templateId ? null : showStateDropdown = !showStateDropdown">
                 <div class="dropdown-display" :class="{ 'disabled': !newIssue.templateId }">
@@ -182,7 +186,7 @@
                   </div>
                 </div>
               </div>
-              <div v-if="validationErrors.state" class="validation-error">
+              <div v-if="validationErrors.state && showValidationErrors" class="validation-error show">
                 State is a required field
               </div>
             </div>
@@ -314,7 +318,7 @@
               No templated fields available for this template.
             </div>
             <div v-for="(field, index) in templatedFields" :key="index" class="form-group">
-              <label>
+              <label :class="{ 'field-required': field.required }">
                 {{ field.name }}
               </label>
 
@@ -339,8 +343,8 @@
                 <input type="text" v-model="field.value" class="form-input" placeholder="Enter value" />
               </template>
 
-              <!-- Show required message if field is required -->
-              <div v-if="field.required" class="field-required-message">
+              <!-- Show required message if field is required AND we tried to submit with it empty -->
+              <div v-if="field.required && showValidationErrors && !field.value" class="validation-error show">
                 This field is required
               </div>
             </div>
@@ -349,7 +353,6 @@
             Please select a template first
           </div>
         </div>
-
         <div class="modal-footer">
           <button v-if="currentTab === 'description'" class="button secondary" @click="currentTab = 'general'">
             Previous
@@ -384,6 +387,7 @@ export default {
   name: "ComponentIssues",
   data() {
     return {
+      showValidationErrors: false,
       previewMode: false,
       issues: [],
       searchQuery: '',
@@ -1012,30 +1016,36 @@ export default {
         !this.validationErrors.template &&
         !this.validationErrors.type &&
         !this.validationErrors.state) {
+        // Reset validation error display flag
+        this.showValidationErrors = false;
         // Proceed to description tab
         this.currentTab = 'description';
+      } else {
+        // Show validation errors
+        this.showValidationErrors = true;
       }
     }, goToTemplatedFields() {
       // Description is optional, so we can proceed without validation
       this.currentTab = 'templated';
     },
     async createIssue() {
-      // Validate all required fields
-      if (!this.newIssue.title || !this.newIssue.templateId || !this.newIssue.typeId || !this.newIssue.stateId) {
-        // Show validation errors
-        this.validationErrors = {
-          title: !this.newIssue.title,
-          template: !this.newIssue.templateId,
-          type: !this.newIssue.typeId,
-          state: !this.newIssue.stateId
-        };
+      // Validate required templated fields
+      let hasRequiredFieldErrors = false;
 
-        // Switch to the general tab to show validation errors
-        this.currentTab = 'general';
+      if (this.templatedFields.length > 0) {
+        // Check if any required fields are empty
+        hasRequiredFieldErrors = this.templatedFields
+          .filter(field => field.required)
+          .some(field => !field.value);
+      }
+
+      if (hasRequiredFieldErrors) {
+        // Show validation errors
+        this.showValidationErrors = true;
         return;
       }
 
-      // Make sure we have a component ID to create the issue for
+      // Rest of your existing createIssue method
       if (!this.componentId) {
         if (this.selectedVersionId) {
           this.componentId = this.selectedVersionId;
@@ -1544,7 +1554,7 @@ export default {
   border-radius: 6px;
   width: 90%;
   max-width: 480px;
-  max-height: 80vh;
+  max-height: 100vh;
   display: flex;
   flex-direction: column;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
@@ -1555,13 +1565,13 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 12px;
+  padding: 6px 10px;
   border-bottom: 1px solid var(--vscode-panel-border);
 }
 
 .modal-header h2 {
   margin: 0;
-  font-size: 1.1em;
+  font-size: 1em;
   font-weight: 600;
 }
 
@@ -1610,7 +1620,7 @@ export default {
 .modal-content {
   padding: 12px;
   overflow-y: auto;
-  max-height: 50vh;
+  max-height: 65vh;
   /* Important: Prevent horizontal scrolling */
   overflow-x: hidden;
 }
@@ -1618,19 +1628,19 @@ export default {
 .tab-content {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .form-row {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
 }
 
@@ -1638,19 +1648,44 @@ export default {
   flex: 1;
 }
 
-.form-input {
+.form-input, .dropdown-display {
   background-color: var(--vscode-input-background);
   color: var(--vscode-input-foreground);
   border: 1px solid var(--vscode-input-border, transparent);
   border-radius: 4px;
-  padding: 5px 8px;
+  padding: 4px 6px;
   font-size: 13px;
   width: 100%;
   box-sizing: border-box;
+  height: 28px;
 }
 
 .form-input:focus {
   outline: 1px solid var(--vscode-focusBorder);
+}
+
+.dropdown-option {
+  padding: 4px 8px; 
+  min-height: 24px;
+}
+
+.dropdown-options {
+  max-height: 240px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.dropdown-options::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dropdown-options::-webkit-scrollbar-thumb {
+  background-color: var(--vscode-scrollbarSlider-background);
+  border-radius: 3px;
+}
+
+.dropdown-options::-webkit-scrollbar-thumb:hover {
+  background-color: var(--vscode-scrollbarSlider-hoverBackground);
 }
 
 .dropdown-display {
@@ -1671,12 +1706,6 @@ export default {
 .dropdown-display.disabled {
   opacity: 0.6;
   cursor: not-allowed;
-}
-
-.validation-error {
-  color: var(--vscode-errorForeground, #f48771);
-  font-size: 0.85em;
-  margin-top: 2px;
 }
 
 .info-message {
@@ -1970,5 +1999,47 @@ export default {
   color: var(--vscode-errorForeground, #f48771);
   font-size: 0.85em;
   margin-top: 4px;
+}
+
+.select-container {
+  position: relative;
+}
+
+.field-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  z-index: 100;
+  border: 1px solid var(--vscode-dropdown-border);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  margin-top: 4px;
+  background-color: var(--vscode-dropdown-background);
+}
+
+.required-field::after {
+  content: " *";
+  color: var(--vscode-errorForeground, #f48771);
+  font-weight: bold;
+}
+
+/* For templated fields */
+.field-required::after {
+  content: " *";
+  color: var(--vscode-errorForeground, #f48771);
+  font-weight: bold;
+}
+
+/* Only show validation errors when trying to proceed */
+.validation-error {
+  color: var(--vscode-errorForeground, #f48771);
+  font-size: 0.8em;
+  margin-top: 1px;
+  display: none;
+}
+
+.validation-error.show {
+  display: block;
 }
 </style>
