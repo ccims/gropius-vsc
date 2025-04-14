@@ -616,11 +616,15 @@ export default {
     document.removeEventListener('click', this.handleClickOutside);
   },
   methods: {
+    /**
+ * Applies markdown formatting to the selected text or at the cursor position.
+ * 
+ * @param {string} type - The type of formatting to apply ('b', 'i', 'h', 'link', 'quote', 'code', 'ul', 'ol', 'task')
+ */
     applyFormatting(type) {
       // Get the textarea element
       const textarea = this.$refs.descriptionTextarea;
       if (!textarea) {
-        console.error('Textarea reference not found');
         return;
       }
 
@@ -628,13 +632,14 @@ export default {
       const start = textarea.selectionStart;
       const end = textarea.selectionEnd;
       const hasSelection = start !== end;
-      const text = this.newIssue.description;
+      const text = this.newIssue.description || '';
       const selectedText = text.substring(start, end);
 
       // Define formatting templates
       let prefix = '';
       let suffix = '';
       let cursorOffset = 0;
+      let selectionOffset = 0;
 
       switch (type) {
         case 'h':
@@ -647,8 +652,8 @@ export default {
           cursorOffset = prefix.length;
           break;
         case 'i':
-          prefix = '*';
-          suffix = '*';
+          prefix = '_';
+          suffix = '_';
           cursorOffset = prefix.length;
           break;
         case 'quote':
@@ -656,22 +661,70 @@ export default {
           cursorOffset = prefix.length;
           break;
         case 'link':
-          prefix = '[';
-          suffix = '](url)';
-          cursorOffset = prefix.length;
+          if (hasSelection) {
+            prefix = '[';
+            suffix = '](url)';
+            selectionOffset = prefix.length + selectedText.length + 1;
+          } else {
+            prefix = '[';
+            suffix = '](url)';
+            cursorOffset = prefix.length;
+          }
           break;
         case 'code':
-          prefix = '`';
-          suffix = '`';
-          cursorOffset = prefix.length;
+          if (hasSelection && selectedText.includes('\n')) {
+            prefix = '```\n';
+            suffix = '\n```';
+            cursorOffset = prefix.length;
+          } else {
+            prefix = '`';
+            suffix = '`';
+            cursorOffset = prefix.length;
+          }
           break;
         case 'ul':
-          prefix = '- ';
-          cursorOffset = prefix.length;
+          if (hasSelection) {
+            const lines = selectedText.split('\n');
+            const formattedLines = lines.map(line => line.trim() ? `- ${line}` : line);
+            const newSelectedText = formattedLines.join('\n');
+
+            this.newIssue.description =
+              text.substring(0, start) +
+              newSelectedText +
+              text.substring(end);
+
+            this.$nextTick(() => {
+              textarea.focus();
+              textarea.setSelectionRange(start, start + newSelectedText.length);
+            });
+            return;
+          } else {
+            prefix = '- ';
+            cursorOffset = prefix.length;
+          }
           break;
         case 'ol':
-          prefix = '1. ';
-          cursorOffset = prefix.length;
+          if (hasSelection) {
+            const lines = selectedText.split('\n');
+            const formattedLines = lines.map((line, index) =>
+              line.trim() ? `${index + 1}. ${line}` : line
+            );
+            const newSelectedText = formattedLines.join('\n');
+
+            this.newIssue.description =
+              text.substring(0, start) +
+              newSelectedText +
+              text.substring(end);
+
+            this.$nextTick(() => {
+              textarea.focus();
+              textarea.setSelectionRange(start, start + newSelectedText.length);
+            });
+            return;
+          } else {
+            prefix = '1. ';
+            cursorOffset = prefix.length;
+          }
           break;
         case 'task':
           prefix = '- [ ] ';
@@ -684,11 +737,13 @@ export default {
       let newCursorPos;
 
       if (hasSelection) {
-        // If text is selected, wrap it with formatting
         newText = text.substring(0, start) + prefix + selectedText + suffix + text.substring(end);
         newCursorPos = start + prefix.length + selectedText.length + suffix.length;
+
+        if (type === 'link' && selectionOffset > 0) {
+          newCursorPos = start + selectionOffset;
+        }
       } else {
-        // If no selection, insert formatting template with cursor in the middle
         newText = text.substring(0, start) + prefix + suffix + text.substring(end);
         newCursorPos = start + cursorOffset;
       }
@@ -699,13 +754,12 @@ export default {
       // Focus and position cursor
       this.$nextTick(() => {
         textarea.focus();
-
-        if (hasSelection) {
-          // If there was a selection, select the formatted text
-          textarea.setSelectionRange(start, start + prefix.length + selectedText.length + suffix.length);
+        if (type === 'link' && hasSelection && selectionOffset > 0) {
+          textarea.setSelectionRange(newCursorPos, newCursorPos);
+        } else if (hasSelection) {
+          textarea.setSelectionRange(start + prefix.length, start + prefix.length + selectedText.length);
         } else {
-          // If no selection, position cursor between markers
-          textarea.setSelectionRange(start + cursorOffset, start + cursorOffset);
+          textarea.setSelectionRange(newCursorPos, newCursorPos);
         }
       });
     }, markdownToHtml(markdown) {
@@ -964,71 +1018,6 @@ export default {
     }, goToTemplatedFields() {
       // Description is optional, so we can proceed without validation
       this.currentTab = 'templated';
-    }, applyFormatting(type) {
-      // Get the textarea element
-      const textarea = this.$el.querySelector('.description-textarea');
-      if (!textarea) return;
-
-      // Get the current selection
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      const selectedText = this.newIssue.description.substring(start, end);
-
-      let formattedText = '';
-      let cursorOffset = 0;
-
-      switch (type) {
-        case 'h':
-          formattedText = `### ${selectedText}`;
-          cursorOffset = 4;
-          break;
-        case 'b':
-          formattedText = `**${selectedText}**`;
-          cursorOffset = 2;
-          break;
-        case 'i':
-          formattedText = `*${selectedText}*`;
-          cursorOffset = 1;
-          break;
-        case 'quote':
-          formattedText = `> ${selectedText}`;
-          cursorOffset = 2;
-          break;
-        case 'link':
-          formattedText = `[${selectedText}](url)`;
-          cursorOffset = 1;
-          break;
-        case 'code':
-          formattedText = `\`${selectedText}\``;
-          cursorOffset = 1;
-          break;
-        case 'ul':
-          formattedText = `- ${selectedText}`;
-          cursorOffset = 2;
-          break;
-        case 'ol':
-          formattedText = `1. ${selectedText}`;
-          cursorOffset = 3;
-          break;
-      }
-
-      // Replace the selected text with the formatted text
-      this.newIssue.description =
-        this.newIssue.description.substring(0, start) +
-        formattedText +
-        this.newIssue.description.substring(end);
-
-      // Reset the selection
-      this.$nextTick(() => {
-        textarea.focus();
-        if (start === end) {
-          // No text was selected, place cursor after the format markers
-          textarea.setSelectionRange(start + cursorOffset, start + cursorOffset);
-        } else {
-          // Text was selected, select the newly formatted text
-          textarea.setSelectionRange(start, start + formattedText.length);
-        }
-      });
     },
     async createIssue() {
       // Validate all required fields
