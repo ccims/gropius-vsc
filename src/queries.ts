@@ -1210,6 +1210,9 @@ export const FETCH_TEMP_ISSUE_GRAPH = `query MyQuery($id: ID!) {
               name
               iconPath
             }
+            state {
+              isOpen
+            }
             aggregatedBy {
               nodes {
                 count
@@ -1302,6 +1305,9 @@ export const FETCH_TEMP_ISSUE_GRAPH = `query MyQuery($id: ID!) {
               name
               iconPath
             }
+            state {
+              isOpen
+            }
             aggregatedBy {
               nodes {
                 count
@@ -1321,24 +1327,6 @@ export const FETCH_TEMP_ISSUE_GRAPH = `query MyQuery($id: ID!) {
                       }
                     }
                     version
-                    incomingRelations {
-                      nodes {
-                        start {
-                          id
-                        }
-                        end {
-                          id
-                        }
-                        template {
-                          stroke {
-                            color
-                            dash
-                          }
-                          markerType
-                        }
-                        id
-                      }
-                    }
                     interfaceDefinitions {
                       nodes {
                         visibleInterface {
@@ -1373,6 +1361,24 @@ export const FETCH_TEMP_ISSUE_GRAPH = `query MyQuery($id: ID!) {
                           }
                           version
                           id
+                        }
+                        id
+                      }
+                    }
+                    incomingRelations {
+                      nodes {
+                        start {
+                          id
+                        }
+                        end {
+                          id
+                        }
+                        template {
+                          stroke {
+                            color
+                            dash
+                          }
+                          markerType
                         }
                         id
                       }
