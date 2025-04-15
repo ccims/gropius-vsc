@@ -30,6 +30,7 @@ const editorId = ref(`workspace-graph-editor-${uuidv4()}`);
 const modelSource = shallowRef<CustomModelSource>();
 const issueData = ref<any>(null);
 const showIssueRelations = ref(true);
+let startId = "0";
 
 console.log("Start GraphWorkspace.vue.");
 
@@ -258,6 +259,7 @@ function extractNextComponent(aggregatedByID: any, nextComponent: any, issueRela
 }
 
 function extractIssueType4Initial(query: any, aggregatedByID: any) : any {
+    startId = aggregatedByID;
 
     return [{ 
         id: aggregatedByID,
@@ -355,74 +357,71 @@ function createGraphData(data: any = null, workspace: any = null): { graph: Grap
 
     // Incoming issue relations
     query.incomingRelations?.nodes.forEach((issueRelation: any) => {
-      const startId = query.id;
-      const endId = issueRelation.issue.id;
-      const key = `${startId}-${endId}`;
-      if (startId != endId) {
-        if(issueRelationsArray.has(key)) {
-            issueRelationsArray.get(key)!.count ++;
-        } else {
-            issueRelationsArray.set(key, { start: startId, end: endId, count: 1});
-        }
-      }
-   if (issueRelation.issue.aggregatedBy.nodes.length == 1) {
-    console.log("Exact one component version for this issue!!!");
-    const nextComponent = issueRelation.issue.aggregatedBy.nodes[0].relationPartner;
-    const issueTypeID = issueRelation.issue.aggregatedBy.nodes[0].id;
-    if (!temp_saved_componentVersions.has(nextComponent.component.name)) {
-        temp_saved_componentVersions.set(nextComponent.component.name, extractNextComponent(issueTypeID, nextComponent, issueRelation, issueRelation.issue));
-    }
-   } else if (issueRelation.issue.aggregatedBy.nodes.length > 1) {
-    console.log("More than one component version for this issue!!!");
-    issueRelation.issue.aggregatedBy.nodes.forEach((componentVersion: any) => {
-        const nextComponent = componentVersion.relationPartner;
-            if (temp_saved_componentVersions.has(nextComponent.component.name)){
-                if(isInWorkspace(nextComponent.id, workspace)){
-                    // componentversion of the new element is in workspace
-                    if(isInWorkspace(temp_saved_componentVersions.get(nextComponent.component.name)?.id, workspace)) {
-                        // componentversion of the existing element is in workspace
-                        //if(nextComponent.incomingRelations?.nodes?.length > compRelationSize.get(nextComponent.component.name)) {
-                            //compRelationSize.set(nextComponent.component.name, compRelationSize.get(nextComponent.component.name) + 1);
-                            let getIssueTypes = temp_saved_componentVersions.get(nextComponent.component.name)?.issueTypes;
-                            temp_saved_componentVersions.set(nextComponent.component.name, extractNextComponent(componentVersion.id, nextComponent, issueRelation, issueRelation.issue, getIssueTypes));
-                        //}
-                        // ELSE: no change
-                    } else {
-                        //compRelationSize.set(nextComponent.component.name, compRelationSize.get(nextComponent.component.name) + 1);
-                            let getIssueTypes = temp_saved_componentVersions.get(nextComponent.component.name)?.issueTypes;
-                            temp_saved_componentVersions.set(nextComponent.component.name, extractNextComponent(componentVersion.id, nextComponent, issueRelation, issueRelation.issue, getIssueTypes));
-                    }
-                } else {
-                    if(!isInWorkspace(temp_saved_componentVersions.get(nextComponent.component.name)?.id, workspace)) {
-                        //if(nextComponent.incomingRelations?.nodes?.length > compRelationSize.get(nextComponent.component.name)) {
-                            //compRelationSize.set(nextComponent.component.name, compRelationSize.get(nextComponent.component.name) + 1);
-                            let getIssueTypes = temp_saved_componentVersions.get(nextComponent.component.name)?.issueTypes;
-                            temp_saved_componentVersions.set(nextComponent.component.name, extractNextComponent(componentVersion.id, nextComponent, issueRelation, issueRelation.issue, getIssueTypes));
-                        //}
-                        // ELSE: no change
-                    }
-                    // ELSE: no change
-                }
-            } else {
-                //compRelationSize.set(nextComponent.component.name, 1);
-                temp_saved_componentVersions.set(nextComponent.component.name, extractNextComponent(componentVersion.id, nextComponent, issueRelation, issueRelation.issue));
+        let endId = new Map;
+        if (issueRelation.issue.aggregatedBy.nodes.length == 1) {
+            console.log("Exact one component version for this issue!!!");
+            const nextComponent = issueRelation.issue.aggregatedBy.nodes[0].relationPartner;
+            const issueTypeID = issueRelation.issue.aggregatedBy.nodes[0].id;
+            if (!temp_saved_componentVersions.has(nextComponent.component.name)) {
+                temp_saved_componentVersions.set(nextComponent.component.name, extractNextComponent(issueTypeID, nextComponent, issueRelation, issueRelation.issue));
+                endId.set(nextComponent.component.name, issueTypeID);
             }
+        } else if (issueRelation.issue.aggregatedBy.nodes.length > 1) {
+            console.log("More than one component version for this issue!!!");
+            issueRelation.issue.aggregatedBy.nodes.forEach((componentVersion: any) => {
+                const nextComponent = componentVersion.relationPartner;
+                    if (temp_saved_componentVersions.has(nextComponent.component.name)){
+                        if(isInWorkspace(nextComponent.id, workspace)){
+                            // componentversion of the new element is in workspace
+                            if(isInWorkspace(temp_saved_componentVersions.get(nextComponent.component.name)?.id, workspace)) {
+                                // componentversion of the existing element is in workspace
+                                //if(nextComponent.incomingRelations?.nodes?.length > compRelationSize.get(nextComponent.component.name)) {
+                                    //compRelationSize.set(nextComponent.component.name, compRelationSize.get(nextComponent.component.name) + 1);
+                                    let getIssueTypes = temp_saved_componentVersions.get(nextComponent.component.name)?.issueTypes;
+                                    temp_saved_componentVersions.set(nextComponent.component.name, extractNextComponent(componentVersion.id, nextComponent, issueRelation, issueRelation.issue, getIssueTypes));
+                                    endId.set(nextComponent.component.name, componentVersion.id);
+                                //}
+                                // ELSE: no change
+                            } else {
+                                //compRelationSize.set(nextComponent.component.name, compRelationSize.get(nextComponent.component.name) + 1);
+                                    let getIssueTypes = temp_saved_componentVersions.get(nextComponent.component.name)?.issueTypes;
+                                    temp_saved_componentVersions.set(nextComponent.component.name, extractNextComponent(componentVersion.id, nextComponent, issueRelation, issueRelation.issue, getIssueTypes));
+                                    endId.set(nextComponent.component.name, componentVersion.id);
+                            }
+                        } else {
+                            if(!isInWorkspace(temp_saved_componentVersions.get(nextComponent.component.name)?.id, workspace)) {
+                                //if(nextComponent.incomingRelations?.nodes?.length > compRelationSize.get(nextComponent.component.name)) {
+                                    //compRelationSize.set(nextComponent.component.name, compRelationSize.get(nextComponent.component.name) + 1);
+                                    let getIssueTypes = temp_saved_componentVersions.get(nextComponent.component.name)?.issueTypes;
+                                    temp_saved_componentVersions.set(nextComponent.component.name, extractNextComponent(componentVersion.id, nextComponent, issueRelation, issueRelation.issue, getIssueTypes));
+                                    endId.set(nextComponent.component.name, componentVersion.id);
+                                //}
+                                // ELSE: no change
+                            }
+                            // ELSE: no change
+                        }
+                    } else {
+                        //compRelationSize.set(nextComponent.component.name, 1);
+                        temp_saved_componentVersions.set(nextComponent.component.name, extractNextComponent(componentVersion.id, nextComponent, issueRelation, issueRelation.issue));
+                        endId.set(nextComponent.component.name, componentVersion.id);
+                    }
+                });
+            }
+            endId.forEach((id : any) => {
+                const key = `${id}-${startId}`;
+                if (startId != id) {
+                    if(issueRelationsArray.has(key)) {
+                        issueRelationsArray.get(key)!.count ++;
+                    } else {
+                        issueRelationsArray.set(key, { start: id, end: startId, count: 1});
+                    }
+                }
+            });
         });
-    }
-    });
     
     // Outgoing issue relations
     query.outgoingRelations.nodes.forEach((issueRelation: any) => {
-      const startId = query.id;
-      const endId = issueRelation.relatedIssue.id;
-      const key = `${startId}-${endId}`;
-      if (startId != endId) {
-        if(issueRelationsArray.has(key)) {
-            issueRelationsArray.get(key)!.count ++;
-        } else {
-            issueRelationsArray.set(key, { start: startId, end: endId, count: 1});
-        }
-        }
+        let endId = new Map;
         if (issueRelation.relatedIssue.aggregatedBy.nodes.length == 1) {
             console.log("Just one relationpartner!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
             console.log("Exact one component version for this issue!!!");
@@ -430,6 +429,7 @@ function createGraphData(data: any = null, workspace: any = null): { graph: Grap
             const issueTypeID = issueRelation.relatedIssue.aggregatedBy.nodes[0].id;
             if (!temp_saved_componentVersions.has(nextComponent.component.name)) {
                 temp_saved_componentVersions.set(nextComponent.component.name, extractNextComponent(issueTypeID, nextComponent, issueRelation, issueRelation.relatedIssue));
+                endId.set(nextComponent.component.name, issueTypeID);
             }
 
         } else if (issueRelation.relatedIssue.aggregatedBy.nodes.length > 1) {
@@ -446,12 +446,14 @@ function createGraphData(data: any = null, workspace: any = null): { graph: Grap
                                 //compRelationSize.set(partnerComponent.component.name, compRelationSize.get(partnerComponent.component.name) + 1);
                             let getIssueTypes = temp_saved_componentVersions.get(partnerComponent.component.name)?.issueTypes;
                             temp_saved_componentVersions.set(partnerComponent.component.name, extractNextComponent(componentVersion.id, partnerComponent, issueRelation, issueRelation.relatedIssue, getIssueTypes));
+                            endId.set(partnerComponent.component.name, componentVersion.id);
                             //}
                             // ELSE: no change
                         } else {
                             //compRelationSize.set(partnerComponent.component.name, compRelationSize.get(partnerComponent.component.name) + 1);
                             let getIssueTypes = temp_saved_componentVersions.get(partnerComponent.component.name)?.issueTypes;
                             temp_saved_componentVersions.set(partnerComponent.component.name, extractNextComponent(componentVersion.id, partnerComponent, issueRelation, issueRelation.relatedIssue, getIssueTypes));
+                            endId.set(partnerComponent.component.name, componentVersion.id);
                         }
                     } else {
                         if(!isInWorkspace(temp_saved_componentVersions.get(partnerComponent.component.name)?.id, workspace)) {
@@ -459,6 +461,7 @@ function createGraphData(data: any = null, workspace: any = null): { graph: Grap
                                 //compRelationSize.set(partnerComponent.component.name, compRelationSize.get(partnerComponent.component.name) + 1);
                                 let getIssueTypes = temp_saved_componentVersions.get(partnerComponent.component.name)?.issueTypes;
                                 temp_saved_componentVersions.set(partnerComponent.component.name, extractNextComponent(componentVersion.id, partnerComponent, issueRelation, issueRelation.relatedIssue, getIssueTypes));
+                                endId.set(partnerComponent.component.name, componentVersion.id);
                             //}
                             // ELSE: no change
                         }
@@ -467,15 +470,26 @@ function createGraphData(data: any = null, workspace: any = null): { graph: Grap
                 } else {
                     //compRelationSize.set(partnerComponent.component.name, 1);
                     temp_saved_componentVersions.set(partnerComponent.component.name, extractNextComponent(componentVersion.id, partnerComponent, issueRelation, issueRelation.relatedIssue));
+                    endId.set(partnerComponent.component.name, componentVersion.id);
                 }
 
 
             });
 
         }
+        endId.forEach((id : any) => {
+            const key = `${startId}-${id}`;
+            if (startId != id) {
+                if(issueRelationsArray.has(key)) {
+                    issueRelationsArray.get(key)!.count ++;
+                } else {
+                    issueRelationsArray.set(key, { start: startId, end: id, count: 1});
+                }
+            }
+        });
     });
 
-    //graph.issueRelations.push(...Array.from(issueRelationsArray.values()));
+    graph.issueRelations.push(...Array.from(issueRelationsArray.values()));
 
     console.log("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
     console.log(temp_saved_componentVersions);
