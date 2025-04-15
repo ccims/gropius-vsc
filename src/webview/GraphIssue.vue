@@ -81,8 +81,9 @@ function extractIssueTypes(aggregatedByID: any, issueRelation: any, issue: any, 
 
     if (getIssueTypes?.length > 0){
         getIssueTypes?.forEach((issueType) => {
-            if (issueType.id == aggregatedByID) {
+            if (issueType.name == issue.type.name) {
                 hasNotIssue = false;
+                issueType.count ++;
             }
         });
         extractedIssues.push(...getIssueTypes);
