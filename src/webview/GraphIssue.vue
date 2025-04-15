@@ -107,47 +107,6 @@ function extractIssueTypes(aggregatedByID: any, issueRelation: any, issue: any, 
 }
 
 /**
- * Extract the IssueRelations
- * start: issueID
- * end: issueID
- * count: count
- * @param componentVersion 
- */
-
-function extractIssueRelations(componentVersion: any): any[] {
-    console.log("START extractIssueRelations");
-    if (!componentVersion?.aggregatedIssues?.nodes) {
-        console.log('Skipping issue relations for', componentVersion?.id);
-        return [];
-    }
-    const aggregatedRelations = new Map<string, { start: string; end: string; count: number }>();
-    componentVersion.aggregatedIssues.nodes.forEach((aggregatedIssue: any) => {
-        const outgoingRelations = aggregatedIssue.outgoingRelations?.nodes || [];
-        outgoingRelations.forEach((relation: any) => {
-            if (!relation.end?.relationPartner?.id) {
-                return;
-            }
-            const startId = relation.start.id;
-            const endId = relation.end.id;
-            const key = `${startId}-${endId}`;
-            if (startId != endId) {
-                if (aggregatedRelations.has(key)) {
-                    aggregatedRelations.get(key)!.count += aggregatedIssue.count;
-                } else {
-                    aggregatedRelations.set(key, {
-                        start: startId,
-                        end: endId,
-                        count: aggregatedIssue.count
-                    });
-                }
-            }
-        });
-    });
-    const result = Array.from(aggregatedRelations.values());
-    return result;
-}
-
-/**
  * Extracts the relations between components
  * @param componentVersion 
  */
@@ -187,6 +146,38 @@ function extractRelations(componentVersion: any): any[] {
     const result = Array.from(relations.values());
     return result;
 }
+/**
+ * Returns the issuesTypes for the given interface
+ * @param component 
+ */
+ function extractInterfaceIssueTypes(componentversion: any) {
+  console.log("START extractIssueTypes!!!");
+
+  if (!componentversion.aggregatedIssues.nodes.length) {
+    console.log("Nothing about ISSUES");
+    return [];
+  }
+
+  const extractedIssues: { id: any; name: any; iconPath: any; count: any; isOpen: any; }[] = [];
+
+  // Extracts issues
+  componentversion.aggregatedIssues.nodes.forEach((issue: any) => {
+    extractedIssues.push({
+          id: issue.id,
+          name: issue.type.name,
+          iconPath: issue.type.iconPath,
+          count: issue.count,
+          isOpen: issue.isOpen,
+        });
+    });
+    
+  // Sorts: First the open issues than others
+  return extractedIssues.sort((a, b) => {
+    if (a.isOpen && !b.isOpen) return -1;
+    if (!a.isOpen && b.isOpen) return 1;
+    return a.name.localeCompare(b.name);
+  });
+}
 
 function extractInterfaces(componentVersion: any): any[] {
     console.log("Start extractInterfaces");
@@ -200,15 +191,15 @@ function extractInterfaces(componentVersion: any): any[] {
         if (!interfaceInstance.visibleInterface.id) {
             console.log("BREAK 4");
             return [];
-        }
+            }
         console.log("BREAK 2");
         const id = interfaceInstance.visibleInterface.id;
         const name = interfaceInstance.interfaceSpecificationVersion.interfaceSpecification.name;
         const version = interfaceInstance.interfaceSpecificationVersion.version;
-        const style = { fill: { color: interfaceInstance.interfaceSpecificationVersion.interfaceSpecification.template.fill?.color || 'transparent' }, stroke: { color: interfaceInstance.interfaceSpecificationVersion.interfaceSpecification.template.stroke.color || 'rgb(209, 213, 219)', dash: interfaceInstance.interfaceSpecificationVersion.interfaceSpecification.template.stroke.dash ?? undefined } };
-        const issueTypes: never[] = [];// extractIssueTypes(interfaceInstance.visibleInterface);
+        const style = {fill: {color: interfaceInstance.interfaceSpecificationVersion.interfaceSpecification.template.fill?.color || 'transparent'}, stroke: {color: interfaceInstance.interfaceSpecificationVersion.interfaceSpecification.template.stroke.color || 'rgb(209, 213, 219)', dash: interfaceInstance.interfaceSpecificationVersion.interfaceSpecification.template.stroke.dash ?? undefined}, radius: interfaceInstance.interfaceSpecificationVersion.interfaceSpecification.template.shapeRadius, shape: interfaceInstance.interfaceSpecificationVersion.interfaceSpecification.template.shapeType};
+        const issueTypes = extractInterfaceIssueTypes(interfaceInstance.visibleInterface);
         const contextMenu = {
-            type: "interface"
+        type: "interface"
         };
         interfaceResult.set(id, {
             id: id,
@@ -234,7 +225,7 @@ function extractComponent4NextIssues(nextIssue: any, issueTypeOfSelectedIssue: a
                     fill: { color: nextIssue.component.template?.fill?.color || 'transparent'},
                     stroke: { color: nextIssue.component.template?.stroke?.color || 'rgb(209, 213, 219)'}
                     },
-                    interfaces: [],
+                    interfaces: extractInterfaces(nextIssue) || [],
                     issueTypes: issueTypeOfSelectedIssue,
                     contextMenu: {}
                     }
@@ -252,7 +243,7 @@ function extractNextComponent(aggregatedByID: any, nextComponent: any, issueRela
                 fill: { color: nextComponent.component.template?.fill?.color || 'transparent'},
                 stroke: { color: nextComponent.component.template?.stroke?.color || 'rgb(209, 213, 219)'}
             },
-            interfaces: [],
+            interfaces: extractInterfaces(nextComponent) || [],
             issueTypes: extractIssueTypes(aggregatedByID, issueRelation, issue, getIssueTypes),
             contextMenu: {}
         };
@@ -292,18 +283,6 @@ function createGraphData(data: any = null, workspace: any = null): { graph: Grap
         console.log("Something went wrong with issue data in GraphIssue.vue");
         return { graph, layout };
     }
-    /*
-    let issueTypeOfSelectedIssue: { id: any; name: any; iconPath: any; count: any; isOpen: any; }[] = [];
-    issueTypeOfSelectedIssue.push({ 
-        id: query.id,
-        name: query.type.name,
-        iconPath: query.type.iconPath,
-        count: 1,
-        isOpen: query.state.isOpen,
-    });
-
-    */
-
     interface IssueRelation {
         start: string;
         end: string;
