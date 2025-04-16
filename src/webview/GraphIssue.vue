@@ -531,6 +531,7 @@ function createGraphData(data: any = null, workspace: any = null): { graph: Grap
         console.log(JSON.stringify(component));
         graph.components.push(component);
     });
+    // Filter the relations
     graph.relations = filterRelations(graph.relations, temp_saved_componentVersions);
     console.log("__________________________________________");
     console.log("Komponenten: ");
@@ -562,6 +563,7 @@ function createGraphData(data: any = null, workspace: any = null): { graph: Grap
 
     return { graph, layout };
 }
+
 /**
  * 
  * @param relations graph relations

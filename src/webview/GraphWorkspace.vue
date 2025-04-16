@@ -299,25 +299,32 @@ graph.issueRelations.forEach((relation) => {
   console.log("IssueRelation COUNT: " + relation.count);
 });
 console.log("__________________________________________");
+// Filter the relations
+if (workspace.nodes.length > 0){
+  graph.relations = filterRelations(graph.relations, workspace.nodes);
+}
 
 console.log(JSON.stringify(graph));
-
-//graph.issueRelations.push(...[{start: "d2bb5c86-aa45-41cb-802a-37f1ce487ddb", end: "a3a3693b-3995-43dd-ae80-6136b27ebc39", count:1}, {start: "a3a3693b-3995-43dd-ae80-6136b27ebc39", end: "87c7a566-2ccd-4f1e-be77-d947ed417ea3", count:1}]);
-//graph.issueRelations.push(...[{start: "ca54dc74-5cad-438a-8606-3c11d4363b4f", end: "ca54dc74-5cad-438a-8606-3c11d4363b4f", count:1}, {start: "ca54dc74-5cad-438a-8606-3c11d4363b4f", end: "ca54dc74-5cad-438a-8606-3c11d4363b4f", count:1}]);
-
-
-  /*
-  
-graph.components.forEach(component => {
-  console.log("ID:", component.id);
-  console.log("Name:", component.name);
-  console.log("Version:", component.version);
-  console.log("-----------------");
-});
-  */
-
-  //console.log('Issue relations in final graph:', JSON.stringify(graph.issueRelations, null, 2));
   return { graph, layout };
+}
+
+/**
+ * 
+ * @param relations graph relations
+ * @param values Component values
+ */
+function filterRelations(relations: any, values: any) : any[] {
+    const versions = new Set<string>();
+    const result: any[] = [];
+    values.forEach((component: any) => {
+        versions.add(component.id);
+    });
+    relations.forEach((relation: any) => {
+        if(versions.has(relation.start) && versions.has(relation.end)) {
+            result.push(relation);
+        }
+    });
+    return result;
 }
 
 function handleMessage(event: MessageEvent) {
@@ -339,42 +346,6 @@ async function updateGraph(data: any = null) {
   const { graph, layout } = createGraphData(data);
   const finalLayout = Object.keys(layout).length === 0 ? 
     await autolayout(graph) : layout;
-  
-  /*
-  graph.components.forEach(element => {
-    console.log("Name: " + element.name);
-    console.log("ID: " + element.id);
-    console.log("Version: " + element.version);
-    console.log("Issues: " + element.issueTypes)
-    console.log("TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT");
-  });
-
-  graph.components = [{
-    id: "85b5b28e-b25d-4ce7-81b7-39d30aa96f97",
-    name: "multi versions component",
-    version: '1.0',
-    contextMenu: {},
-    interfaces: [],
-    style: {
-        shape: 'RECT',
-        fill: { color: 'transparent' },
-        stroke: { color: 'rgb(209, 213, 219)' }
-      },
-    issueTypes: []
-  }, {
-        id: '85b5b28e-b25d-4ce7-81b7-39d30aa96f97', 
-        name: 'multi versions component', 
-        version: '2.0', 
-        contextMenu: {},
-        interfaces: [],
-    style: {
-        shape: 'RECT',
-        fill: { color: 'transparent' },
-        stroke: { color: 'rgb(209, 213, 219)' }
-      },
-        issueTypes: []
-      }];
-  */
 
   modelSource.value.updateGraph({
     graph,
