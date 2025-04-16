@@ -29,6 +29,7 @@ const modelSource = shallowRef<CustomModelSource>();
 const workspaceData = ref<any>(null);
 const issueData = ref<any>(null);
 const showIssueRelations = ref(true);
+let workspaceComponentVersions: string[] = [];
 
 console.log("Start GraphWorkspace.vue.");
 
@@ -301,12 +302,30 @@ graph.issueRelations.forEach((relation) => {
 console.log("__________________________________________");
 // Filter the relations
 if (workspace.nodes.length > 0){
-  graph.relations = filterRelations(graph.relations, workspace.nodes);
+  console.log("Start filter Relations");
+  console.log("workspace: " + JSON.stringify(workspace.nodes));
+  graph.relations = filterRelations(graph.relations, getComponentVersion(workspace.nodes));
 }
-
 console.log(JSON.stringify(graph));
   return { graph, layout };
 }
+
+/**
+ * Helper function to extract componentversions ids for relations.
+ * @param data 
+ */
+function getComponentVersion(data: any): string[] {
+  const result: string[] = [];
+  data.forEach((component: any) => {
+    component.versions.nodes.forEach((version: any) => {
+      result.push(version.id);
+    });
+  });
+  console.log(result);
+  return result;
+}
+
+
 
 /**
  * 
@@ -317,7 +336,7 @@ function filterRelations(relations: any, values: any) : any[] {
     const versions = new Set<string>();
     const result: any[] = [];
     values.forEach((component: any) => {
-        versions.add(component.id);
+      versions.add(component);
     });
     relations.forEach((relation: any) => {
         if(versions.has(relation.start) && versions.has(relation.end)) {
