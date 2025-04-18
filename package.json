@@ -39,7 +39,20 @@
         }
       ]
     },
+    "menus": {
+      "editor/context": [
+        {
+          "when": "editorHasSelection",
+          "command": "extension.createStandaloneArtifact",
+          "group": "gropius"
+        }
+      ]
+    },
     "commands": [
+      {
+        "command": "extension.createStandaloneArtifact",
+        "title": "Create Standalone Artifact"
+      },
       {
         "command": "gropius.refreshComponentVersions",
         "title": "Refresh Component Versions",
