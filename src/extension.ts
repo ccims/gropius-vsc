@@ -143,8 +143,15 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      // Get selection range
+      // Get selection range and check if any code is actually selected
       const selection = editor.selection;
+
+      // Check if the selection is empty (cursor is just at one position)
+      if (selection.isEmpty) {
+        vscode.window.showWarningMessage('No code selected. Please select the code you want to create an artifact for.');
+        return;
+      }
+
       const from = selection.start.line + 1; // 1-based line numbers
       const to = selection.end.line + 1;
       const filePath = editor.document.uri.toString();
@@ -158,10 +165,10 @@ export function activate(context: vscode.ExtensionContext) {
 
         // Check the trackables field first (from the updated query)
         let affectedTrackables: any[] = [];
-        
-        if (issueDetailsResult.data?.node?.trackables?.nodes && 
-            issueDetailsResult.data.node.trackables.nodes.length > 0) {
-          
+
+        if (issueDetailsResult.data?.node?.trackables?.nodes &&
+          issueDetailsResult.data.node.trackables.nodes.length > 0) {
+
           // Use the direct trackables field (should contain only Components and Projects)
           affectedTrackables = issueDetailsResult.data.node.trackables.nodes
             .map((node: any) => ({
@@ -169,11 +176,11 @@ export function activate(context: vscode.ExtensionContext) {
               name: node.name || (node.__typename === 'Component' ? 'Component' : 'Project'),
               type: node.__typename
             }));
-        } 
+        }
         // If no trackables, try the affects relationship
-        else if (issueDetailsResult.data?.node?.affects?.nodes && 
-                 issueDetailsResult.data.node.affects.nodes.length > 0) {
-          
+        else if (issueDetailsResult.data?.node?.affects?.nodes &&
+          issueDetailsResult.data.node.affects.nodes.length > 0) {
+
           // Filter for Components and Projects from affects relationship
           const directTrackables = issueDetailsResult.data.node.affects.nodes
             .filter((node: any) => node.__typename === 'Component' || node.__typename === 'Project')
@@ -182,13 +189,13 @@ export function activate(context: vscode.ExtensionContext) {
               name: node.name || node.__typename,
               type: node.__typename
             }));
-          
+
           affectedTrackables.push(...directTrackables);
-          
+
           // Also get Components from ComponentVersions in affects
           const componentVersions = issueDetailsResult.data.node.affects.nodes
             .filter((node: any) => node.__typename === 'ComponentVersion' && node.component);
-          
+
           // Add unique components from component versions
           for (const cv of componentVersions) {
             // Check if this component is already in the list
