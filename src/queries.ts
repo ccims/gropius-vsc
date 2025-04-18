@@ -202,6 +202,19 @@ query GetIssueDetails($id: ID!) {
           }
         }
       }
+      trackables {
+        nodes {
+          __typename
+          ... on Component {
+            id
+            name
+          }
+          ... on Project {
+            id
+            name
+          }
+        }
+      }
       state {
         id
         isOpen

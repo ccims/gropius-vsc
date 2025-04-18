@@ -156,22 +156,54 @@ export function activate(context: vscode.ExtensionContext) {
         // 1. Fetch the issue details to see which trackables it affects
         const issueDetailsResult = await globalApiClient.executeQuery(GET_ISSUE_DETAILS, { id: issueId });
 
-        if (!issueDetailsResult.data?.node?.affects?.nodes || issueDetailsResult.data.node.affects.nodes.length === 0) {
-          vscode.window.showErrorMessage('This issue does not affect any trackable components or projects.');
-          return;
+        // Check the trackables field first (from the updated query)
+        let affectedTrackables: any[] = [];
+        
+        if (issueDetailsResult.data?.node?.trackables?.nodes && 
+            issueDetailsResult.data.node.trackables.nodes.length > 0) {
+          
+          // Use the direct trackables field (should contain only Components and Projects)
+          affectedTrackables = issueDetailsResult.data.node.trackables.nodes
+            .map((node: any) => ({
+              id: node.id,
+              name: node.name || (node.__typename === 'Component' ? 'Component' : 'Project'),
+              type: node.__typename
+            }));
+        } 
+        // If no trackables, try the affects relationship
+        else if (issueDetailsResult.data?.node?.affects?.nodes && 
+                 issueDetailsResult.data.node.affects.nodes.length > 0) {
+          
+          // Filter for Components and Projects from affects relationship
+          const directTrackables = issueDetailsResult.data.node.affects.nodes
+            .filter((node: any) => node.__typename === 'Component' || node.__typename === 'Project')
+            .map((node: any) => ({
+              id: node.id,
+              name: node.name || node.__typename,
+              type: node.__typename
+            }));
+          
+          affectedTrackables.push(...directTrackables);
+          
+          // Also get Components from ComponentVersions in affects
+          const componentVersions = issueDetailsResult.data.node.affects.nodes
+            .filter((node: any) => node.__typename === 'ComponentVersion' && node.component);
+          
+          // Add unique components from component versions
+          for (const cv of componentVersions) {
+            // Check if this component is already in the list
+            if (!affectedTrackables.some((t: any) => t.id === cv.component.id)) {
+              affectedTrackables.push({
+                id: cv.component.id,
+                name: cv.component.name || 'Component',
+                type: 'Component'
+              });
+            }
+          }
         }
 
-        // Extract all trackable components and projects the issue affects
-        const affectedTrackables = issueDetailsResult.data.node.affects.nodes
-          .filter((node: any) => node.__typename === 'Component' || node.__typename === 'Project')
-          .map((node: any) => ({
-            id: node.id,
-            name: node.__typename === 'Component' ? node.name : node.name,
-            type: node.__typename
-          }));
-
         if (affectedTrackables.length === 0) {
-          vscode.window.showErrorMessage('No valid trackable components or projects found for this issue.');
+          vscode.window.showErrorMessage('This issue does not affect any trackable components or projects.');
           return;
         }
 
