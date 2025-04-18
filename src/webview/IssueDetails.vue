@@ -151,10 +151,7 @@
           <div class="section-content inline-content labels-row" style="margin-left: 20px;">
             <!-- Show delete button for each label if editing is enabled -->
             <template v-if="editingLabels">
-              <div
-                v-for="(label, index) in issue.labels.nodes"
-                :key="index"
-                class="badge label-badge"
+              <div v-for="(label, index) in issue.labels.nodes" :key="index" class="badge label-badge"
                 :style="{ backgroundColor: label.color || 'rgba(0, 0, 0, 0.2)', color: '#ffffff' }"
                 :title="label.description">
                 {{ label.name }}
@@ -163,10 +160,7 @@
             </template>
             <!-- Otherwise simply show the labels -->
             <template v-else>
-              <div
-                v-for="(label, index) in issue.labels.nodes"
-                :key="index"
-                class="badge label-badge"
+              <div v-for="(label, index) in issue.labels.nodes" :key="index" class="badge label-badge"
                 :style="{ backgroundColor: label.color || 'rgba(0, 0, 0, 0.2)', color: '#ffffff' }"
                 :title="label.description">
                 {{ label.name }}
@@ -179,38 +173,19 @@
               <div class="label-form-header">Create New Label</div>
 
               <label>Name:</label>
-              <input
-                type="text"
-                v-model="newLabelName"
-                class="label-input"
-                placeholder="Label name"
-              />
+              <input type="text" v-model="newLabelName" class="label-input" placeholder="Label name" />
 
               <label>Description:</label>
-              <input
-                type="text"
-                v-model="newLabelDescription"
-                class="label-input"
-                placeholder="Label description"
-              />
+              <input type="text" v-model="newLabelDescription" class="label-input" placeholder="Label description" />
 
               <label>Color:</label>
               <div style="display: flex; gap: 8px; align-items: center;">
                 <!-- Color picker input -->
-                <input
-                  type="color"
-                  v-model="newLabelColor"
-                  class="label-input"
-                  style="padding: 0; width: 40px; height: 40px;"
-                />
+                <input type="color" v-model="newLabelColor" class="label-input"
+                  style="padding: 0; width: 40px; height: 40px;" />
                 <!-- Text input to show/paste the color value -->
-                <input
-                  type="text"
-                  v-model="newLabelColor"
-                  class="label-input"
-                  placeholder="#ffffff"
-                  style="max-width: 100px;"
-                />
+                <input type="text" v-model="newLabelColor" class="label-input" placeholder="#ffffff"
+                  style="max-width: 100px;" />
               </div>
 
               <div class="label-form-actions">
@@ -220,30 +195,21 @@
             </div>
             <div v-else>
               <!-- New "Create new" option -->
-              <div class="dropdown-option"
-                  @click.stop="openCreateNewLabelModal"
-                  style="font-weight: bold; cursor: pointer;">
+              <div class="dropdown-option" @click.stop="openCreateNewLabelModal"
+                style="font-weight: bold; cursor: pointer;">
                 Create new
               </div>
               <!-- Existing search field -->
-              <input 
-                type="text" 
-                v-model="labelSearchQuery" 
-                placeholder="Search labels..." 
-                class="dropdown-search-input"
-              />
+              <input type="text" v-model="labelSearchQuery" placeholder="Search labels..."
+                class="dropdown-search-input" />
               <!-- Existing dropdown options -->
               <div v-if="labelsLoading" class="dropdown-loading">Loading...</div>
               <div v-else-if="filteredLabels.length === 0" class="dropdown-loading">No labels found</div>
               <div v-else class="dropdown-options">
-                <div 
-                  v-for="label in filteredLabels" 
-                  :key="label.id" 
-                  class="dropdown-option"
-                  @click.stop="selectNewLabel(label)"
-                  style="display: flex; align-items: center; gap: 4px;">
-                  <div class="badge label-badge" 
-                      :style="{ backgroundColor: label.color || 'rgba(0,0,0,0.2)', color: '#ffffff' }">
+                <div v-for="label in filteredLabels" :key="label.id" class="dropdown-option"
+                  @click.stop="selectNewLabel(label)" style="display: flex; align-items: center; gap: 4px;">
+                  <div class="badge label-badge"
+                    :style="{ backgroundColor: label.color || 'rgba(0,0,0,0.2)', color: '#ffffff' }">
                     {{ label.name }}
                   </div>
                   <span class="label-description" style="color: #ffffff;">
@@ -317,33 +283,30 @@
               <!-- Wrap header and candidate dropdown in a relative container -->
               <div style="position: relative;">
                 <!-- Header with label and buttons -->
-                <div class="relations-subheader" style="display: flex; align-items: center; justify-content: space-between;">
+                <div class="relations-subheader"
+                  style="display: flex; align-items: center; justify-content: space-between;">
                   <span>Outgoing Relations</span>
                   <div>
                     <!-- Edit toggle button -->
-                    <button class="edit-button"
-                            @click="editingOutgoingRelations = !editingOutgoingRelations"
-                            :title="editingOutgoingRelations ? 'Done editing relations' : 'Edit outgoing relations'">
+                    <button class="edit-button" @click="editingOutgoingRelations = !editingOutgoingRelations"
+                      :title="editingOutgoingRelations ? 'Done editing relations' : 'Edit outgoing relations'">
                       <span class="edit-icon">✎</span>
                     </button>
                     <!-- New "Add Outgoing Relation" button -->
-                    <button class="remove-relation-button"
-                            @click.stop="toggleNewRelationDropdown"
-                            title="Add Outgoing Relation"
-                            style="margin-left: 4px;">
+                    <button class="remove-relation-button" @click.stop="toggleNewRelationDropdown"
+                      title="Add Outgoing Relation" style="margin-left: 4px;">
                       <span class="edit-icon">+</span>
                     </button>
                   </div>
                 </div>
-                
+
                 <!-- Candidate Issues Dropdown: Shown when no new relation is selected -->
                 <div v-if="newRelationDropdownVisible && !newOutgoingRelation" class="field-dropdown"
-                    style="position: absolute; top: 100%; right: 0; z-index: 1000; background: var(--vscode-dropdown-background);">
+                  style="position: absolute; top: 100%; right: 0; z-index: 1000; background: var(--vscode-dropdown-background);">
                   <div v-if="newRelationIssues.length === 0" class="dropdown-loading">No issues found</div>
                   <div v-else class="dropdown-options">
                     <div v-for="issue in newRelationIssues" :key="issue.id" class="dropdown-option"
-                        @click.stop="selectNewRelationIssue(issue)"
-                        style="display: flex; align-items: center; gap: 6px;">
+                      @click.stop="selectNewRelationIssue(issue)" style="display: flex; align-items: center; gap: 6px;">
                       <div class="icon-stack">
                         <img class="base-icon" :src="getTypeIconPathFor(issue)" alt="Type icon" />
                         <img class="overlay-icon" :src="getRelationalIconPathFor(issue)" alt="Relation icon" />
@@ -352,34 +315,36 @@
                     </div>
                   </div>
                 </div>
-                
+
                 <!-- New Relation Info and Relation Type Dropdown: Shown once a candidate issue is selected -->
                 <div v-if="newOutgoingRelation" class="new-outgoing-relation-container"
-                    style="margin-top: 8px; display: flex; align-items: center; gap: 6px;">
+                  style="margin-top: 8px; display: flex; align-items: center; gap: 6px;">
                   <div class="new-outgoing-issue-info" style="display: flex; align-items: center; gap: 6px;">
                     <div class="icon-stack">
                       <img class="base-icon" :src="getTypeIconPathFor(newOutgoingRelation)" alt="Type icon" />
-                      <img class="overlay-icon" :src="getRelationalIconPathFor(newOutgoingRelation)" alt="Relation icon" />
+                      <img class="overlay-icon" :src="getRelationalIconPathFor(newOutgoingRelation)"
+                        alt="Relation icon" />
                     </div>
-                    <span>{{ newOutgoingRelation.title }} ({{ newOutgoingRelation.state.isOpen ? 'Open' : 'Closed' }})</span>
+                    <span>{{ newOutgoingRelation.title }} ({{ newOutgoingRelation.state.isOpen ? 'Open' : 'Closed'
+                      }})</span>
                   </div>
                   <!-- Dropdown for relation types -->
                   <div v-if="newRelationTypeDropdownVisible" class="field-dropdown" style="position: relative;">
                     <div v-if="relationTypesLoading" class="dropdown-loading">Loading...</div>
                     <div v-else class="dropdown-options">
                       <div v-for="type in relationTypes" :key="type.id" class="dropdown-option"
-                          @click.stop="selectNewRelationType(type)"
-                          style="cursor: pointer;">
+                        @click.stop="selectNewRelationType(type)" style="cursor: pointer;">
                         {{ type.name }}
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-              
+
               <!-- Existing outgoing relations section remains unchanged -->
               <template v-if="!editingOutgoingRelations">
-                <div v-for="(relations, relType) in groupedOutgoingRelations" :key="'out-' + relType" style="margin-bottom: 10px;">
+                <div v-for="(relations, relType) in groupedOutgoingRelations" :key="'out-' + relType"
+                  style="margin-bottom: 10px;">
                   <div class="relation-type-header" style="font-weight: 600; margin-bottom: 4px;">
                     {{ relType }}
                   </div>
@@ -392,10 +357,8 @@
                         </div>
                         <span>{{ relation.relatedIssue.title }}</span>
                       </div>
-                      <button v-if="editingOutgoingRelations"
-                              class="remove-relation-button"
-                              @click.stop="onRemoveRelation(relation.id)"
-                              title="Remove Relation">
+                      <button v-if="editingOutgoingRelations" class="remove-relation-button"
+                        @click.stop="onRemoveRelation(relation.id)" title="Remove Relation">
                         X
                       </button>
                     </div>
@@ -405,7 +368,8 @@
               <template v-else>
                 <div class="relations-list">
                   <div v-for="item in flatOutgoingRelations" :key="item.relation.id" class="relation-item">
-                    <div class="relation-content" @click="openRelatedIssue(item.relation.relatedIssue.id)" style="display: flex; align-items: center;">
+                    <div class="relation-content" @click="openRelatedIssue(item.relation.relatedIssue.id)"
+                      style="display: flex; align-items: center;">
                       <div class="icon-stack">
                         <img class="base-icon" :src="getTypeIconPathFor(item.relation.relatedIssue)" alt="" />
                         <img class="overlay-icon" :src="getRelationalIconPathFor(item.relation.relatedIssue)" alt="" />
@@ -415,25 +379,24 @@
                         <span class="relation-type-inline" style="font-size: 0.85em; color: #ccc;">
                           {{ item.relType }}
                         </span>
-                        <div v-if="currentlyEditingRelation === item.relation.id" class="field-dropdown" style="margin-top: 4px;">
+                        <div v-if="currentlyEditingRelation === item.relation.id" class="field-dropdown"
+                          style="margin-top: 4px;">
                           <div v-if="relationTypesLoading" class="dropdown-loading">Loading...</div>
                           <div v-else class="dropdown-options">
                             <div v-for="type in relationTypes" :key="type.id" class="dropdown-option"
-                                @click.stop="selectRelationType(item.relation.id, type.id)">
+                              @click.stop="selectRelationType(item.relation.id, type.id)">
                               {{ type.name }}
                             </div>
                           </div>
                         </div>
                       </div>
                     </div>
-                    <button class="edit-button title-edit-button"
-                            @click.stop="triggerEditRelation(item.relation.id)"
-                            title="Edit relation type">
+                    <button class="edit-button title-edit-button" @click.stop="triggerEditRelation(item.relation.id)"
+                      title="Edit relation type">
                       <span class="edit-icon">✎</span>
                     </button>
-                    <button class="remove-relation-button"
-                            @click.stop="onRemoveRelation(item.relation.id)"
-                            title="Remove Relation">
+                    <button class="remove-relation-button" @click.stop="onRemoveRelation(item.relation.id)"
+                      title="Remove Relation">
                       X
                     </button>
                   </div>
@@ -446,19 +409,16 @@
               <div class="relations-subheader">Incoming Relations</div>
 
               <!-- Iterate over each relation type group -->
-              <div v-for="(issues, relType) in groupedIncomingRelations" :key="'in-' + relType" style="margin-bottom: 10px;">
+              <div v-for="(issues, relType) in groupedIncomingRelations" :key="'in-' + relType"
+                style="margin-bottom: 10px;">
                 <!-- Show the relation type -->
                 <div class="relation-type-header" style="font-weight: 600; margin-bottom: 4px;">
                   {{ relType }}
                 </div>
 
                 <div class="relations-list">
-                  <div 
-                    v-for="issueData in issues" 
-                    :key="issueData.id" 
-                    class="relation-item"
-                    @click="openRelatedIssue(issueData.id)"
-                    style="display: flex; align-items: center; gap: 8px;">
+                  <div v-for="issueData in issues" :key="issueData.id" class="relation-item"
+                    @click="openRelatedIssue(issueData.id)" style="display: flex; align-items: center; gap: 8px;">
                     <div class="icon-stack">
                       <img class="base-icon" :src="getTypeIconPathFor(issueData)" alt="" />
                       <img class="overlay-icon" :src="getRelationalIconPathFor(issueData)" alt="" />
@@ -550,14 +510,15 @@
           <div class="section-header" @click="toggleSection('artifacts')"
             style="cursor: pointer; display: flex; justify-content: space-between;">
             <span>Artifacts</span>
-            <span class="toggle-icon">{{ expandedSections.artifacts ? '▼' : '▶' }}</span>
+            <div>
+              <button v-if="expandedSections.artifacts" class="edit-button" @click.stop="createArtifact"
+                title="Create Artifact">
+                <span class="edit-icon">+</span>
+              </button>
+              <span class="toggle-icon">{{ expandedSections.artifacts ? '▼' : '▶' }}</span>
+            </div>
           </div>
           <div class="section-content" v-if="expandedSections.artifacts">
-            <button v-if="expandedSections.assignments" class="remove-button" @click.stop="showAddAssignment"
-              title="Add assignment">
-              <span style="font-size: 14px; font-weight: bold;">+</span>
-            </button>
-
             <div v-if="issue.artifacts && issue.artifacts.length > 0" class="artifacts-list">
               <div v-for="artifact in issue.artifacts" :key="artifact.id" class="artifact-item"
                 @click="openArtifactFile(artifact)">
@@ -706,9 +667,9 @@ export default {
       // Build a set of identifiers already present on the issue.
       const existing = new Set();
       if (this.issue &&
-          this.issue.labels &&
-          this.issue.labels.nodes &&
-          this.issue.labels.nodes.length > 0) {
+        this.issue.labels &&
+        this.issue.labels.nodes &&
+        this.issue.labels.nodes.length > 0) {
         this.issue.labels.nodes.forEach(label => {
           if (label && label.id) {  // ensure label and label.id exist
             existing.add(label.id);
@@ -975,7 +936,7 @@ export default {
       }
     },
     // When a relation type is selected:
-     selectNewRelationType(type) {
+    selectNewRelationType(type) {
       console.log("Selected new relation type:", type);
       if (vscode) {
         vscode.postMessage({
@@ -1826,7 +1787,7 @@ export default {
       // Only close if clicking outside the dropdown
       const dropdown = this.$el.querySelector('.type-dropdown');
       if (dropdown && !dropdown.contains(event.target)) {
-        this.activeTypeDropdown = null;k
+        this.activeTypeDropdown = null; k
         document.removeEventListener('click', this.closeTypeDropdown);
       }
     },
@@ -2527,9 +2488,11 @@ ul {
 .relation-item {
   display: flex;
   align-items: center;
-  justify-content: space-between; /* space-between pushes them apart */
+  justify-content: space-between;
+  /* space-between pushes them apart */
   gap: 8px;
-  padding: 4px 0; /* optional spacing */
+  padding: 4px 0;
+  /* optional spacing */
 }
 
 .relation-item:hover {
@@ -2545,29 +2508,36 @@ ul {
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  flex: 1; /* push the button to the far right */
+  flex: 1;
+  /* push the button to the far right */
 }
 
 .remove-relation-button {
-  display: inline-flex;            /* So we can center the X */
+  display: inline-flex;
+  /* So we can center the X */
   align-items: center;
   justify-content: center;
-  width: 24px;                     /* Circle dimensions */
+  width: 24px;
+  /* Circle dimensions */
   height: 24px;
-  border-radius: 50%;             /* Makes the shape round */
+  border-radius: 50%;
+  /* Makes the shape round */
   background: none;
   border: none;
-  color: #d6bee4 !important;      /* Your desired color for the X */
+  color: #d6bee4 !important;
+  /* Your desired color for the X */
   cursor: pointer;
   font-size: 1em;
   margin: 0;
   padding: 0;
   transition: background-color 0.2s ease;
-  margin-left: -4px; /* adjust this value as needed */
+  margin-left: -4px;
+  /* adjust this value as needed */
 }
 
 .remove-relation-button:hover {
-  background-color: rgba(255, 255, 255, 0.1); /* Slightly gray/white background */
+  background-color: rgba(255, 255, 255, 0.1);
+  /* Slightly gray/white background */
 }
 
 /* =================== Empty and Error States =================== */
@@ -3267,8 +3237,9 @@ ul {
 /* Issue graph */
 
 .showGraph {
-  position:relative;
+  position: relative;
 }
+
 .graph-button {
   background-color: var(--vscode-button-secondaryBackground, #2d2d2d);
   color: var(--vscode-button-secondaryForeground, #cccccc);
@@ -3282,7 +3253,8 @@ ul {
   gap: 4px;
   height: 24px;
 }
-.graph-button:hover{
+
+.graph-button:hover {
   background-color: var(--vscode-button-secondaryHoverBackground, #3d3d3d);
 }
 
@@ -3312,12 +3284,13 @@ ul {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 2000;
 }
+
 .create-label-modal .modal-content {
   background: #2d2d2d;
   color: white;
@@ -3325,22 +3298,26 @@ ul {
   border-radius: 6px;
   width: 300px;
 }
+
 .create-label-modal label {
   display: block;
   margin-top: 10px;
 }
+
 .create-label-modal input[type="text"],
 .create-label-modal input[type="color"] {
   width: 100%;
   margin-top: 4px;
   padding: 4px;
 }
+
 .create-label-modal .modal-actions {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
   gap: 10px;
 }
+
 .create-label-modal .modal-actions button {
   padding: 6px 12px;
   cursor: pointer;
@@ -3352,8 +3329,9 @@ ul {
   width: 100%;
   box-sizing: border-box;
   padding: 10px;
-  color: #ffffff;  
-  background-color: var(--vscode-dropdown-background); /* Lighter grey, matching dropdown */
+  color: #ffffff;
+  background-color: var(--vscode-dropdown-background);
+  /* Lighter grey, matching dropdown */
 }
 
 .label-form-header {
@@ -3367,8 +3345,8 @@ ul {
   box-sizing: border-box;
   margin-bottom: 6px;
   padding: 6px;
-  background-color: #2d2d2d; 
-  border: 1px solid #ffffff;  
+  background-color: #2d2d2d;
+  border: 1px solid #ffffff;
   color: #ffffff;
   transition: border-color 0.2s;
 }
@@ -3404,7 +3382,7 @@ ul {
 }
 
 .labels-row {
-  margin-left: 16px; /* or whatever spacing you prefer */
+  margin-left: 16px;
+  /* or whatever spacing you prefer */
 }
-
 </style>
