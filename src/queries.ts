@@ -1559,3 +1559,38 @@ mutation CreateLabel($input: CreateLabelInput!) {
   }
 }
 `;
+
+export const GET_AVAILABLE_COMPONENTS = `
+query GetAvailableComponents {
+  components(first: 50) {
+    nodes {
+      id
+      name
+      description
+    }
+  }
+}
+`;
+
+export const GET_AVAILABLE_PROJECTS = `
+query GetAvailableProjects {
+  projects(first: 20) {
+    nodes {
+      id
+      name
+    }
+  }
+}
+`;
+
+export const GET_COMPONENTS_BY_IDS = `
+query GetComponentsByIds($ids: [ID!]!) {
+  components(filter: {id: {in: $ids}}) {
+    nodes {
+      id
+      name
+      description
+    }
+  }
+}
+`;

@@ -43,7 +43,10 @@ import {
   REMOVE_LABEL_FROM_ISSUE_MUTATION,
   CREATE_LABEL_MUTATION,
   GET_ISSUE_TEMPLATES,
-  CREATE_ISSUE_MUTATION
+  CREATE_ISSUE_MUTATION,
+  GET_COMPONENTS_BY_IDS,
+  GET_AVAILABLE_COMPONENTS,
+  GET_AVAILABLE_PROJECTS
 } from "./queries";
 import path from "path";
 import { workerData } from "worker_threads";
@@ -340,6 +343,158 @@ export function activate(context: vscode.ExtensionContext) {
         }
       } catch (error) {
         console.error("[extension.createArtifact] Error:", error);
+        vscode.window.showErrorMessage(`Error: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('extension.createStandaloneArtifact', async () => {
+      // Get the active text editor
+      const editor = vscode.window.activeTextEditor;
+      if (!editor) {
+        vscode.window.showWarningMessage('No active editor found. Please open a file and select code.');
+        return;
+      }
+
+      // Get selection range and check if any code is actually selected
+      const selection = editor.selection;
+
+      // Check if the selection is empty (cursor is just at one position)
+      if (selection.isEmpty) {
+        vscode.window.showWarningMessage('No code selected. Please select the code you want to create an artifact for.');
+        return;
+      }
+
+      const from = selection.start.line + 1; // 1-based line numbers
+      const to = selection.end.line + 1;
+      const filePath = editor.document.uri.toString();
+
+      try {
+        // Show progress indication
+        await vscode.window.withProgress({
+          location: vscode.ProgressLocation.Notification,
+          title: "Creating standalone artifact...",
+          cancellable: false
+        }, async (progress) => {
+
+          progress.report({ message: "Authenticating..." });
+          // Authenticate
+          await globalApiClient.authenticate();
+
+          progress.report({ message: "Loading available components..." });
+          // 1. Get available components and projects to be used as trackables
+          const trackables = await getAvailableTrackables();
+
+          if (!trackables || trackables.length === 0) {
+            vscode.window.showErrorMessage('No components or projects found to create an artifact for.');
+            return;
+          }
+
+          const trackableItems = trackables.map((t: any) => ({
+            label: t.name,
+            description: t.type,
+            detail: t.id
+          }));
+
+          const selectedItem = await vscode.window.showQuickPick(trackableItems, {
+            placeHolder: 'Select which component or project this artifact belongs to'
+          }) as vscode.QuickPickItem | undefined;
+
+          // 2. Let user choose a trackable
+          let selectedTrackable;
+          if (trackables.length === 1) {
+            selectedTrackable = trackables[0];
+          } else {
+
+            if (!selectedItem) {
+              return; // User cancelled
+            }
+
+            selectedTrackable = {
+              id: selectedItem.detail || '',
+              name: selectedItem.label || '',
+              type: selectedItem.description || ''
+            };
+          }
+
+          progress.report({ message: "Loading artifact templates..." });
+          // 3. Fetch available artifact templates
+          const templatesResult = await globalApiClient.executeQuery(GET_ARTIFACT_TEMPLATES_QUERY);
+
+          if (!templatesResult.data?.artefactTemplates?.nodes || templatesResult.data.artefactTemplates.nodes.length === 0) {
+            vscode.window.showErrorMessage('No artifact templates available.');
+            return;
+          }
+
+          // 4. Let user select a template
+          const templateItems = templatesResult.data.artefactTemplates.nodes.map((template: any) => ({
+            label: template.name,
+            description: template.description || '',
+            detail: template.id
+          }));
+
+          const selectedTemplateItem = await vscode.window.showQuickPick(templateItems, {
+            placeHolder: 'Select an artifact template'
+          }) as vscode.QuickPickItem | undefined;
+          
+          if (!selectedTemplateItem) {
+            return; // User cancelled
+          }
+          
+          const selectedTemplateId = selectedTemplateItem.detail || '';
+
+          // 5. Get template field values if needed
+          const selectedTemplate = templatesResult.data.artefactTemplates.nodes.find(
+            (t: any) => t.id === selectedTemplateId
+          );
+          const templatedFields = [];
+
+          if (selectedTemplate && selectedTemplate.templateFieldSpecifications && selectedTemplate.templateFieldSpecifications.length > 0) {
+            for (const field of selectedTemplate.templateFieldSpecifications) {
+              const fieldValue = await vscode.window.showInputBox({
+                prompt: `Enter value for ${field.name}`,
+                placeHolder: field.value?.metadata?.description || `Value for ${field.name}`
+              });
+
+              if (fieldValue !== undefined) { // Allow empty strings, but not undefined (canceled)
+                templatedFields.push({
+                  name: field.name,
+                  value: fieldValue
+                });
+              } else {
+                return; // User cancelled
+              }
+            }
+          }
+
+          progress.report({ message: "Creating artifact..." });
+          // 6. Create the artifact (but don't link it to any issue)
+          const createResult = await globalApiClient.executeQuery(CREATE_ARTIFACT_MUTATION, {
+            input: {
+              file: filePath,
+              from,
+              to,
+              template: selectedTemplateId,
+              templatedFields,
+              trackable: selectedTrackable.id
+            }
+          });
+
+          if (!createResult.data?.createArtefact?.artefact) {
+            if (createResult.errors) {
+              vscode.window.showErrorMessage(`Error creating artifact: ${createResult.errors[0].message}`);
+            } else {
+              vscode.window.showErrorMessage('Failed to create artifact.');
+            }
+            return;
+          }
+
+          const artifactId = createResult.data.createArtefact.artefact.id;
+          vscode.window.showInformationMessage(`Standalone artifact created successfully for ${selectedTrackable.name}.`);
+        });
+      } catch (error) {
+        console.error("[extension.createStandaloneArtifact] Error:", error);
         vscode.window.showErrorMessage(`Error: ${error instanceof Error ? error.message : String(error)}`);
       }
     })
@@ -887,6 +1042,84 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
         <script src="${scriptPath}"></script>
     </body>
     </html>`;
+  }
+}
+
+// Helper function to get available trackables (components and projects)
+async function getAvailableTrackables() {
+  try {
+    await globalApiClient.authenticate();
+
+    // First try to get components from workspace mappings
+    const mappings = await loadConfigurations();
+    const componentIds = new Set<string>();
+    const availableTrackables = [];
+
+    // Process mappings to extract component IDs
+    for (const [rootPath, folderMappings] of mappings.entries()) {
+      for (const mapping of folderMappings) {
+        if (mapping.component && !componentIds.has(mapping.component)) {
+          componentIds.add(mapping.component);
+        }
+      }
+    }
+
+    // Fetch component details for the extracted IDs
+    if (componentIds.size > 0) {
+      // Convert the set to an array
+      const componentIdList = Array.from(componentIds);
+
+      // Query for component details using our new query
+      const result = await globalApiClient.executeQuery(
+        GET_COMPONENTS_BY_IDS,
+        { ids: componentIdList }
+      );
+
+      if (result.data?.components?.nodes) {
+        // Add each component to the available trackables
+        for (const component of result.data.components.nodes) {
+          availableTrackables.push({
+            id: component.id,
+            name: component.name || 'Component',
+            type: 'Component'
+          });
+        }
+      }
+    }
+
+    // If no components from workspace, fetch all available components
+    if (availableTrackables.length === 0) {
+      const result = await globalApiClient.executeQuery(GET_AVAILABLE_COMPONENTS);
+
+      if (result.data?.components?.nodes) {
+        for (const component of result.data.components.nodes) {
+          availableTrackables.push({
+            id: component.id,
+            name: component.name || 'Component',
+            type: 'Component'
+          });
+        }
+      }
+    }
+
+    // Also fetch available projects
+    const projectsResult = await globalApiClient.executeQuery(GET_AVAILABLE_PROJECTS);
+
+    if (projectsResult.data?.projects?.nodes) {
+      for (const project of projectsResult.data.projects.nodes) {
+        availableTrackables.push({
+          id: project.id,
+          name: project.name || 'Project',
+          type: 'Project'
+        });
+      }
+    }
+
+    return availableTrackables;
+  } catch (error) {
+    console.error("[getAvailableTrackables] Error:", error);
+    vscode.window.showErrorMessage(`Failed to get available components and projects: ${error instanceof Error ? error.message : String(error)}`);
+    return []; // Return empty array on error
   }
 }
 
