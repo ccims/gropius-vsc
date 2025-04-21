@@ -566,26 +566,35 @@
           <div class="section-content" v-if="expandedSections.artifacts">
             <div v-if="issue.artifacts && issue.artifacts.length > 0" class="artifacts-list">
               <div v-for="artifact in issue.artifacts" :key="artifact.id" class="artifact-item">
+                <!-- X button positioned absolutely in the top right corner -->
+                <button class="remove-relation-button" @click.stop="confirmRemoveArtifact(artifact)"
+                  title="Remove artifact from this issue">
+                  X
+                </button>
+
                 <div class="artifact-content" @click="openArtifactFile(artifact)">
+                  <!-- File name and line numbers on first line with X button -->
                   <div class="artifact-file">
-                    <strong>{{ getFileName(artifact.file) }}</strong>
-                    <span class="line-numbers" v-if="artifact.from && artifact.to">
-                      (Lines {{ artifact.from }}-{{ artifact.to }})
-                    </span>
+                    <div class="artifact-file-line">
+                      <strong>{{ getFileName(artifact.file) }}</strong>
+                      <span class="line-numbers" v-if="artifact.from && artifact.to">
+                        (Lines {{ artifact.from }}-{{ artifact.to }})
+                      </span>
+                    </div>
                   </div>
+
+                  <!-- Version info on second line if needed -->
                   <div class="artifact-version" v-if="artifact.version">
                     Version: {{ artifact.version }}
                   </div>
+
+                  <!-- Additional fields if available -->
                   <div class="artifact-fields" v-if="artifact.templatedFields && artifact.templatedFields.length > 0">
                     <div v-for="field in artifact.templatedFields" :key="field.name" class="artifact-field">
                       <span class="field-name">{{ field.name }}:</span> {{ field.value }}
                     </div>
                   </div>
                 </div>
-                <button class="remove-relation-button" @click.stop="confirmRemoveArtifact(artifact)"
-                  title="Remove artifact from this issue">
-                  X
-                </button>
               </div>
             </div>
             <div v-else class="no-artifacts">
@@ -2997,6 +3006,7 @@ ul {
   border: 1px solid var(--vscode-panel-border);
   cursor: pointer;
   transition: background-color 0.2s;
+  position: relative;
 }
 
 .artifact-item:hover {
@@ -3007,6 +3017,13 @@ ul {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  padding-right: 20px;
+}
+
+.artifact-item .remove-relation-button {
+  position: absolute;
+  top: 8px;
+  right: 8px;
 }
 
 .artifact-file {
@@ -3019,6 +3036,17 @@ ul {
 
 .artifact-file strong {
   color: var(--vscode-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.artifact-file-line {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  overflow: hidden;
+  padding-right: 4px;
 }
 
 .line-numbers {
@@ -3027,6 +3055,9 @@ ul {
   background-color: rgba(0, 0, 0, 0.2);
   padding: 2px 6px;
   border-radius: 3px;
+  margin-left: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .artifact-version {
