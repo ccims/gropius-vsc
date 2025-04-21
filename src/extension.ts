@@ -382,12 +382,15 @@ export function activate(context: vscode.ExtensionContext) {
           // Authenticate
           await globalApiClient.authenticate();
 
-          progress.report({ message: "Loading available components..." });
-          // 1. Get available components and projects to be used as trackables
-          const trackables = await getAvailableTrackables();
+          progress.report({ message: "Finding component mappings for this file..." });
+          // 1. Get available trackables for this specific file
+          const trackables = await getAvailableTrackablesForFile(filePath);
 
           if (!trackables || trackables.length === 0) {
-            vscode.window.showErrorMessage('No components or projects found to create an artifact for.');
+            vscode.window.showErrorMessage(
+              'No component or project mappings found for this file. ' +
+              'Please configure a mapping for this file or its parent folder first.'
+            );
             return;
           }
 
@@ -397,15 +400,16 @@ export function activate(context: vscode.ExtensionContext) {
             detail: t.id
           }));
 
-          const selectedItem = await vscode.window.showQuickPick(trackableItems, {
-            placeHolder: 'Select which component or project this artifact belongs to'
-          }) as vscode.QuickPickItem | undefined;
-
           // 2. Let user choose a trackable
           let selectedTrackable;
           if (trackables.length === 1) {
             selectedTrackable = trackables[0];
+            // Still inform the user which component/project is being used
+            vscode.window.showInformationMessage(`Using mapped ${selectedTrackable.type}: ${selectedTrackable.name}`);
           } else {
+            const selectedItem = await vscode.window.showQuickPick(trackableItems, {
+              placeHolder: `Select which component or project this artifact belongs to (${trackables.length} mappings found)`
+            }) as vscode.QuickPickItem | undefined;
 
             if (!selectedItem) {
               return; // User cancelled
@@ -437,11 +441,11 @@ export function activate(context: vscode.ExtensionContext) {
           const selectedTemplateItem = await vscode.window.showQuickPick(templateItems, {
             placeHolder: 'Select an artifact template'
           }) as vscode.QuickPickItem | undefined;
-          
+
           if (!selectedTemplateItem) {
             return; // User cancelled
           }
-          
+
           const selectedTemplateId = selectedTemplateItem.detail || '';
 
           // 5. Get template field values if needed
@@ -1042,6 +1046,168 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
         <script src="${scriptPath}"></script>
     </body>
     </html>`;
+  }
+}
+
+/**
+ * Finds component versions mapped to a specific file path
+ * 
+ * @param filePath The file path to check mappings for (VSCode URI string)
+ * @param mappings The loaded mappings from workspace
+ * @returns Array of mapped trackables with component/project information
+ */
+async function getComponentVersionsForFile(
+  filePath: string,
+  mappings: Map<string, any[]>,
+  apiClient: APIClient
+): Promise<any[]> {
+  // Initialize array to store found mappings
+  const mappedTrackables: any[] = [];
+
+  try {
+    // Convert file URI to normal path
+    const fileUri = vscode.Uri.parse(filePath);
+    const normalizedFilePath = fileUri.fsPath;
+
+    console.log(`[getComponentVersionsForFile] Checking mappings for file: ${normalizedFilePath}`);
+
+    // Iterate through workspace folders and their mappings
+    for (const [rootPath, folderMappings] of mappings.entries()) {
+      // Check if file is in this workspace folder
+      if (!normalizedFilePath.startsWith(rootPath)) {
+        continue;
+      }
+
+      console.log(`[getComponentVersionsForFile] File is in workspace folder: ${rootPath}`);
+
+      // Calculate relative path from workspace root
+      let relativePath = normalizedFilePath.substring(rootPath.length);
+      // Normalize path separators to forward slashes
+      relativePath = relativePath.replace(/\\/g, '/');
+      if (!relativePath.startsWith('/')) {
+        relativePath = '/' + relativePath;
+      }
+
+      console.log(`[getComponentVersionsForFile] Relative path: ${relativePath}`);
+
+      // Check each mapping to see if it applies to this file
+      for (const mapping of folderMappings) {
+        // Get mapping path, ensuring it has a trailing slash for directory matching
+        let mappingPath = mapping.path;
+        if (mappingPath !== '/' && !mappingPath.endsWith('/')) {
+          mappingPath += '/';
+        }
+
+        // Check if the file is in this mapped folder
+        if (relativePath === mappingPath || relativePath.startsWith(mappingPath)) {
+          console.log(`[getComponentVersionsForFile] Found matching mapping: ${mappingPath}`);
+
+          // Direct component version mapping
+          if (mapping.componentVersion) {
+            console.log(`[getComponentVersionsForFile] Direct component version mapping: ${mapping.componentVersion}`);
+
+            // Fetch component version details
+            const cvResult = await apiClient.executeQuery(FETCH_COMPONENT_VERSION_BY_ID_QUERY, { id: mapping.componentVersion });
+
+            if (cvResult.data?.node?.component) {
+              const component = cvResult.data.node.component;
+              mappedTrackables.push({
+                id: component.id,
+                name: component.name || 'Component',
+                type: 'Component',
+                matchType: 'direct_version',
+                mappingPath: mappingPath
+              });
+            }
+          }
+          // Component+Project mapping
+          else if (mapping.component && mapping.project) {
+            console.log(`[getComponentVersionsForFile] Component+Project mapping: Component=${mapping.component}, Project=${mapping.project}`);
+
+            // Add component trackable
+            mappedTrackables.push({
+              id: mapping.component,
+              name: await getEntityName(mapping.component, 'Component', apiClient),
+              type: 'Component',
+              matchType: 'component_project',
+              mappingPath: mappingPath
+            });
+
+            // Add project trackable
+            mappedTrackables.push({
+              id: mapping.project,
+              name: await getEntityName(mapping.project, 'Project', apiClient),
+              type: 'Project',
+              matchType: 'component_project',
+              mappingPath: mappingPath
+            });
+          }
+        }
+      }
+    }
+
+    // Log the results
+    console.log(`[getComponentVersionsForFile] Found ${mappedTrackables.length} mapped trackables:`, mappedTrackables);
+
+    // Filter out duplicate trackables (using a Map with ID as key)
+    const uniqueTrackables = new Map();
+    for (const trackable of mappedTrackables) {
+      if (!uniqueTrackables.has(trackable.id)) {
+        uniqueTrackables.set(trackable.id, trackable);
+      }
+    }
+
+    return Array.from(uniqueTrackables.values());
+  } catch (error) {
+    console.error(`[getComponentVersionsForFile] Error finding mapped components: ${error instanceof Error ? error.message : String(error)}`);
+    return [];
+  }
+}
+
+/**
+ * Helper function to get entity name from ID
+ */
+async function getEntityName(id: string, type: string, apiClient: APIClient): Promise<string> {
+  try {
+    const query = `query GetEntityName($id: ID!) {
+      node(id: $id) {
+        ... on ${type} {
+          name
+        }
+      }
+    }`;
+
+    const result = await apiClient.executeQuery(query, { id });
+    return result.data?.node?.name || type;
+  } catch (error) {
+    console.error(`Error getting name for ${type} ${id}: ${error}`);
+    return type;
+  }
+}
+
+// Helper function that gets available trackables specifically for a file
+async function getAvailableTrackablesForFile(filePath: string) {
+  try {
+    await globalApiClient.authenticate();
+
+    // Load mappings
+    const mappings = await loadConfigurations();
+
+    // Get component versions mapped to this specific file
+    const mappedTrackables = await getComponentVersionsForFile(filePath, mappings, globalApiClient);
+
+    if (mappedTrackables.length > 0) {
+      console.log(`[getAvailableTrackablesForFile] Found ${mappedTrackables.length} mapped trackables for file: ${filePath}`);
+      return mappedTrackables;
+    }
+
+    // If no mappings found, return empty array (we won't use a fallback)
+    console.log(`[getAvailableTrackablesForFile] No mappings found for file: ${filePath}`);
+    return [];
+  } catch (error) {
+    console.error("[getAvailableTrackablesForFile] Error:", error);
+    vscode.window.showErrorMessage(`Failed to find mapped components for this file: ${error instanceof Error ? error.message : String(error)}`);
+    return []; // Return empty array on error
   }
 }
 
