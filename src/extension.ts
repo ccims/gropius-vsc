@@ -4,6 +4,7 @@ import { CLIENT_ID, CLIENT_SECRET, API_URL } from "./config";
 import { APIClient } from "./apiClient";
 import { loadConfigurations } from './mapping/config-loader';
 import {
+  GET_AVAILABLE_ARTIFACTS_FOR_TRACKABLES,
   FETCH_COMPONENT_VERSIONS_QUERY,
   FETCH_DYNAMIC_PROJECTS_QUERY,
   FETCH_PROJECT_GRAPH_QUERY,
@@ -46,7 +47,8 @@ import {
   CREATE_ISSUE_MUTATION,
   GET_COMPONENTS_BY_IDS,
   GET_AVAILABLE_COMPONENTS,
-  GET_AVAILABLE_PROJECTS
+  GET_AVAILABLE_PROJECTS,
+  GET_ARTIFACTS_FOR_TRACKABLE
 } from "./queries";
 import path from "path";
 import { workerData } from "worker_threads";
@@ -2273,8 +2275,179 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
         } catch (error) {
           vscode.window.showErrorMessage(`Failed to create label: ${error instanceof Error ? error.message : String(error)}`);
         }
+      } else if (message.command === 'getAvailableArtifacts') {
+        try {
+          const trackableIds = message.trackableIds;
+          const issueId = message.issueId;
+
+          if (!trackableIds || !trackableIds.length || !issueId) {
+            this._view?.webview.postMessage({
+              command: 'availableArtifactsLoaded',
+              artifacts: [],
+              error: 'Missing trackable IDs or issue ID'
+            });
+            return;
+          }
+
+          console.log(`[IssueDetailsProvider] Fetching available artifacts for trackables:`, trackableIds);
+
+          this.fetchAvailableArtifacts(trackableIds, issueId)
+            .then(artifacts => {
+              this._view?.webview.postMessage({
+                command: 'availableArtifactsLoaded',
+                artifacts: artifacts
+              });
+            })
+            .catch(error => {
+              console.error('[IssueDetailsProvider] Error fetching artifacts:', error);
+              this._view?.webview.postMessage({
+                command: 'availableArtifactsLoaded',
+                artifacts: [],
+                error: error instanceof Error ? error.message : String(error)
+              });
+            });
+        } catch (error) {
+          console.error('[IssueDetailsProvider] Error processing getAvailableArtifacts:', error);
+          this._view?.webview.postMessage({
+            command: 'availableArtifactsLoaded',
+            artifacts: [],
+            error: error instanceof Error ? error.message : String(error)
+          });
+        }
+      }
+      else if (message.command === 'addArtifactToIssue') {
+        try {
+          const input = message.input;
+
+          if (!input || !input.issue || !input.artefact) {
+            this._view?.webview.postMessage({
+              command: 'addArtifactError',
+              error: 'Missing issue ID or artifact ID'
+            });
+            return;
+          }
+
+          console.log(`[IssueDetailsProvider] Adding artifact ${input.artefact} to issue ${input.issue}`);
+
+          this.addArtifactToIssue(input)
+            .then(result => {
+              this._view?.webview.postMessage({
+                command: 'artifactAddedToIssue',
+                artifactId: input.artefact,
+                result: result
+              });
+
+              // Refresh the issue details to show the new artifact
+              this.refreshCurrentIssue();
+            })
+            .catch(error => {
+              console.error('[IssueDetailsProvider] Error adding artifact to issue:', error);
+              this._view?.webview.postMessage({
+                command: 'addArtifactError',
+                error: error instanceof Error ? error.message : String(error)
+              });
+            });
+        } catch (error) {
+          console.error('[IssueDetailsProvider] Error processing addArtifactToIssue:', error);
+          this._view?.webview.postMessage({
+            command: 'addArtifactError',
+            error: error instanceof Error ? error.message : String(error)
+          });
+        }
       }
     });
+  }
+
+
+  /**
+   * Fetches available artifacts for the given trackables that are not already linked to the issue
+   */
+  private async fetchAvailableArtifacts(trackableIds: string[], issueId: string): Promise<any[]> {
+    try {
+      await this.apiClient.authenticate();
+
+      // First, get the current issue's artifacts to filter them out
+      const issueArtifactsResult = await this.apiClient.executeQuery(
+        GET_ARTIFACTS_FOR_ISSUE,
+        { issueId }
+      );
+
+      const existingArtifactIds = new Set();
+      if (issueArtifactsResult.data?.node?.artefacts?.nodes) {
+        for (const artifact of issueArtifactsResult.data.node.artefacts.nodes) {
+          existingArtifactIds.add(artifact.id);
+        }
+      }
+
+      console.log(`[IssueDetailsProvider] Issue has ${existingArtifactIds.size} artifacts already`);
+
+      // Fetch artifacts for each trackable
+      const allArtifacts = [];
+
+      for (const trackableId of trackableIds) {
+        try {
+          const trackableResult = await this.apiClient.executeQuery(
+            GET_ARTIFACTS_FOR_TRACKABLE,
+            { trackableId }
+          );
+
+          if (trackableResult.errors) {
+            console.warn(`[IssueDetailsProvider] Error fetching artifacts for trackable ${trackableId}:`,
+              trackableResult.errors[0].message);
+            continue;
+          }
+
+          // Get artifacts from the result
+          const trackableArtifacts = trackableResult.data?.node?.artefacts?.nodes || [];
+
+          // Filter out artifacts that are already linked to the issue
+          const availableArtifacts = trackableArtifacts.filter(
+            (artifact: any) => !existingArtifactIds.has(artifact.id)
+          );
+
+          console.log(`[IssueDetailsProvider] Found ${availableArtifacts.length} available artifacts for trackable ${trackableId}`);
+
+          // Add these artifacts to our collection
+          allArtifacts.push(...availableArtifacts);
+        } catch (error) {
+          console.warn(`[IssueDetailsProvider] Error processing trackable ${trackableId}:`, error);
+          continue;
+        }
+      }
+
+      // Return the combined list of available artifacts
+      return allArtifacts;
+    } catch (error) {
+      console.error('[IssueDetailsProvider] Error in fetchAvailableArtifacts:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Adds an artifact to an issue
+   */
+  private async addArtifactToIssue(input: { issue: string, artefact: string }): Promise<any> {
+    try {
+      await this.apiClient.authenticate();
+
+      const result = await this.apiClient.executeQuery(
+        ADD_ARTIFACT_TO_ISSUE_MUTATION,
+        { input }
+      );
+
+      if (result.errors) {
+        throw new Error(result.errors[0].message);
+      }
+
+      if (!result.data?.addArtefactToIssue?.addedArtefactEvent) {
+        throw new Error('Failed to add artifact to issue: No confirmation data returned');
+      }
+
+      return result.data.addArtefactToIssue.addedArtefactEvent;
+    } catch (error) {
+      console.error('[IssueDetailsProvider] Error in addArtifactToIssue:', error);
+      throw error;
+    }
   }
 
   private async fetchIssueRelationTypes(): Promise<any[]> {

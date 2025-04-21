@@ -326,7 +326,7 @@
                         alt="Relation icon" />
                     </div>
                     <span>{{ newOutgoingRelation.title }} ({{ newOutgoingRelation.state.isOpen ? 'Open' : 'Closed'
-                      }})</span>
+                    }})</span>
                   </div>
                   <!-- Dropdown for relation types -->
                   <div v-if="newRelationTypeDropdownVisible" class="field-dropdown" style="position: relative;">
@@ -511,13 +511,58 @@
             style="cursor: pointer; display: flex; justify-content: space-between;">
             <span>Artifacts</span>
             <div>
-              <button v-if="expandedSections.artifacts" class="edit-button" @click.stop="createArtifact"
-                title="Create Artifact">
-                <span class="edit-icon">+</span>
+              <button v-if="expandedSections.artifacts" class="artifact-button create-button"
+                @click.stop="createArtifact" title="Create new artifact from selected code">
+                Create
+              </button>
+              <button v-if="expandedSections.artifacts" class="artifact-button add-button"
+                @click.stop="toggleAddArtifactDropdown" title="Add existing artifact to this issue">
+                Add
               </button>
               <span class="toggle-icon">{{ expandedSections.artifacts ? '▼' : '▶' }}</span>
             </div>
           </div>
+
+          <div v-if="showAddArtifactDropdown && expandedSections.artifacts" class="add-artifact-dropdown">
+            <div class="dropdown-header">
+              <span>Select an artifact to add:</span>
+              <button class="close-dropdown-button" @click.stop="closeAddArtifactDropdown">×</button>
+            </div>
+
+            <div v-if="availableArtifacts.length === 0 && !artifactsLoading" class="no-artifacts-message">
+              <p>No standalone artifacts available to add to this issue.</p>
+              <p class="artifact-hint">Standalone artifacts must first be created for related components or projects
+                before they
+                can be added here.</p>
+            </div>
+
+            <div v-else-if="artifactsLoading" class="loading-artifacts">
+              <p>Loading available artifacts...</p>
+            </div>
+
+            <div v-else class="artifact-dropdown-options">
+              <div v-for="artifact in availableArtifacts" :key="artifact.id" class="artifact-dropdown-option"
+                @click="selectAndAddArtifact(artifact)">
+                <div class="artifact-option-content">
+                  <div class="artifact-file-name">
+                    {{ getFileName(artifact.file) }}
+                    <span class="line-numbers" v-if="artifact.from && artifact.to">
+                      (Lines {{ artifact.from }}-{{ artifact.to }})
+                    </span>
+                  </div>
+                  <div class="artifact-option-details">
+                    <span v-if="artifact.trackable" class="artifact-trackable-label">
+                      {{ artifact.trackable.name }}
+                    </span>
+                    <span v-if="artifact.version" class="artifact-version-label">
+                      v{{ artifact.version }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="section-content" v-if="expandedSections.artifacts">
             <div v-if="issue.artifacts && issue.artifacts.length > 0" class="artifacts-list">
               <div v-for="artifact in issue.artifacts" :key="artifact.id" class="artifact-item"
@@ -584,6 +629,9 @@ export default {
   name: "IssueDetails",
   data() {
     return {
+      showAddArtifactDropdown: false,
+      availableArtifacts: [],
+      artifactsLoading: false,
       issue: null,
       error: null,
       originComponentId: null,  // holds the propagated origin component ID
@@ -824,6 +872,131 @@ export default {
     }
   },
   methods: {
+    /**
+ * Toggles the Add Artifact dropdown and loads available artifacts
+ */
+    toggleAddArtifactDropdown(event) {
+      if (event) event.stopPropagation();
+
+      if (this.showAddArtifactDropdown) {
+        this.closeAddArtifactDropdown();
+        return;
+      }
+
+      this.showAddArtifactDropdown = true;
+      this.availableArtifacts = [];
+      this.loadAvailableArtifacts();
+
+      // Add click-outside handler to close the dropdown
+      this.$nextTick(() => {
+        document.addEventListener('click', this.handleClickOutsideArtifactDropdown);
+      });
+    },/**
+ * Closes the Add Artifact dropdown
+ */
+    closeAddArtifactDropdown() {
+      this.showAddArtifactDropdown = false;
+      document.removeEventListener('click', this.handleClickOutsideArtifactDropdown);
+    },
+
+    /**
+     * Handles clicks outside the artifact dropdown to close it
+     */
+    handleClickOutsideArtifactDropdown(event) {
+      const dropdown = this.$el.querySelector('.add-artifact-dropdown');
+      const button = this.$el.querySelector('.add-button');
+
+      if (dropdown && button &&
+        !dropdown.contains(event.target) &&
+        !button.contains(event.target)) {
+        this.closeAddArtifactDropdown();
+      }
+    },
+
+    /**
+     * Loads available artifacts that can be added to this issue
+     */
+    loadAvailableArtifacts() {
+      if (!this.issue || !this.issue.id) {
+        console.error("Cannot load artifacts: Missing issue ID");
+        return;
+      }
+
+      // Get trackable IDs from the issue
+      const trackableIds = this.getIssueTrackableIds();
+      if (trackableIds.length === 0) {
+        console.warn("No trackables found for this issue");
+        return;
+      }
+
+      this.artifactsLoading = true;
+
+      if (vscode) {
+        console.log('[IssueDetails.vue] Requesting available artifacts for trackables:', trackableIds);
+        vscode.postMessage({
+          command: 'getAvailableArtifacts',
+          trackableIds: trackableIds,
+          issueId: this.issue.id
+        });
+      }
+    },
+
+    /**
+     * Extracts trackable IDs from the issue
+     */
+    getIssueTrackableIds() {
+      const trackableIds = [];
+
+      // First check direct trackables field
+      if (this.issue.trackables && this.issue.trackables.nodes) {
+        for (const node of this.issue.trackables.nodes) {
+          if (node && node.id) {
+            trackableIds.push(node.id);
+          }
+        }
+      }
+
+      // Then check affects relation for components and projects
+      if (this.issue.affects && this.issue.affects.nodes) {
+        for (const node of this.issue.affects.nodes) {
+          if (node.__typename === 'Component' || node.__typename === 'Project') {
+            if (node.id && !trackableIds.includes(node.id)) {
+              trackableIds.push(node.id);
+            }
+          } else if (node.__typename === 'ComponentVersion' && node.component) {
+            if (node.component.id && !trackableIds.includes(node.component.id)) {
+              trackableIds.push(node.component.id);
+            }
+          }
+        }
+      }
+
+      return trackableIds;
+    },
+
+    /**
+     * Selects and immediately adds an artifact to the issue
+     */
+    selectAndAddArtifact(artifact) {
+      if (!artifact || !artifact.id || !this.issue || !this.issue.id) {
+        console.error("Cannot add artifact: Missing artifact ID or issue ID");
+        return;
+      }
+
+      if (vscode) {
+        vscode.postMessage({
+          command: 'addArtifactToIssue',
+          input: {
+            issue: this.issue.id,
+            artefact: artifact.id
+          }
+        });
+      }
+
+      // Close the dropdown
+      this.closeAddArtifactDropdown();
+    },
+
     openCreateNewLabelModal() {
       this.showNewLabelModal = true;
       // Optionally close the dropdown search if desired:
@@ -1924,8 +2097,7 @@ export default {
             this.$forceUpdate();
           }
         }
-      }
-      else if (message && message.command === 'assignmentTypesError') {
+      } else if (message && message.command === 'assignmentTypesError') {
         console.error('[IssueDetails.vue] Error loading assignment types:', message.error);
         this.assignmentTypes = [];
       } else if (message && message.command === 'assignmentRemoved') {
@@ -2019,6 +2191,19 @@ export default {
       } else if (message.command === "removeLabelFromIssueError") {
         console.error("Error removing label:", message.error);
         vscode.postMessage({ command: 'showErrorNotification', message: "Error: " + message.error });
+      } else if (message && message.command === 'availableArtifactsLoaded') {
+        console.log('[IssueDetails.vue] Received available artifacts:', message.artifacts);
+        this.artifactsLoading = false;
+        this.availableArtifacts = message.artifacts || [];
+      }
+      else if (message && message.command === 'artifactAddedToIssue') {
+        console.log('[IssueDetails.vue] Artifact added successfully:', message.artifactId);
+        vscode.window.showInformationMessage('Artifact added to issue successfully.');
+        this.refreshCurrentIssue();
+      }
+      else if (message && message.command === 'addArtifactError') {
+        console.error('[IssueDetails.vue] Error adding artifact:', message.error);
+        vscode.window.showErrorMessage(`Error adding artifact: ${message.error}`);
       }
 
       if (typeof acquireVsCodeApi !== "undefined") {
@@ -3384,5 +3569,147 @@ ul {
 .labels-row {
   margin-left: 16px;
   /* or whatever spacing you prefer */
+}
+
+/* Artifact Buttons */
+.artifact-button {
+  background-color: var(--vscode-button-secondaryBackground, #2d2d2d);
+  color: var(--vscode-button-secondaryForeground, #cccccc);
+  border: none;
+  border-radius: 3px;
+  padding: 3px 8px;
+  font-size: 0.85em;
+  cursor: pointer;
+  margin-right: 4px;
+}
+
+.artifact-button:hover {
+  background-color: var(--vscode-button-secondaryHoverBackground, #3d3d3d);
+}
+
+.artifact-button.create-button {
+  background-color: var(--vscode-button-background, #0e639c);
+  color: var(--vscode-button-foreground, white);
+}
+
+.artifact-button.create-button:hover {
+  background-color: var(--vscode-button-hoverBackground, #1177bb);
+}
+
+.artifact-button.add-button {
+  background-color: var(--vscode-button-secondaryBackground, #2d2d2d);
+}
+
+.artifact-button.add-button:hover {
+  background-color: var(--vscode-button-secondaryHoverBackground, #3d3d3d);
+}
+
+/* Add Artifact Dropdown */
+.add-artifact-dropdown {
+  position: relative;
+  width: calc(100% - 20px);
+  margin: 0 10px 8px 10px;
+  background-color: var(--vscode-dropdown-background);
+  border: 1px solid var(--vscode-dropdown-border);
+  border-radius: 4px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  z-index: 100;
+  max-height: 300px;
+  display: flex;
+  flex-direction: column;
+}
+
+.dropdown-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--vscode-dropdown-border);
+  font-weight: 500;
+}
+
+.close-dropdown-button {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  color: var(--vscode-foreground);
+  opacity: 0.7;
+  padding: 0 4px;
+}
+
+.close-dropdown-button:hover {
+  opacity: 1;
+}
+
+.artifact-dropdown-options {
+  overflow-y: auto;
+  max-height: 250px;
+}
+
+.artifact-dropdown-option {
+  padding: 8px 10px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--vscode-dropdown-border, rgba(255, 255, 255, 0.1));
+}
+
+.artifact-dropdown-option:last-child {
+  border-bottom: none;
+}
+
+.artifact-dropdown-option:hover {
+  background-color: var(--vscode-list-hoverBackground);
+}
+
+.artifact-option-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.artifact-file-name {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.artifact-option-details {
+  display: flex;
+  gap: 8px;
+  font-size: 0.85em;
+  color: var(--vscode-descriptionForeground);
+}
+
+.line-numbers {
+  font-size: 0.85em;
+  color: var(--vscode-descriptionForeground);
+  background-color: rgba(0, 0, 0, 0.2);
+  padding: 2px 6px;
+  border-radius: 3px;
+  margin-left: 6px;
+}
+
+.artifact-trackable-label {
+  color: var(--vscode-foreground);
+  opacity: 0.8;
+}
+
+.artifact-version-label {
+  color: var(--vscode-foreground);
+  opacity: 0.7;
+}
+
+.no-artifacts-message {
+  padding: 10px;
+  font-style: italic;
+  color: var(--vscode-descriptionForeground);
+  text-align: center;
+}
+
+.loading-artifacts {
+  padding: 10px;
+  text-align: center;
+  color: var(--vscode-descriptionForeground);
 }
 </style>

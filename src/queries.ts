@@ -1,3 +1,54 @@
+export const GET_ARTIFACTS_FOR_TRACKABLE = `
+query GetArtifactsForTrackable($trackableId: ID!) {
+  node(id: $trackableId) {
+    ... on Component {
+      id
+      name
+      artefacts {
+        nodes {
+          id
+          file
+          from
+          to
+          version
+          templatedFields {
+            name
+            value
+          }
+          trackable {
+            id
+            name
+            __typename
+          }
+        }
+      }
+    }
+    ... on Project {
+      id
+      name
+      artefacts {
+        nodes {
+          id
+          file
+          from
+          to
+          version
+          templatedFields {
+            name
+            value
+          }
+          trackable {
+            id
+            name
+            __typename
+          }
+        }
+      }
+    }
+  }
+}
+`;
+
 export const GET_ARTIFACTS_FOR_ISSUE = `
 query GetArtifactsForIssue($issueId: ID!) {
   node(id: $issueId) {
@@ -15,6 +66,35 @@ query GetArtifactsForIssue($issueId: ID!) {
           }
         }
       }
+    }
+  }
+}
+`;
+
+export const GET_AVAILABLE_ARTIFACTS_FOR_TRACKABLES = `
+query GetAvailableArtifactsForTrackables($trackableIds: [ID!]!, $issueId: ID!) {
+  searchArtefacts(
+    filter: {
+      trackable: {
+        in: $trackableIds
+      },
+      notInIssue: $issueId
+    },
+    first: 50
+  ) {
+    id
+    file
+    from
+    to
+    version
+    templatedFields {
+      name
+      value
+    }
+    trackable {
+      id
+      name
+      __typename
     }
   }
 }
