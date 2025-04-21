@@ -565,9 +565,8 @@
 
           <div class="section-content" v-if="expandedSections.artifacts">
             <div v-if="issue.artifacts && issue.artifacts.length > 0" class="artifacts-list">
-              <div v-for="artifact in issue.artifacts" :key="artifact.id" class="artifact-item"
-                @click="openArtifactFile(artifact)">
-                <div class="artifact-content">
+              <div v-for="artifact in issue.artifacts" :key="artifact.id" class="artifact-item">
+                <div class="artifact-content" @click="openArtifactFile(artifact)">
                   <div class="artifact-file">
                     <strong>{{ getFileName(artifact.file) }}</strong>
                     <span class="line-numbers" v-if="artifact.from && artifact.to">
@@ -583,6 +582,10 @@
                     </div>
                   </div>
                 </div>
+                <button class="remove-relation-button" @click.stop="confirmRemoveArtifact(artifact)"
+                  title="Remove artifact from this issue">
+                  X
+                </button>
               </div>
             </div>
             <div v-else class="no-artifacts">
@@ -1641,6 +1644,36 @@ export default {
 
       // Last resort fallback
       return `Artifact ${artifact.id.substring(0, 8)}`;
+    },/**
+ * Confirms with the user before removing an artifact from the issue
+ */
+    confirmRemoveArtifact(artifact) {
+      if (!artifact || !artifact.id || !this.issue || !this.issue.id) {
+        console.error("Cannot remove artifact: Missing artifact ID or issue ID");
+        return;
+      }
+
+      this.removeArtifactFromIssue(artifact.id);
+    },
+
+    /**
+     * Removes an artifact from the issue
+     */
+    removeArtifactFromIssue(artifactId) {
+      if (!artifactId || !this.issue || !this.issue.id) {
+        console.error("Cannot remove artifact: Missing artifact ID or issue ID");
+        return;
+      }
+
+      if (vscode) {
+        vscode.postMessage({
+          command: 'removeArtifactFromIssue',
+          input: {
+            issue: this.issue.id,
+            artefact: artifactId
+          }
+        });
+      }
     },
     createArtifact() {
       if (!this.issue || !this.issue.id) {
@@ -2204,6 +2237,21 @@ export default {
       else if (message && message.command === 'addArtifactError') {
         console.error('[IssueDetails.vue] Error adding artifact:', message.error);
         vscode.window.showErrorMessage(`Error adding artifact: ${message.error}`);
+      } else if (message && message.command === 'artifactRemovedFromIssue') {
+        console.log('[IssueDetails.vue] Artifact removed successfully:', message.artifactId);
+        vscode.window.showInformationMessage('Artifact removed from issue successfully.');
+
+        this.refreshCurrentIssue();
+
+        if (this.issue && this.issue.artifacts) {
+          this.issue.artifacts = this.issue.artifacts.filter(
+            artifact => artifact.id !== message.artifactId
+          );
+        }
+      }
+      else if (message && message.command === 'removeArtifactError') {
+        console.error('[IssueDetails.vue] Error removing artifact:', message.error);
+        vscode.window.showErrorMessage(`Error removing artifact: ${message.error}`);
       }
 
       if (typeof acquireVsCodeApi !== "undefined") {

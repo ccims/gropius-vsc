@@ -1674,3 +1674,15 @@ query GetComponentsByIds($ids: [ID!]!) {
   }
 }
 `;
+
+export const REMOVE_ARTIFACT_FROM_ISSUE_MUTATION = `
+mutation RemoveArtefactFromIssue($input: RemoveArtefactFromIssueInput!) {
+  removeArtefactFromIssue(input: $input) {
+    removedArtefactEvent {
+      removedArtefact {
+        id
+      }
+    }
+  }
+}
+`;

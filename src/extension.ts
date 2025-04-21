@@ -4,6 +4,7 @@ import { CLIENT_ID, CLIENT_SECRET, API_URL } from "./config";
 import { APIClient } from "./apiClient";
 import { loadConfigurations } from './mapping/config-loader';
 import {
+  REMOVE_ARTIFACT_FROM_ISSUE_MUTATION,
   GET_AVAILABLE_ARTIFACTS_FOR_TRACKABLES,
   FETCH_COMPONENT_VERSIONS_QUERY,
   FETCH_DYNAMIC_PROJECTS_QUERY,
@@ -2354,6 +2355,45 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
             error: error instanceof Error ? error.message : String(error)
           });
         }
+      } else if (message.command === 'removeArtifactFromIssue') {
+        try {
+          const input = message.input;
+
+          if (!input || !input.issue || !input.artefact) {
+            this._view?.webview.postMessage({
+              command: 'removeArtifactError',
+              error: 'Missing issue ID or artifact ID'
+            });
+            return;
+          }
+
+          console.log(`[IssueDetailsProvider] Removing artifact ${input.artefact} from issue ${input.issue}`);
+
+          this.removeArtifactFromIssue(input)
+            .then(result => {
+              this._view?.webview.postMessage({
+                command: 'artifactRemovedFromIssue',
+                artifactId: input.artefact,
+                result: result
+              });
+
+              // Refresh the issue details to update the artifact list
+              this.refreshCurrentIssue();
+            })
+            .catch(error => {
+              console.error('[IssueDetailsProvider] Error removing artifact from issue:', error);
+              this._view?.webview.postMessage({
+                command: 'removeArtifactError',
+                error: error instanceof Error ? error.message : String(error)
+              });
+            });
+        } catch (error) {
+          console.error('[IssueDetailsProvider] Error processing removeArtifactFromIssue:', error);
+          this._view?.webview.postMessage({
+            command: 'removeArtifactError',
+            error: error instanceof Error ? error.message : String(error)
+          });
+        }
       }
     });
   }
@@ -2446,6 +2486,34 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
       return result.data.addArtefactToIssue.addedArtefactEvent;
     } catch (error) {
       console.error('[IssueDetailsProvider] Error in addArtifactToIssue:', error);
+      throw error;
+    }
+  }
+
+
+  /**
+   * Removes an artifact from an issue
+   */
+  private async removeArtifactFromIssue(input: { issue: string, artefact: string }): Promise<any> {
+    try {
+      await this.apiClient.authenticate();
+
+      const result = await this.apiClient.executeQuery(
+        REMOVE_ARTIFACT_FROM_ISSUE_MUTATION,
+        { input }
+      );
+
+      if (result.errors) {
+        throw new Error(result.errors[0].message);
+      }
+
+      if (!result.data?.removeArtefactFromIssue?.removedArtefactEvent) {
+        throw new Error('Failed to remove artifact from issue: No confirmation data returned');
+      }
+
+      return result.data.removeArtefactFromIssue.removedArtefactEvent;
+    } catch (error) {
+      console.error('[IssueDetailsProvider] Error in removeArtifactFromIssue:', error);
       throw error;
     }
   }
