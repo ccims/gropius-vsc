@@ -304,6 +304,7 @@ query GetIssueDetails($id: ID!) {
       type {
         id
         name
+        iconPath
       }
       priority {
         id
