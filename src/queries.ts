@@ -162,6 +162,7 @@ query GetIssuesOfComponent($id: ID!) {
           title
           type {
             name
+            iconPath
           }
           state {
             isOpen
