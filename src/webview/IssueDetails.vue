@@ -12,6 +12,7 @@
       <div class="issue-header">
         <div class="icon-stack">
           <IssueIcon :issue="issue" class="issue-icon" />
+          <img class="overlay-icon" .src="getRelationalIconPathFor(issue)" alt="" />
         </div>
 
         <div class="title-container">
