@@ -6,10 +6,11 @@
   font-size: var(--vscode-font-size, 13px);
   color: var(--vscode-foreground, #cccccc);
   margin: 0;
-  padding: 0 0 0 14px;
+  padding: 0;
   /* Left indent to match Explorer */
   box-sizing: border-box;
   max-width: 100%;
+  margin-left: -25px;
 }
 
 ul {

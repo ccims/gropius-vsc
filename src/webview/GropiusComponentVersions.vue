@@ -1,5 +1,6 @@
 <template>
-    <div> 
+    <link href="https://cdn.jsdelivr.net/npm/@vscode/codicons@latest/dist/codicon.css" rel="stylesheet" />
+    <div class="webview-root"> 
         <!-- Show workspace graph -->
         <div class="showGraph">
             <button class="graph-button" @click="openWorkspaceGraph">
@@ -22,8 +23,8 @@
                             <!-- Use the VS Code codicon for twisties -->
                             <span v-if="item.children && item.children.length > 0" class="twisty">
                                 <span v-if="item.expanded"
-                                    class="codicon codicon-chevron-down explorer-arrow expanded"></span>
-                                <span v-else class="codicon codicon-chevron-right explorer-arrow collapsed"></span>
+                                    class="codicon codicon-chevron-down"></span>
+                                <span v-else class="codicon codicon-chevron-right"></span>
                             </span>
                             <img v-else class="custom-icon" :src="customIconPath" alt="Component"
                                 @error="handleImageError" />
@@ -257,7 +258,13 @@ export default defineComponent({
 </script>
 
 <style>
-@import "@vscode/codicons/dist/codicon.css";
+.webview-root {
+  margin: 0;
+  padding: 0 12px;
+  text-align: left;
+  display: block;
+  max-width: 100%;
+}
 
 .node-container {
     margin-bottom: 0;
@@ -433,7 +440,7 @@ export default defineComponent({
     display: inline-block;
     position: relative;
 }
-
+/*
 .explorer-arrow.collapsed::before {
     content: ">";
     position: absolute;
@@ -447,10 +454,11 @@ export default defineComponent({
     content: "v";
     position: absolute;
     left: 2px;
-    top: -2px;
+    top: 0px;
     font-size: 16px;
     line-height: 22px;
 }
+    */
 .twisty {
     display: flex;
     align-items: center;
@@ -459,6 +467,7 @@ export default defineComponent({
     height: 22px;
     margin-right: 4px;
 }
+    
 
 /* Workspace graph */
 
