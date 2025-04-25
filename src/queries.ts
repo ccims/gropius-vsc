@@ -53,6 +53,14 @@ export const GET_ARTIFACTS_FOR_ISSUE = `
 query GetArtifactsForIssue($issueId: ID!) {
   node(id: $issueId) {
     ... on Issue {
+      id
+      title
+      type {
+        name
+      }
+      state {
+        isOpen
+      }
       artefacts {
         nodes {
           id
@@ -65,6 +73,33 @@ query GetArtifactsForIssue($issueId: ID!) {
             value
           }
         }
+      }
+    }
+  }
+}
+`;
+
+export const GET_OPEN_ISSUES_WITH_ARTIFACTS = `
+query GetOpenIssuesWithArtifacts {
+  searchIssues(
+    filter: { state: { isOpen: { eq: true } } }, 
+    first: 100,
+    query: "*"
+  ) {
+    id
+    title
+    type {
+      name
+    }
+    state {
+      isOpen
+    }
+    artefacts {
+      nodes {
+        id
+        file
+        from
+        to
       }
     }
   }

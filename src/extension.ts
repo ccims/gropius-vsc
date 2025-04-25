@@ -81,12 +81,151 @@ interface DescriptionEditorData {
 }
 
 /**
+ * Loads and registers all artifacts for open issues
+ */
+async function loadAndRegisterOpenIssueArtifacts() {
+  try {
+    console.log('[loadAndRegisterOpenIssueArtifacts] Loading artifacts for open issues...');
+
+    // Authenticate before making API calls
+    await globalApiClient.authenticate();
+
+    // Query for open issues with their artifacts
+    const result = await globalApiClient.executeQuery(`
+      query GetOpenIssuesWithArtifacts {
+        searchIssues(
+          filter: { state: { isOpen: { eq: true } } }, 
+          first: 100,
+          query: "*"
+        ) {
+          id
+          title
+          type {
+            name
+          }
+          state {
+            isOpen
+          }
+          artefacts {
+            nodes {
+              id
+              file
+              from
+              to
+            }
+          }
+        }
+      }
+    `);
+
+    // Process the results
+    if (result.data?.searchIssues) {
+      const openIssues = result.data.searchIssues;
+      console.log(`[loadAndRegisterOpenIssueArtifacts] Found ${openIssues.length} open issues`);
+
+      // Track the number of artifacts registered
+      let artifactsRegistered = 0;
+
+      // Register each artifact from each open issue
+      for (const issue of openIssues) {
+        if (issue.artefacts && issue.artefacts.nodes) {
+          for (const artifact of issue.artefacts.nodes) {
+            if (artifact.file && artifact.from && artifact.to) {
+              // Register artifact with the decorator manager
+              artifactDecoratorManager.registerArtifact(
+                artifact.id,
+                artifact.file,
+                artifact.from,
+                artifact.to,
+                {
+                  issueId: issue.id,
+                  issueType: issue.type.name,
+                  isOpen: issue.state.isOpen,
+                  title: issue.title
+                }
+              );
+
+              artifactsRegistered++;
+            }
+          }
+        }
+      }
+
+      console.log(`[loadAndRegisterOpenIssueArtifacts] Registered ${artifactsRegistered} artifacts from open issues`);
+    }
+  } catch (error) {
+    console.error('[loadAndRegisterOpenIssueArtifacts] Error:', error);
+    vscode.window.showErrorMessage(`Failed to load artifacts for open issues: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+/**
+ * Loads and registers artifacts for a specific issue
+ * @param issueId The issue ID
+ */
+async function loadAndRegisterIssueArtifacts(issueId: string) {
+  try {
+    console.log(`[loadAndRegisterIssueArtifacts] Loading artifacts for issue ${issueId}...`);
+
+    // Authenticate before making API calls
+    await globalApiClient.authenticate();
+
+    // Get the issue details with its artifacts
+    const result = await globalApiClient.executeQuery(
+      GET_ARTIFACTS_FOR_ISSUE,
+      { issueId }
+    );
+
+    // Process the result
+    if (result.data?.node) {
+      const issue = result.data.node;
+
+      if (issue.artefacts && issue.artefacts.nodes) {
+        console.log(`[loadAndRegisterIssueArtifacts] Found ${issue.artefacts.nodes.length} artifacts for issue ${issueId}`);
+
+        // Register each artifact for this issue
+        for (const artifact of issue.artefacts.nodes) {
+          if (artifact.file && artifact.from && artifact.to) {
+            artifactDecoratorManager.registerArtifact(
+              artifact.id,
+              artifact.file,
+              artifact.from,
+              artifact.to,
+              {
+                issueId: issue.id,
+                issueType: issue.type.name,
+                isOpen: issue.state.isOpen,
+                title: issue.title
+              }
+            );
+          }
+        }
+      } else {
+        console.log(`[loadAndRegisterIssueArtifacts] No artifacts found for issue ${issueId}`);
+      }
+    }
+  } catch (error) {
+    console.error(`[loadAndRegisterIssueArtifacts] Error for issue ${issueId}:`, error);
+    vscode.window.showErrorMessage(`Failed to load artifacts for issue: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+/**
  * Registers all providers and commands in VS Code
  */
 export function activate(context: vscode.ExtensionContext) {
 
   // Initialize the artifact decorator manager
   artifactDecoratorManager = new ArtifactDecoratorManager(context);
+
+  // manually refresh artifact highlights
+  context.subscriptions.push(
+    vscode.commands.registerCommand('extension.refreshArtifactHighlights', () => {
+      loadAndRegisterOpenIssueArtifacts();
+    })
+  );
+
+  loadAndRegisterOpenIssueArtifacts();
 
   // 1) Register the Gropius Component Versions view
   const gropiusComponentVersionsProvider = new GropiusComponentVersionsProvider(context, globalApiClient);
@@ -333,6 +472,24 @@ export function activate(context: vscode.ExtensionContext) {
         if (linkResult.data?.addArtefactToIssue?.addedArtefactEvent) {
           vscode.window.showInformationMessage(`Artifact created and linked to issue successfully.`);
 
+          if (createResult.data?.createArtefact?.artefact) {
+            const newArtifact = createResult.data.createArtefact.artefact;
+            
+            // After successfully linking the artifact to the issue, register it for highlighting
+            artifactDecoratorManager.registerArtifact(
+              newArtifact.id,
+              newArtifact.file,
+              newArtifact.from,
+              newArtifact.to,
+              {
+                issueId: issueId,
+                issueType: issueDetailsResult.data?.node?.type?.name || 'Bug',
+                isOpen: issueDetailsResult.data?.node?.state?.isOpen || false,
+                title: issueDetailsResult.data?.node?.title || 'Unknown Issue'
+              }
+            );
+          }
+
           // Refresh the issue details to show the new artifact
           if (issueDetailsProvider) {
             issueDetailsProvider.refreshCurrentIssue();
@@ -509,9 +666,11 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Command to open and highlight a file for an artifact
   context.subscriptions.push(
-    vscode.commands.registerCommand('extension.openArtifactFile', async (artifactData) => {
-
+    vscode.commands.registerCommand('extension.openArtifactFile', async (message) => {
       try {
+        const artifactData = message.artifactData;
+        const sourceIssueId = message.sourceIssueId;
+
         // Convert the file URI string to a vscode.Uri object
         const fileUri = vscode.Uri.parse(artifactData.file);
 
@@ -528,6 +687,12 @@ export function activate(context: vscode.ExtensionContext) {
         if (!fileExists) {
           vscode.window.showWarningMessage(`File not found in workspace: ${fileUri.fsPath}`);
           return;
+        }
+
+        // If we have a source issue ID, remember which issue opened this artifact
+        if (sourceIssueId && artifactData.id) {
+          console.log(`[extension.openArtifactFile] Setting last accessed issue for artifact ${artifactData.id} to ${sourceIssueId}`);
+          artifactDecoratorManager.setLastAccessedIssue(artifactData.id, sourceIssueId);
         }
 
         // Open the document in the editor
@@ -549,7 +714,7 @@ export function activate(context: vscode.ExtensionContext) {
           // Reveal the range in the editor
           editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
 
-          // Set the selection but don't highlight
+          // Position the cursor at the start
           editor.selection = new vscode.Selection(range.start, range.start);
         }
       } catch (error) {
@@ -586,6 +751,8 @@ export function activate(context: vscode.ExtensionContext) {
   vscode.commands.registerCommand('extension.showIssueDetails', (data: any) => {
     const issueId = typeof data === 'string' ? data : data.issueId;
     const originComponentId = typeof data === 'string' ? null : data.originComponentId;
+    // Load and register artifacts for this issue, regardless of its state
+    loadAndRegisterIssueArtifacts(issueId);
     issueDetailsProvider.updateIssueDetails(issueId, originComponentId);
     issueDetailsProvider.revealView();
   });
@@ -1842,8 +2009,13 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
         } catch (error) {
           console.error('[IssueDetailsProvider] Error searching users:', error);
         }
-      }
-      else if (message.command === 'createAssignment') {
+      } else if (message.command === 'openArtifactFile') {
+        // Forward the complete message to the command with sourceIssueId
+        vscode.commands.executeCommand('extension.openArtifactFile', {
+          artifactData: message.artifactData,
+          sourceIssueId: message.sourceIssueId
+        });
+      } else if (message.command === 'createAssignment') {
         try {
           const assignment = await this.createAssignment(message.issueId, message.userId);
           this._view?.webview.postMessage({
@@ -3619,11 +3791,33 @@ export class GraphsProvider implements vscode.WebviewViewProvider {
  */
 class ArtifactDecoratorManager {
   private decorationTypes: Map<string, vscode.TextEditorDecorationType> = new Map();
-  private artifactRanges: Map<string, { uri: vscode.Uri, ranges: vscode.Range[], artifactIds: string[] }> = new Map();
+
+  // Map of file URI to artifacts data
+  private artifactRanges: Map<string, {
+    uri: vscode.Uri,
+    ranges: Array<{
+      range: vscode.Range,
+      artifactId: string
+    }>
+  }> = new Map();
+
+  // Map of artifact ID to associated issues data
+  private artifactIssues: Map<string, Array<{
+    issueId: string,
+    issueType: string,
+    isOpen: boolean,
+    title: string
+  }>> = new Map();
+
+  // Track which artifact was last accessed from which issue
+  private lastAccessedFrom: Map<string, string> = new Map();
 
   constructor(private context: vscode.ExtensionContext) {
     // Listen for editor changes to apply decorations
     vscode.window.onDidChangeActiveTextEditor(this.onActiveEditorChanged, this, context.subscriptions);
+
+    // Apply decorations to all open editors when artifact data changes
+    vscode.window.onDidChangeVisibleTextEditors(() => this.applyDecorationsToOpenEditors(), this, context.subscriptions);
 
     // Apply decorations to the active editor right away
     if (vscode.window.activeTextEditor) {
@@ -3633,8 +3827,24 @@ class ArtifactDecoratorManager {
 
   /**
    * Register an artifact to be highlighted in editors
+   * @param artifactId Artifact ID
+   * @param fileUri File URI string
+   * @param from Starting line (1-based)
+   * @param to Ending line (1-based)
+   * @param issueData Associated issue data
    */
-  public registerArtifact(artifactId: string, fileUri: string, from: number, to: number): void {
+  public registerArtifact(
+    artifactId: string,
+    fileUri: string,
+    from: number,
+    to: number,
+    issueData: {
+      issueId: string,
+      issueType: string,
+      isOpen: boolean,
+      title: string
+    }
+  ): void {
     try {
       const uri = vscode.Uri.parse(fileUri);
       const uriString = uri.toString();
@@ -3643,38 +3853,60 @@ class ArtifactDecoratorManager {
       const startLine = Math.max(0, from - 1);
       const endLine = Math.max(0, to - 1);
 
-      // Create ranges for just the first and last lines
-      const ranges = [];
-
-      // First line
-      ranges.push(new vscode.Range(
+      // Create range objects for the first and last lines
+      const firstLineRange = new vscode.Range(
         new vscode.Position(startLine, 0),
         new vscode.Position(startLine, Number.MAX_SAFE_INTEGER)
-      ));
+      );
 
-      // Last line (only if different from first line)
-      if (startLine !== endLine) {
-        ranges.push(new vscode.Range(
-          new vscode.Position(endLine, 0),
-          new vscode.Position(endLine, Number.MAX_SAFE_INTEGER)
-        ));
-      }
-
-      // Store or update the artifact range for this file
+      // Get or create the artifact ranges for this file
       if (!this.artifactRanges.has(uriString)) {
         this.artifactRanges.set(uriString, {
           uri,
-          ranges: ranges,
-          artifactIds: [artifactId]
+          ranges: []
         });
-      } else {
-        const fileData = this.artifactRanges.get(uriString)!;
-        fileData.ranges.push(...ranges);
-        fileData.artifactIds.push(artifactId);
-        fileData.artifactIds.push(artifactId); // Add twice if we have two ranges
       }
 
-      // Apply decorations if the file is open
+      const fileRanges = this.artifactRanges.get(uriString)!;
+
+      // Add the first line range
+      fileRanges.ranges.push({
+        range: firstLineRange,
+        artifactId
+      });
+
+      // Add the last line range if different from first line
+      if (startLine !== endLine) {
+        const lastLineRange = new vscode.Range(
+          new vscode.Position(endLine, 0),
+          new vscode.Position(endLine, Number.MAX_SAFE_INTEGER)
+        );
+
+        fileRanges.ranges.push({
+          range: lastLineRange,
+          artifactId
+        });
+      }
+
+      // Associate the issue with this artifact
+      if (!this.artifactIssues.has(artifactId)) {
+        this.artifactIssues.set(artifactId, []);
+      }
+
+      const artifactIssues = this.artifactIssues.get(artifactId)!;
+
+      // Check if this issue is already associated
+      const existingIssueIndex = artifactIssues.findIndex(issue => issue.issueId === issueData.issueId);
+
+      if (existingIssueIndex >= 0) {
+        // Update existing issue data
+        artifactIssues[existingIssueIndex] = issueData;
+      } else {
+        // Add new issue association
+        artifactIssues.push(issueData);
+      }
+
+      // Apply decorations to open editors
       this.applyDecorationsToOpenEditors();
     } catch (error) {
       console.error(`[ArtifactDecoratorManager] Error registering artifact: ${error}`);
@@ -3682,21 +3914,36 @@ class ArtifactDecoratorManager {
   }
 
   /**
+   * Sets the last accessed issue for an artifact
+   * This is used to determine which icon to display
+   */
+  public setLastAccessedIssue(artifactId: string, issueId: string): void {
+    this.lastAccessedFrom.set(artifactId, issueId);
+    // Reapply decorations to reflect the change
+    this.applyDecorationsToOpenEditors();
+  }
+
+  /**
    * Remove an artifact registration
    */
   public unregisterArtifact(artifactId: string): void {
-    // Find all files that contain this artifact
-    for (const [uriString, fileData] of this.artifactRanges.entries()) {
-      const index = fileData.artifactIds.indexOf(artifactId);
-      if (index >= 0) {
-        // Remove the artifact and its range
-        fileData.artifactIds.splice(index, 1);
-        fileData.ranges.splice(index, 1);
+    // Remove issue associations
+    this.artifactIssues.delete(artifactId);
 
-        // If no more artifacts for this file, remove the entry
-        if (fileData.artifactIds.length === 0) {
-          this.artifactRanges.delete(uriString);
-        }
+    // Remove from last accessed tracking
+    this.lastAccessedFrom.delete(artifactId);
+
+    // Find and remove all ranges for this artifact
+    for (const [uriString, fileData] of this.artifactRanges.entries()) {
+      // Filter out ranges for this artifact
+      const updatedRanges = fileData.ranges.filter(r => r.artifactId !== artifactId);
+
+      if (updatedRanges.length === 0) {
+        // If no ranges left, remove the file entry
+        this.artifactRanges.delete(uriString);
+      } else {
+        // Update with filtered ranges
+        fileData.ranges = updatedRanges;
       }
     }
 
@@ -3709,6 +3956,8 @@ class ArtifactDecoratorManager {
    */
   public clearAllArtifacts(): void {
     this.artifactRanges.clear();
+    this.artifactIssues.clear();
+    this.lastAccessedFrom.clear();
     this.disposeAllDecorations();
   }
 
@@ -3727,7 +3976,7 @@ class ArtifactDecoratorManager {
   /**
    * Apply decorations to all open editors
    */
-  private applyDecorationsToOpenEditors(): void {
+  public applyDecorationsToOpenEditors(): void {
     vscode.window.visibleTextEditors.forEach(editor => {
       this.applyDecorationsToEditor(editor);
     });
@@ -3741,30 +3990,144 @@ class ArtifactDecoratorManager {
       return;
     }
 
-    // Get the ranges for this file
+    // Get the file data
     const fileData = this.artifactRanges.get(uriString)!;
 
-    // Create decoration type if needed
-    if (!this.decorationTypes.has(uriString)) {
-      const extensionPath = this.context.extensionPath;
-      const iconPath = path.join(extensionPath, 'resources', 'icons', 'highlighter.png');
+    // Group ranges by artifact ID
+    const groupedRanges = new Map<string, vscode.Range[]>();
 
-      const decorationType = vscode.window.createTextEditorDecorationType({
-        // Remove the background color and border properties
-        overviewRulerColor: new vscode.ThemeColor('editorOverviewRuler.findMatchForeground'),
-        overviewRulerLane: vscode.OverviewRulerLane.Center,
-        gutterIconPath: iconPath,
-        gutterIconSize: '100%'
-      });
-
-      this.decorationTypes.set(uriString, decorationType);
+    for (const rangeData of fileData.ranges) {
+      if (!groupedRanges.has(rangeData.artifactId)) {
+        groupedRanges.set(rangeData.artifactId, []);
+      }
+      groupedRanges.get(rangeData.artifactId)!.push(rangeData.range);
     }
 
-    // Apply the decorations after a short delay to ensure the editor is ready
-    setTimeout(() => {
-      const decorationType = this.decorationTypes.get(uriString)!;
-      editor.setDecorations(decorationType, fileData.ranges);
-    }, 100);
+    // Apply decorations for each artifact
+    for (const [artifactId, ranges] of groupedRanges.entries()) {
+      // Get issues associated with this artifact
+      const issues = this.artifactIssues.get(artifactId) || [];
+
+      // Determine which decoration to use
+      const decorationType = this.getDecorationForArtifact(artifactId, issues);
+
+      // Apply the decoration
+      editor.setDecorations(decorationType, ranges);
+    }
+  }
+
+  /**
+   * Create or get the decoration type for an artifact
+   */
+  private getDecorationForArtifact(
+    artifactId: string,
+    issues: Array<{
+      issueId: string,
+      issueType: string,
+      isOpen: boolean,
+      title: string
+    }>
+  ): vscode.TextEditorDecorationType {
+    // Filter open issues
+    const openIssues = issues.filter(issue => issue.isOpen);
+
+    // Determine which icon to use
+    let iconType: string;
+    let iconColor: string;
+    let issueCount = issues.length > 1 ? issues.length : 0;
+
+    // If the artifact was last accessed from a specific issue, use that issue's type
+    const lastAccessedIssueId = this.lastAccessedFrom.get(artifactId);
+
+    if (lastAccessedIssueId) {
+      // Find the last accessed issue
+      const lastAccessedIssue = issues.find(issue => issue.issueId === lastAccessedIssueId);
+
+      if (lastAccessedIssue) {
+        iconType = lastAccessedIssue.issueType;
+        iconColor = lastAccessedIssue.isOpen ? 'green' : 'red';
+      } else {
+        // Fallback to default selection logic if the last accessed issue is no longer associated
+        this.lastAccessedFrom.delete(artifactId);
+        [iconType, iconColor] = this.selectIconTypeAndColor(openIssues, issues);
+      }
+    } else {
+      // Default selection logic
+      [iconType, iconColor] = this.selectIconTypeAndColor(openIssues, issues);
+    }
+
+    // Create a unique key for the decoration type
+    const decorationKey = `${artifactId}-${iconType}-${iconColor}-${issueCount}`;
+
+    // Return existing decoration type if we already have one
+    if (this.decorationTypes.has(decorationKey)) {
+      return this.decorationTypes.get(decorationKey)!;
+    }
+
+    // Create a new decoration type
+    const extensionPath = this.context.extensionPath;
+
+    const gutterIconPath = path.join(extensionPath, 'resources', 'icons', this.getIconPath(iconType, iconColor));
+
+    // If there are multiple issues, create a decoration with a count
+    const decorationType = vscode.window.createTextEditorDecorationType({
+      overviewRulerColor: new vscode.ThemeColor('editorOverviewRuler.findMatchForeground'),
+      overviewRulerLane: vscode.OverviewRulerLane.Center,
+      gutterIconPath: gutterIconPath,
+      gutterIconSize: '100%',
+      after: issueCount > 0 ? {
+        contentText: ` (${issueCount})`,
+        color: new vscode.ThemeColor('editorLineNumber.foreground'),
+        fontStyle: 'italic'
+      } : undefined
+    });
+
+    // Store the decoration type
+    this.decorationTypes.set(decorationKey, decorationType);
+
+    return decorationType;
+  }
+
+  /**
+   * Select icon type and color based on available issues
+   */
+  private selectIconTypeAndColor(
+    openIssues: Array<{ issueId: string, issueType: string, isOpen: boolean, title: string }>,
+    allIssues: Array<{ issueId: string, issueType: string, isOpen: boolean, title: string }>
+  ): [string, string] {
+    // Default to Bug and green if available
+    let iconType = 'Bug';
+    let iconColor = 'green';
+
+    // If there are open issues, use the first open issue's type
+    if (openIssues.length > 0) {
+      iconType = openIssues[0].issueType;
+      iconColor = 'green'; // Open issues are green
+    }
+    // Otherwise use the first issue of any state
+    else if (allIssues.length > 0) {
+      iconType = allIssues[0].issueType;
+      iconColor = allIssues[0].isOpen ? 'green' : 'red';
+    }
+
+    return [iconType, iconColor];
+  }
+
+  /**
+   * Get the icon path for a given type and state
+   */
+  private getIconPath(type: string, color: string): string {
+    switch (type) {
+      case "Bug":
+        return color === 'green' ? "bug-green.png" : "bug-red.png";
+      case "Feature":
+        return color === 'green' ? "lightbulb-feature-green.png" : "lightbulb-feature-red.png";
+      case "Misc":
+      case "Task":
+        return color === 'green' ? "exclamation-green.png" : "exclamation-red.png";
+      default:
+        return color === 'green' ? "bug-green.png" : "bug-red.png";
+    }
   }
 
   /**
@@ -3784,7 +4147,6 @@ class ArtifactDecoratorManager {
     this.disposeAllDecorations();
   }
 }
-
 export function deactivate() {
   // Clean up the decorator manager
   if (artifactDecoratorManager) {

@@ -64,7 +64,8 @@
                     <div v-else class="dropdown-options">
                       <div v-for="type in issueOptions.types" :key="type.id" @click.stop="changeIssueType(type.id)"
                         class="dropdown-option">
-                        <IssueTypeIcon :path="getTypeIconForOption(type)" :fill="getStateForOption()" class="type-icon-small" />
+                        <IssueTypeIcon :path="getTypeIconForOption(type)" :fill="getStateForOption()"
+                          class="type-icon-small" />
                         {{ type.name }}
                       </div>
                     </div>
@@ -1744,7 +1745,9 @@ export default {
             from: artifact.from,
             to: artifact.to,
             id: artifact.id
-          }
+          },
+          // Pass the current issue ID so we know which issue opened this artifact
+          sourceIssueId: this.issue ? this.issue.id : null
         });
       }
     },
@@ -3799,11 +3802,13 @@ ul {
   text-align: center;
   color: var(--vscode-descriptionForeground);
 }
+
 .issue-icon {
   width: 20px;
   height: 20px;
   flex-shrink: 0;
 }
+
 .issue-icon2 {
   width: 15px;
   height: 15px;
