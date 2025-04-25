@@ -57,6 +57,7 @@ query GetArtifactsForIssue($issueId: ID!) {
       title
       type {
         name
+        iconPath
       }
       state {
         isOpen
@@ -96,6 +97,7 @@ query GetOpenIssuesWithArtifacts {
     title
     type {
       name
+      iconPath
     }
     state {
       isOpen

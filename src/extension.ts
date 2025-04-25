@@ -82,6 +82,7 @@ interface DescriptionEditorData {
 
 /**
  * Loads and registers all artifacts for open issues
+ * Updated to include icon paths
  */
 async function loadAndRegisterOpenIssueArtifacts() {
   try {
@@ -90,7 +91,7 @@ async function loadAndRegisterOpenIssueArtifacts() {
     // Authenticate before making API calls
     await globalApiClient.authenticate();
 
-    // Query for open issues with their artifacts
+    // Query for open issues with their artifacts - now including iconPath
     const result = await globalApiClient.executeQuery(`
       query GetOpenIssuesWithArtifacts {
         searchIssues(
@@ -102,9 +103,16 @@ async function loadAndRegisterOpenIssueArtifacts() {
           title
           type {
             name
+            iconPath
           }
           state {
             isOpen
+          }
+          incomingRelations {
+            totalCount
+          }
+          outgoingRelations {
+            totalCount
           }
           artefacts {
             nodes {
@@ -131,7 +139,7 @@ async function loadAndRegisterOpenIssueArtifacts() {
         if (issue.artefacts && issue.artefacts.nodes) {
           for (const artifact of issue.artefacts.nodes) {
             if (artifact.file && artifact.from && artifact.to) {
-              // Register artifact with the decorator manager
+              // Register artifact with the decorator manager - now including iconPath
               artifactDecoratorManager.registerArtifact(
                 artifact.id,
                 artifact.file,
@@ -141,7 +149,8 @@ async function loadAndRegisterOpenIssueArtifacts() {
                   issueId: issue.id,
                   issueType: issue.type.name,
                   isOpen: issue.state.isOpen,
-                  title: issue.title
+                  title: issue.title,
+                  iconPath: issue.type.iconPath // Include the iconPath from the backend
                 }
               );
 
@@ -161,6 +170,7 @@ async function loadAndRegisterOpenIssueArtifacts() {
 
 /**
  * Loads and registers artifacts for a specific issue
+ * Updated to include icon paths
  * @param issueId The issue ID
  */
 async function loadAndRegisterIssueArtifacts(issueId: string) {
@@ -170,11 +180,38 @@ async function loadAndRegisterIssueArtifacts(issueId: string) {
     // Authenticate before making API calls
     await globalApiClient.authenticate();
 
-    // Get the issue details with its artifacts
-    const result = await globalApiClient.executeQuery(
-      GET_ARTIFACTS_FOR_ISSUE,
-      { issueId }
-    );
+    // Get the issue details with its artifacts - now including iconPath
+    const result = await globalApiClient.executeQuery(`
+      query GetArtifactsForIssue($issueId: ID!) {
+        node(id: $issueId) {
+          ... on Issue {
+            id
+            title
+            type {
+              name
+              iconPath
+            }
+            state {
+              isOpen
+            }
+            incomingRelations {
+              totalCount
+            }
+            outgoingRelations {
+              totalCount
+            }
+            artefacts {
+              nodes {
+                id
+                file
+                from
+                to
+              }
+            }
+          }
+        }
+      }
+    `, { issueId });
 
     // Process the result
     if (result.data?.node) {
@@ -195,7 +232,8 @@ async function loadAndRegisterIssueArtifacts(issueId: string) {
                 issueId: issue.id,
                 issueType: issue.type.name,
                 isOpen: issue.state.isOpen,
-                title: issue.title
+                title: issue.title,
+                iconPath: issue.type.iconPath // Include the iconPath from the backend
               }
             );
           }
@@ -3816,6 +3854,7 @@ export class GraphsProvider implements vscode.WebviewViewProvider {
 
 /**
  * Manages decorations for artifacts in open text editors
+ * Updated to use backend-provided SVG icons instead of local images
  */
 class ArtifactDecoratorManager {
   private decorationTypes: Map<string, vscode.TextEditorDecorationType> = new Map();
@@ -3834,8 +3873,12 @@ class ArtifactDecoratorManager {
     issueId: string,
     issueType: string,
     isOpen: boolean,
-    title: string
+    title: string,
+    iconPath?: string // Added to store the icon path from the backend
   }>> = new Map();
+
+  // Cache for icon SVG data
+  private iconCache: Map<string, string> = new Map();
 
   // Track which artifact was last accessed from which issue
   private lastAccessedFrom: Map<string, string> = new Map();
@@ -3859,7 +3902,7 @@ class ArtifactDecoratorManager {
    * @param fileUri File URI string
    * @param from Starting line (1-based)
    * @param to Ending line (1-based)
-   * @param issueData Associated issue data
+   * @param issueData Associated issue data with icon path
    */
   public registerArtifact(
     artifactId: string,
@@ -3870,7 +3913,8 @@ class ArtifactDecoratorManager {
       issueId: string,
       issueType: string,
       isOpen: boolean,
-      title: string
+      title: string,
+      iconPath?: string
     }
   ): void {
     try {
@@ -4053,14 +4097,15 @@ class ArtifactDecoratorManager {
       issueId: string,
       issueType: string,
       isOpen: boolean,
-      title: string
+      title: string,
+      iconPath?: string
     }>
   ): vscode.TextEditorDecorationType {
     // Filter open issues
     const openIssues = issues.filter(issue => issue.isOpen);
 
     // Determine which icon to use
-    let iconType: string;
+    let iconPath: string | undefined;
     let iconColor: string;
     let issueCount = issues.length > 1 ? issues.length : 0;
 
@@ -4072,36 +4117,44 @@ class ArtifactDecoratorManager {
       const lastAccessedIssue = issues.find(issue => issue.issueId === lastAccessedIssueId);
 
       if (lastAccessedIssue) {
-        iconType = lastAccessedIssue.issueType;
+        iconPath = lastAccessedIssue.iconPath;
         iconColor = lastAccessedIssue.isOpen ? 'green' : 'red';
       } else {
         // Fallback to default selection logic if the last accessed issue is no longer associated
         this.lastAccessedFrom.delete(artifactId);
-        [iconType, iconColor] = this.selectIconTypeAndColor(openIssues, issues);
+        [iconPath, iconColor] = this.selectIconTypeAndColor(openIssues, issues);
       }
     } else {
       // Default selection logic
-      [iconType, iconColor] = this.selectIconTypeAndColor(openIssues, issues);
+      [iconPath, iconColor] = this.selectIconTypeAndColor(openIssues, issues);
     }
 
     // Create a unique key for the decoration type
-    const decorationKey = `${artifactId}-${iconType}-${iconColor}-${issueCount}`;
+    const decorationKey = `${artifactId}-${iconPath || 'default'}-${iconColor}-${issueCount}`;
 
     // Return existing decoration type if we already have one
     if (this.decorationTypes.has(decorationKey)) {
       return this.decorationTypes.get(decorationKey)!;
     }
 
+    // Create and use an SVG icon if available, fallback to default icons otherwise
+    let svgIconPath: vscode.Uri | { light: vscode.Uri; dark: vscode.Uri } | undefined;
+    
+    if (iconPath) {
+      // If we have the backend SVG path, create an SVG icon
+      svgIconPath = this.createInlineIconUri(iconPath, iconColor);
+    } else {
+      // Fallback to default icons
+      const extensionPath = this.context.extensionPath;
+      const defaultIconName = this.getDefaultIconName(issues[0]?.issueType || 'Bug', iconColor);
+      svgIconPath = vscode.Uri.file(path.join(extensionPath, 'resources', 'icons', defaultIconName));
+    }
+
     // Create a new decoration type
-    const extensionPath = this.context.extensionPath;
-
-    const gutterIconPath = path.join(extensionPath, 'resources', 'icons', this.getIconPath(iconType, iconColor));
-
-    // If there are multiple issues, create a decoration with a count
     const decorationType = vscode.window.createTextEditorDecorationType({
       overviewRulerColor: new vscode.ThemeColor('editorOverviewRuler.findMatchForeground'),
       overviewRulerLane: vscode.OverviewRulerLane.Center,
-      gutterIconPath: gutterIconPath,
+      gutterIconPath: svgIconPath,
       gutterIconSize: '100%',
       after: issueCount > 0 ? {
         contentText: ` (${issueCount})`,
@@ -4117,34 +4170,65 @@ class ArtifactDecoratorManager {
   }
 
   /**
-   * Select icon type and color based on available issues
+   * Creates an inline SVG URI for the icon
+   * This allows us to use SVG paths from the backend
+   */
+  private createInlineIconUri(svgPath: string, color: string): vscode.Uri {
+    // Create a cache key
+    const cacheKey = `${svgPath}-${color}`;
+    
+    // Check if we have a cached version
+    if (this.iconCache.has(cacheKey)) {
+      return vscode.Uri.parse(`data:image/svg+xml;utf8,${encodeURIComponent(this.iconCache.get(cacheKey)!)}`);
+    }
+
+    // Default fill color based on state
+    const fillColor = color === 'green' ? '#00BA39' : '#FF0036';
+    
+    // Create an SVG with the provided path
+    const svgContent = `
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 90 90" width="24" height="24">
+        <path d="${svgPath}" fill="${fillColor}" />
+      </svg>
+    `;
+    
+    // Cache the SVG
+    this.iconCache.set(cacheKey, svgContent);
+    
+    // Create a data URI
+    return vscode.Uri.parse(`data:image/svg+xml;utf8,${encodeURIComponent(svgContent)}`);
+  }
+
+  /**
+   * Select icon path and color based on available issues
    */
   private selectIconTypeAndColor(
-    openIssues: Array<{ issueId: string, issueType: string, isOpen: boolean, title: string }>,
-    allIssues: Array<{ issueId: string, issueType: string, isOpen: boolean, title: string }>
-  ): [string, string] {
+    openIssues: Array<{ issueId: string, issueType: string, isOpen: boolean, title: string, iconPath?: string }>,
+    allIssues: Array<{ issueId: string, issueType: string, isOpen: boolean, title: string, iconPath?: string }>
+  ): [string | undefined, string] {
     // Default to Bug and green if available
-    let iconType = 'Bug';
+    let iconPath: string | undefined;
     let iconColor = 'green';
 
     // If there are open issues, use the first open issue's type
     if (openIssues.length > 0) {
-      iconType = openIssues[0].issueType;
+      iconPath = openIssues[0].iconPath;
       iconColor = 'green'; // Open issues are green
     }
     // Otherwise use the first issue of any state
     else if (allIssues.length > 0) {
-      iconType = allIssues[0].issueType;
+      iconPath = allIssues[0].iconPath;
       iconColor = allIssues[0].isOpen ? 'green' : 'red';
     }
 
-    return [iconType, iconColor];
+    return [iconPath, iconColor];
   }
 
   /**
-   * Get the icon path for a given type and state
+   * Get the default icon file name for a given type and state
+   * Used as fallback when no backend icon is available
    */
-  private getIconPath(type: string, color: string): string {
+  private getDefaultIconName(type: string, color: string): string {
     switch (type) {
       case "Bug":
         return color === 'green' ? "bug-green.png" : "bug-red.png";
@@ -4175,6 +4259,7 @@ class ArtifactDecoratorManager {
     this.disposeAllDecorations();
   }
 }
+
 export function deactivate() {
   // Clean up the decorator manager
   if (artifactDecoratorManager) {
