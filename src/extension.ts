@@ -474,7 +474,7 @@ export function activate(context: vscode.ExtensionContext) {
 
           if (createResult.data?.createArtefact?.artefact) {
             const newArtifact = createResult.data.createArtefact.artefact;
-            
+
             // After successfully linking the artifact to the issue, register it for highlighting
             artifactDecoratorManager.registerArtifact(
               newArtifact.id,
@@ -668,11 +668,37 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand('extension.openArtifactFile', async (message) => {
       try {
-        const artifactData = message.artifactData;
-        const sourceIssueId = message.sourceIssueId;
+        console.log('[extension.openArtifactFile] Received message:', JSON.stringify(message, null, 2));
+
+        // Handle both message object and direct artifact data scenarios
+        let artifactData;
+        if (message.artifactData) {
+          artifactData = message.artifactData;
+        } else if (typeof message === 'object' && message.file) {
+          artifactData = message;
+        } else {
+          console.error('[extension.openArtifactFile] Invalid message format');
+          vscode.window.showErrorMessage('Invalid artifact data received');
+          return;
+        }
+
+        const {
+          file = '',
+          from = 1,
+          to = undefined,
+          id = ''
+        } = artifactData;
+
+        console.log(`[extension.openArtifactFile] Processing artifact: ${file}`);
+
+        // Validate file path
+        if (!file) {
+          vscode.window.showErrorMessage('No file path provided for the artifact.');
+          return;
+        }
 
         // Convert the file URI string to a vscode.Uri object
-        const fileUri = vscode.Uri.parse(artifactData.file);
+        const fileUri = vscode.Uri.parse(file);
 
         // Check if file exists in workspace
         let fileExists = false;
@@ -689,21 +715,15 @@ export function activate(context: vscode.ExtensionContext) {
           return;
         }
 
-        // If we have a source issue ID, remember which issue opened this artifact
-        if (sourceIssueId && artifactData.id) {
-          console.log(`[extension.openArtifactFile] Setting last accessed issue for artifact ${artifactData.id} to ${sourceIssueId}`);
-          artifactDecoratorManager.setLastAccessedIssue(artifactData.id, sourceIssueId);
-        }
-
         // Open the document in the editor
         const document = await vscode.workspace.openTextDocument(fileUri);
         const editor = await vscode.window.showTextDocument(document);
 
         // If we have valid line numbers, scroll to that position
-        if (artifactData.from && artifactData.to) {
+        if (from !== undefined) {
           // Convert to 0-based line numbers for VSCode API
-          const startLine = Math.max(0, artifactData.from - 1);
-          const endLine = Math.max(0, artifactData.to - 1);
+          const startLine = Math.max(0, from - 1);
+          const endLine = to !== undefined ? Math.max(0, to - 1) : startLine;
 
           // Create a range for the relevant lines
           const range = new vscode.Range(
@@ -717,9 +737,17 @@ export function activate(context: vscode.ExtensionContext) {
           // Position the cursor at the start
           editor.selection = new vscode.Selection(range.start, range.start);
         }
+
+        // If a source issue was provided, you might want to do something with it
+        const sourceIssueId = message.sourceIssueId || message.issueId;
+        if (sourceIssueId) {
+          console.log(`[extension.openArtifactFile] Source issue ID: ${sourceIssueId}`);
+          // You could potentially store or use this information
+        }
+
       } catch (error) {
-        console.error(`[extension.openArtifactFile] Error opening file: ${error}`);
-        vscode.window.showErrorMessage(`Error opening artifact file: ${error instanceof Error ? error.message : String(error)}`);
+        console.error(`[extension.openArtifactFile] Comprehensive error:`, error);
+        vscode.window.showErrorMessage(`Failed to open artifact file: ${error instanceof Error ? error.message : String(error)}`);
       }
     })
   );

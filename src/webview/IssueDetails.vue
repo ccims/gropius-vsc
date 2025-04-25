@@ -1730,25 +1730,38 @@ export default {
     },
 
     openArtifactFile(artifact) {
-      if (!artifact || !artifact.file) {
-        console.error("Cannot open artifact: missing file path");
+      console.log("[IssueDetails.vue] Attempting to open artifact:", artifact);
+
+      // Comprehensive null/undefined checks
+      if (!artifact) {
+        console.error("Cannot open artifact: artifact is null or undefined");
         return;
       }
 
-      console.log("[IssueDetails.vue] Opening artifact file:", artifact.file);
+      // Ensure artifact has the necessary properties
+      if (!artifact.file) {
+        console.error("Cannot open artifact: missing file path", artifact);
+        return;
+      }
 
       if (vscode) {
+        // Prepare artifact data with fallback values
+        const artifactData = {
+          file: artifact.file,
+          from: artifact.from || 1,
+          to: artifact.to || undefined,
+          id: artifact.id || ''
+        };
+
+        console.log("[IssueDetails.vue] Sending artifact file data:", artifactData);
+
         vscode.postMessage({
           command: 'openArtifactFile',
-          artifactData: {
-            file: artifact.file,
-            from: artifact.from,
-            to: artifact.to,
-            id: artifact.id
-          },
-          // Pass the current issue ID so we know which issue opened this artifact
+          artifactData: artifactData,
           sourceIssueId: this.issue ? this.issue.id : null
         });
+      } else {
+        console.error("[IssueDetails.vue] vscode API not available");
       }
     },
     toggleFullDescription() {
