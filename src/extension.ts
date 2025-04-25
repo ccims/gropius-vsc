@@ -823,10 +823,10 @@ export function activate(context: vscode.ExtensionContext) {
   vscode.commands.registerCommand('extension.showIssueDetails', (data: any) => {
     const issueId = typeof data === 'string' ? data : data.issueId;
     const originComponentId = typeof data === 'string' ? null : data.originComponentId;
-    
+
     // Set this as the current issue in the decorator manager
     artifactDecoratorManager.setCurrentIssue(issueId);
-    
+
     // Load and register artifacts for this issue, regardless of its state
     loadAndRegisterIssueArtifacts(issueId);
     issueDetailsProvider.updateIssueDetails(issueId, originComponentId);
@@ -3890,7 +3890,7 @@ class ArtifactDecoratorManager {
     issueType: string,
     isOpen: boolean,
     title: string,
-    iconPath?: string // Added to store the icon path from the backend
+    iconPath?: string
   }>> = new Map();
 
   // Cache for icon SVG data
@@ -3899,7 +3899,11 @@ class ArtifactDecoratorManager {
   // Track which artifact was last accessed from which issue
   private lastAccessedFrom: Map<string, string> = new Map();
 
+  // Track the currently selected issue ID
   private currentlySelectedIssueId: string | null = null;
+
+  // Map to track which artifacts are displayed for which files
+  private activeArtifacts: Map<string, Set<string>> = new Map();
 
   constructor(private context: vscode.ExtensionContext) {
     // Listen for editor changes to apply decorations
@@ -3916,8 +3920,6 @@ class ArtifactDecoratorManager {
 
   /**
    * Sets the currently selected issue and updates decorations
-   * This method should be called whenever an issue is selected in the UI
-   * 
    * @param issueId The ID of the currently selected issue
    */
   public setCurrentIssue(issueId: string | null): void {
@@ -3928,15 +3930,96 @@ class ArtifactDecoratorManager {
 
     console.log(`[ArtifactDecoratorManager] Changing currently selected issue from ${this.currentlySelectedIssueId} to ${issueId}`);
 
+    // Store old issue ID to clean up
+    const oldIssueId = this.currentlySelectedIssueId;
+
     // Update the currently selected issue
     this.currentlySelectedIssueId = issueId;
+
+    // Clean up decorations from the old issue if it was closed
+    if (oldIssueId) {
+      this.cleanupClosedIssueArtifacts(oldIssueId);
+    }
 
     // Re-apply decorations to reflect the change
     this.applyDecorationsToOpenEditors();
   }
 
   /**
+   * Cleans up artifacts from closed issues that are no longer selected
+   */
+  private cleanupClosedIssueArtifacts(issueId: string): void {
+    console.log(`[ArtifactDecoratorManager] Cleaning up artifacts for issue ${issueId}`);
+
+    // Find all artifacts associated with this issue
+    const affectedArtifacts: string[] = [];
+
+    for (const [artifactId, issues] of this.artifactIssues.entries()) {
+      // Check if this artifact is associated with the issue
+      const issueIndex = issues.findIndex(issue => issue.issueId === issueId);
+
+      if (issueIndex >= 0) {
+        const issue = issues[issueIndex];
+
+        // Only clean up if the issue is closed
+        if (!issue.isOpen) {
+          affectedArtifacts.push(artifactId);
+        }
+      }
+    }
+
+    // Clean up affected artifacts
+    if (affectedArtifacts.length > 0) {
+      console.log(`[ArtifactDecoratorManager] Found ${affectedArtifacts.length} artifacts to clean up`);
+
+      // Clear decorations for affected artifacts
+      this.clearArtifactDecorations(affectedArtifacts);
+    }
+  }
+
+  /**
+   * Clears decorations for specific artifacts
+   */
+  private clearArtifactDecorations(artifactIds: string[]): void {
+    // For each visible editor
+    vscode.window.visibleTextEditors.forEach(editor => {
+      const uriString = editor.document.uri.toString();
+
+      // Check if we have artifacts for this file
+      if (!this.artifactRanges.has(uriString)) {
+        return;
+      }
+
+      const fileData = this.artifactRanges.get(uriString)!;
+
+      // Get ranges for artifacts we need to clear
+      const rangesToClear: vscode.Range[] = [];
+
+      for (const rangeData of fileData.ranges) {
+        if (artifactIds.includes(rangeData.artifactId)) {
+          rangesToClear.push(rangeData.range);
+        }
+      }
+
+      if (rangesToClear.length > 0) {
+        // Create an empty decoration type if needed
+        if (!this.decorationTypes.has('empty')) {
+          this.decorationTypes.set('empty', vscode.window.createTextEditorDecorationType({}));
+        }
+
+        // Apply empty decoration to clear the ranges
+        editor.setDecorations(this.decorationTypes.get('empty')!, rangesToClear);
+      }
+    });
+  }
+
+  /**
    * Register an artifact to be highlighted in editors
+   * @param artifactId Artifact ID
+   * @param fileUri File URI string
+   * @param from Starting line (1-based)
+   * @param to Ending line (1-based)
+   * @param issueData Associated issue data with icon path
    */
   public registerArtifact(
     artifactId: string,
@@ -3952,6 +4035,8 @@ class ArtifactDecoratorManager {
     }
   ): void {
     try {
+      console.log(`[ArtifactDecoratorManager] Registering artifact ${artifactId} for issue ${issueData.issueId} (${issueData.isOpen ? 'open' : 'closed'})`);
+
       const uri = vscode.Uri.parse(fileUri);
       const uriString = uri.toString();
 
@@ -3959,39 +4044,55 @@ class ArtifactDecoratorManager {
       const startLine = Math.max(0, from - 1);
       const endLine = Math.max(0, to - 1);
 
-      // Create range objects for the first and last lines
-      const firstLineRange = new vscode.Range(
-        new vscode.Position(startLine, 0),
-        new vscode.Position(startLine, Number.MAX_SAFE_INTEGER)
-      );
+      // Check if this artifact range already exists (to avoid duplicates)
+      let duplicateFound = false;
 
-      // Get or create the artifact ranges for this file
-      if (!this.artifactRanges.has(uriString)) {
-        this.artifactRanges.set(uriString, {
-          uri,
-          ranges: []
-        });
+      if (this.artifactRanges.has(uriString)) {
+        const fileRanges = this.artifactRanges.get(uriString)!;
+
+        // Check for existing ranges with the same artifact ID
+        duplicateFound = fileRanges.ranges.some(r =>
+          r.artifactId === artifactId &&
+          ((r.range.start.line === startLine) || (r.range.end.line === endLine))
+        );
       }
 
-      const fileRanges = this.artifactRanges.get(uriString)!;
-
-      // Add the first line range
-      fileRanges.ranges.push({
-        range: firstLineRange,
-        artifactId
-      });
-
-      // Add the last line range if different from first line
-      if (startLine !== endLine) {
-        const lastLineRange = new vscode.Range(
-          new vscode.Position(endLine, 0),
-          new vscode.Position(endLine, Number.MAX_SAFE_INTEGER)
+      // Only add new ranges if no duplicates were found
+      if (!duplicateFound) {
+        // Create range objects for the first and last lines
+        const firstLineRange = new vscode.Range(
+          new vscode.Position(startLine, 0),
+          new vscode.Position(startLine, Number.MAX_SAFE_INTEGER)
         );
 
+        // Get or create the artifact ranges for this file
+        if (!this.artifactRanges.has(uriString)) {
+          this.artifactRanges.set(uriString, {
+            uri,
+            ranges: []
+          });
+        }
+
+        const fileRanges = this.artifactRanges.get(uriString)!;
+
+        // Add the first line range
         fileRanges.ranges.push({
-          range: lastLineRange,
+          range: firstLineRange,
           artifactId
         });
+
+        // Add the last line range if different from first line
+        if (startLine !== endLine) {
+          const lastLineRange = new vscode.Range(
+            new vscode.Position(endLine, 0),
+            new vscode.Position(endLine, Number.MAX_SAFE_INTEGER)
+          );
+
+          fileRanges.ranges.push({
+            range: lastLineRange,
+            artifactId
+          });
+        }
       }
 
       // Associate the issue with this artifact
@@ -4001,15 +4102,17 @@ class ArtifactDecoratorManager {
 
       const artifactIssues = this.artifactIssues.get(artifactId)!;
 
-      // Check if this issue is already associated
+      // Check if this issue is already associated to avoid duplicates
       const existingIssueIndex = artifactIssues.findIndex(issue => issue.issueId === issueData.issueId);
 
       if (existingIssueIndex >= 0) {
         // Update existing issue data
         artifactIssues[existingIssueIndex] = issueData;
+        console.log(`[ArtifactDecoratorManager] Updated existing issue association for artifact ${artifactId}`);
       } else {
         // Add new issue association
         artifactIssues.push(issueData);
+        console.log(`[ArtifactDecoratorManager] Added new issue association for artifact ${artifactId}, total: ${artifactIssues.length}`);
       }
 
       // Apply decorations to open editors
@@ -4018,43 +4121,6 @@ class ArtifactDecoratorManager {
       console.error(`[ArtifactDecoratorManager] Error registering artifact: ${error}`);
     }
   }
-
-  /**
-   * Remove artifacts associated with a specific issue
-   * 
-   * @param issueId The ID of the issue to remove artifacts for
-   */
-  public unregisterArtifactsForIssue(issueId: string): void {
-    console.log(`[ArtifactDecoratorManager] Unregistering artifacts for issue ${issueId}`);
-
-    // Find all artifacts associated with this issue
-    const artifactsToRemove: string[] = [];
-
-    for (const [artifactId, issues] of this.artifactIssues.entries()) {
-      // Check if this artifact is associated with the issue
-      const hasOtherIssues = issues.some(issue => issue.issueId !== issueId);
-
-      if (!hasOtherIssues) {
-        // If the artifact is only associated with this issue, mark for removal
-        artifactsToRemove.push(artifactId);
-      } else {
-        // Otherwise, just remove the issue association
-        this.artifactIssues.set(
-          artifactId,
-          issues.filter(issue => issue.issueId !== issueId)
-        );
-      }
-    }
-
-    // Remove artifacts that are only associated with this issue
-    for (const artifactId of artifactsToRemove) {
-      this.unregisterArtifact(artifactId);
-    }
-
-    // Reapply decorations
-    this.applyDecorationsToOpenEditors();
-  }
-
   /**
    * Sets the last accessed issue for an artifact
    * This is used to determine which icon to display
@@ -4127,6 +4193,9 @@ class ArtifactDecoratorManager {
   private applyDecorationsToEditor(editor: vscode.TextEditor): void {
     const uriString = editor.document.uri.toString();
 
+    // Create a set to track active artifacts for this file
+    const activeArtifactsForFile = new Set<string>();
+
     // Check if we have artifacts for this file
     if (!this.artifactRanges.has(uriString)) {
       return;
@@ -4150,27 +4219,37 @@ class ArtifactDecoratorManager {
       // Get issues associated with this artifact
       const issues = this.artifactIssues.get(artifactId) || [];
 
-      // Determine if this artifact should be visible
-      const shouldShow = this.shouldShowArtifact(artifactId, issues);
-
-      if (shouldShow) {
+      // Determine if the artifact should be visible
+      if (this.shouldShowArtifact(artifactId, issues)) {
         // Determine which decoration to use
         const decorationType = this.getDecorationForArtifact(artifactId, issues);
 
         // Apply the decoration
         editor.setDecorations(decorationType, ranges);
+
+        // Mark this artifact as active
+        activeArtifactsForFile.add(artifactId);
       } else {
-        // Create an empty decoration type if needed
+        // Create an empty decoration if needed
         if (!this.decorationTypes.has('empty')) {
           this.decorationTypes.set('empty', vscode.window.createTextEditorDecorationType({}));
         }
 
-        // Clear any existing decorations for this artifact
-        editor.setDecorations(this.decorationTypes.get('empty')!, []);
+        // Clear existing decorations
+        editor.setDecorations(this.decorationTypes.get('empty')!, ranges);
       }
     }
+
+    // Update the active artifacts for this file
+    this.activeArtifacts.set(uriString, activeArtifactsForFile);
   }
 
+  /**
+   * Determines if an artifact should be visible based on rules:
+   * 1. If it's associated with an open issue, always show
+   * 2. If it's associated with the currently selected issue, show
+   * 3. Otherwise, don't show
+   */
   private shouldShowArtifact(
     artifactId: string,
     issues: Array<{
@@ -4193,12 +4272,7 @@ class ArtifactDecoratorManager {
 
     // RULE 2: If any associated issue is the currently selected issue, show the artifact
     const isCurrentlySelected = issues.some(issue => issue.issueId === this.currentlySelectedIssueId);
-    if (isCurrentlySelected) {
-      return true;
-    }
-
-    // Otherwise, don't show the artifact
-    return false;
+    return isCurrentlySelected;
   }
 
   /**
@@ -4220,7 +4294,11 @@ class ArtifactDecoratorManager {
     // Determine which icon to use
     let iconPath: string | undefined;
     let iconColor: string;
-    let issueCount = issues.length > 1 ? issues.length : 0;
+
+    // Only show count if there are ACTUALLY multiple issues
+    // Use a Set to get the unique count of issue IDs
+    const uniqueIssueIds = new Set(issues.map(issue => issue.issueId));
+    const issueCount = uniqueIssueIds.size > 1 ? uniqueIssueIds.size : 0;
 
     // If the artifact was last accessed from a specific issue, use that issue's type
     const lastAccessedIssueId = this.lastAccessedFrom.get(artifactId);
