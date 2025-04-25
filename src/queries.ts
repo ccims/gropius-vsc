@@ -61,6 +61,12 @@ query GetArtifactsForIssue($issueId: ID!) {
       state {
         isOpen
       }
+      incomingRelations {
+        totalCount
+      }
+      outgoingRelations {
+        totalCount
+      }
       artefacts {
         nodes {
           id
@@ -93,6 +99,12 @@ query GetOpenIssuesWithArtifacts {
     }
     state {
       isOpen
+    }
+    incomingRelations {
+      totalCount
+    }
+    outgoingRelations {
+      totalCount
     }
     artefacts {
       nodes {
