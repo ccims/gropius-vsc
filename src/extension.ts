@@ -206,6 +206,11 @@ async function loadAndRegisterIssueArtifacts(issueId: string) {
                 file
                 from
                 to
+                version
+                templatedFields {
+                  name
+                  value
+                }
               }
             }
           }
@@ -247,6 +252,7 @@ async function loadAndRegisterIssueArtifacts(issueId: string) {
     vscode.window.showErrorMessage(`Failed to load artifacts for issue: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
+
 
 /**
  * Registers all providers and commands in VS Code
@@ -304,7 +310,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 
   // 3) Register the "Issue Details" view
-  const issueDetailsProvider = new IssueDetailsProvider(context, globalApiClient, context.extensionUri);
+  const issueDetailsProvider = new IssueDetailsProvider(context, globalApiClient, context.extensionUri, artifactDecoratorManager);
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(IssueDetailsProvider.viewType, issueDetailsProvider)
   );
@@ -817,6 +823,10 @@ export function activate(context: vscode.ExtensionContext) {
   vscode.commands.registerCommand('extension.showIssueDetails', (data: any) => {
     const issueId = typeof data === 'string' ? data : data.issueId;
     const originComponentId = typeof data === 'string' ? null : data.originComponentId;
+    
+    // Set this as the current issue in the decorator manager
+    artifactDecoratorManager.setCurrentIssue(issueId);
+    
     // Load and register artifacts for this issue, regardless of its state
     loadAndRegisterIssueArtifacts(issueId);
     issueDetailsProvider.updateIssueDetails(issueId, originComponentId);
@@ -2026,7 +2036,8 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly apiClient: APIClient,
-    private readonly _extensionUri: vscode.Uri
+    private readonly _extensionUri: vscode.Uri,
+    private readonly artifactDecorator: ArtifactDecoratorManager
   ) {
 
   }
@@ -3349,6 +3360,11 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
         this.originComponentId = originComponentId;
       }
     }
+
+    if (this.lastIssueId && this.lastIssueId !== issueId) {
+      // Update the currently selected issue in the decorator manager
+      this.artifactDecorator.setCurrentIssue(issueId);
+    }
     this.lastIssueId = issueId;
 
     globalApiClient.authenticate()
@@ -3883,6 +3899,8 @@ class ArtifactDecoratorManager {
   // Track which artifact was last accessed from which issue
   private lastAccessedFrom: Map<string, string> = new Map();
 
+  private currentlySelectedIssueId: string | null = null;
+
   constructor(private context: vscode.ExtensionContext) {
     // Listen for editor changes to apply decorations
     vscode.window.onDidChangeActiveTextEditor(this.onActiveEditorChanged, this, context.subscriptions);
@@ -3897,12 +3915,28 @@ class ArtifactDecoratorManager {
   }
 
   /**
+   * Sets the currently selected issue and updates decorations
+   * This method should be called whenever an issue is selected in the UI
+   * 
+   * @param issueId The ID of the currently selected issue
+   */
+  public setCurrentIssue(issueId: string | null): void {
+    // Skip if there's no change
+    if (this.currentlySelectedIssueId === issueId) {
+      return;
+    }
+
+    console.log(`[ArtifactDecoratorManager] Changing currently selected issue from ${this.currentlySelectedIssueId} to ${issueId}`);
+
+    // Update the currently selected issue
+    this.currentlySelectedIssueId = issueId;
+
+    // Re-apply decorations to reflect the change
+    this.applyDecorationsToOpenEditors();
+  }
+
+  /**
    * Register an artifact to be highlighted in editors
-   * @param artifactId Artifact ID
-   * @param fileUri File URI string
-   * @param from Starting line (1-based)
-   * @param to Ending line (1-based)
-   * @param issueData Associated issue data with icon path
    */
   public registerArtifact(
     artifactId: string,
@@ -3983,6 +4017,42 @@ class ArtifactDecoratorManager {
     } catch (error) {
       console.error(`[ArtifactDecoratorManager] Error registering artifact: ${error}`);
     }
+  }
+
+  /**
+   * Remove artifacts associated with a specific issue
+   * 
+   * @param issueId The ID of the issue to remove artifacts for
+   */
+  public unregisterArtifactsForIssue(issueId: string): void {
+    console.log(`[ArtifactDecoratorManager] Unregistering artifacts for issue ${issueId}`);
+
+    // Find all artifacts associated with this issue
+    const artifactsToRemove: string[] = [];
+
+    for (const [artifactId, issues] of this.artifactIssues.entries()) {
+      // Check if this artifact is associated with the issue
+      const hasOtherIssues = issues.some(issue => issue.issueId !== issueId);
+
+      if (!hasOtherIssues) {
+        // If the artifact is only associated with this issue, mark for removal
+        artifactsToRemove.push(artifactId);
+      } else {
+        // Otherwise, just remove the issue association
+        this.artifactIssues.set(
+          artifactId,
+          issues.filter(issue => issue.issueId !== issueId)
+        );
+      }
+    }
+
+    // Remove artifacts that are only associated with this issue
+    for (const artifactId of artifactsToRemove) {
+      this.unregisterArtifact(artifactId);
+    }
+
+    // Reapply decorations
+    this.applyDecorationsToOpenEditors();
   }
 
   /**
@@ -4080,12 +4150,55 @@ class ArtifactDecoratorManager {
       // Get issues associated with this artifact
       const issues = this.artifactIssues.get(artifactId) || [];
 
-      // Determine which decoration to use
-      const decorationType = this.getDecorationForArtifact(artifactId, issues);
+      // Determine if this artifact should be visible
+      const shouldShow = this.shouldShowArtifact(artifactId, issues);
 
-      // Apply the decoration
-      editor.setDecorations(decorationType, ranges);
+      if (shouldShow) {
+        // Determine which decoration to use
+        const decorationType = this.getDecorationForArtifact(artifactId, issues);
+
+        // Apply the decoration
+        editor.setDecorations(decorationType, ranges);
+      } else {
+        // Create an empty decoration type if needed
+        if (!this.decorationTypes.has('empty')) {
+          this.decorationTypes.set('empty', vscode.window.createTextEditorDecorationType({}));
+        }
+
+        // Clear any existing decorations for this artifact
+        editor.setDecorations(this.decorationTypes.get('empty')!, []);
+      }
     }
+  }
+
+  private shouldShowArtifact(
+    artifactId: string,
+    issues: Array<{
+      issueId: string,
+      issueType: string,
+      isOpen: boolean,
+      title: string,
+      iconPath?: string
+    }>
+  ): boolean {
+    if (issues.length === 0) {
+      return false;
+    }
+
+    // RULE 1: If any associated issue is OPEN, always show the artifact
+    const hasOpenIssue = issues.some(issue => issue.isOpen);
+    if (hasOpenIssue) {
+      return true;
+    }
+
+    // RULE 2: If any associated issue is the currently selected issue, show the artifact
+    const isCurrentlySelected = issues.some(issue => issue.issueId === this.currentlySelectedIssueId);
+    if (isCurrentlySelected) {
+      return true;
+    }
+
+    // Otherwise, don't show the artifact
+    return false;
   }
 
   /**
@@ -4139,7 +4252,7 @@ class ArtifactDecoratorManager {
 
     // Create and use an SVG icon if available, fallback to default icons otherwise
     let svgIconPath: vscode.Uri | { light: vscode.Uri; dark: vscode.Uri } | undefined;
-    
+
     if (iconPath) {
       // If we have the backend SVG path, create an SVG icon
       svgIconPath = this.createInlineIconUri(iconPath, iconColor);
@@ -4176,7 +4289,7 @@ class ArtifactDecoratorManager {
   private createInlineIconUri(svgPath: string, color: string): vscode.Uri {
     // Create a cache key
     const cacheKey = `${svgPath}-${color}`;
-    
+
     // Check if we have a cached version
     if (this.iconCache.has(cacheKey)) {
       return vscode.Uri.parse(`data:image/svg+xml;utf8,${encodeURIComponent(this.iconCache.get(cacheKey)!)}`);
@@ -4184,17 +4297,17 @@ class ArtifactDecoratorManager {
 
     // Default fill color based on state
     const fillColor = color === 'green' ? '#00BA39' : '#FF0036';
-    
+
     // Create an SVG with the provided path
     const svgContent = `
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 90 90" width="24" height="24">
         <path d="${svgPath}" fill="${fillColor}" />
       </svg>
     `;
-    
+
     // Cache the SVG
     this.iconCache.set(cacheKey, svgContent);
-    
+
     // Create a data URI
     return vscode.Uri.parse(`data:image/svg+xml;utf8,${encodeURIComponent(svgContent)}`);
   }
