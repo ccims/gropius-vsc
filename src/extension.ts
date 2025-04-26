@@ -6,10 +6,6 @@ import { loadConfigurations } from './mapping/config-loader';
 import {
   REMOVE_ARTIFACT_FROM_ISSUE_MUTATION,
   GET_ARTIFACTS_FOR_ISSUE_WITH_ICON,
-  GET_AVAILABLE_ARTIFACTS_FOR_TRACKABLES,
-  FETCH_COMPONENT_VERSIONS_QUERY,
-  FETCH_DYNAMIC_PROJECTS_QUERY,
-  FETCH_PROJECT_GRAPH_QUERY,
   GET_ISSUES_OF_COMPONENT_VERSION_QUERY,
   GET_ISSUE_DETAILS,
   FETCH_COMPONENT_VERSION_BY_ID_QUERY,
@@ -37,7 +33,6 @@ import {
   CHANGE_ISSUE_RELATION_TYPE_MUTATION,
   GET_ISSUE_RELATION_TYPES,
   FETCH_ALL_WORKSPACE_COMPONENTS_AND_ISSUES,
-  FETCH_FOR_ISSUE_GRAPH,
   FETCH_TEMP_ISSUE_GRAPH,
   GET_COMPONENT_ISSUES_BY_ID_QUERY,
   CREATE_ISSUE_RELATION_MUTATION,
@@ -54,7 +49,6 @@ import {
   UPDATE_ARTIFACT_LINES_MUTATION
 } from "./queries";
 import path from "path";
-import { workerData } from "worker_threads";
 
 // Create a single, global API client instance
 const globalApiClient = new APIClient(API_URL, CLIENT_ID, CLIENT_SECRET);
@@ -931,7 +925,6 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
           break;
         case 'showWorkspaceGraph':
           // Opens the workspace graph for the given workspace
-          console.log("Start workspaceGraph");
           this.openWorkspaceGraphEditor();
       }
     });
@@ -943,7 +936,6 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
    * 
    */
   public async openWorkspaceGraphEditor(): Promise<void> {
-    console.log("Start openWorkspaceGraphEditor.");
     const panel = vscode.window.createWebviewPanel(
       "graphWorkspaceEditor",
       "Graph Editor",
@@ -964,7 +956,6 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
     }
 
     panel.webview.onDidReceiveMessage((message: any): void => {
-      console.log("START: onDidReceiveMessage in ComponentVersionsProvider");
       if (message.type === "ready") {
         (async () => {
           try {
@@ -979,7 +970,6 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
           }
         })();
       } else {
-        console.log("We are in EEEEEEEEEEEEEEEEEELLLLLLLLLLLLLLLLLLSSSSSSSSSSSSSSSSSEEEEEEEEEEEEEEE");
       }
       return;
     });
@@ -991,7 +981,6 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
    * @returns 
    */
   private async fetchWorkspaceGraphData(): Promise<any> {
-    console.log("Start fetchWorkspaceData");
     try {
       await this.apiClient.authenticate();
       const mappings = await loadConfigurations();
@@ -1007,7 +996,6 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
     }
   }
   private getComponents(data: any): string[] {
-    console.log("Start getComponents.");
     let ids: string[] = [];
 
     if (Array.isArray(data)) {
@@ -1027,8 +1015,6 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
     return ids;
   }
   getGraphEditorHtml(scriptUri: vscode.Uri): string {
-    console.log("STEP: Generating Webview HTML");
-    console.log("Script URI:", scriptUri.toString());
     return /* html */ `
       <!DOCTYPE html>
       <html lang="en">
@@ -2316,7 +2302,6 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
           vscode.window.showErrorMessage(`Failed to remove relation: ${error instanceof Error ? error.message : String(error)}`);
         }
       } else if (message.command === "showIssueGraph") {
-        console.log("Start issueGraph");
         this.openIssueGraphEditor();
       } else if (message.command === 'getRelationTypes') {
         try {
@@ -2887,7 +2872,6 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
    * 
    */
   public async openIssueGraphEditor(): Promise<void> {
-    console.log("Start openIssueGraphEditor.");
     const panel = vscode.window.createWebviewPanel(
       "graphIssueEditor",
       "Graph Editor",
@@ -2908,7 +2892,6 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
     }
 
     panel.webview.onDidReceiveMessage((message: any): void => {
-      console.log("START: onDidReceiveMessage in IssueDetailsProvider");
       if (message.type === "ready") {
         (async () => {
           try {
@@ -2926,7 +2909,6 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
           }
         })();
       } else {
-        console.log("We are in EEEEEEEEEEEEEEEEEELLLLLLLLLLLLLLLLLLSSSSSSSSSSSSSSSSSEEEEEEEEEEEEEEE");
       }
       return;
     });
@@ -2939,16 +2921,9 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
    * @returns 
    */
   private async fetchIssueGraphData(): Promise<any> {
-    console.log("Start fetchIssueData");
     try {
       await this.apiClient.authenticate();
-      const mappings = await loadConfigurations();
-      const workspaceData = await this._buildTreeData(mappings);
-      const components = this.getComponents(workspaceData);
-      const response = await this.apiClient.executeQuery(FETCH_TEMP_ISSUE_GRAPH, { id: this.lastIssueId }); //this.lastIssueId
-      console.log("YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY");
-      console.log(JSON.stringify(response.data.node));
-      console.log("YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY");
+      const response = await this.apiClient.executeQuery(FETCH_TEMP_ISSUE_GRAPH, { id: this.lastIssueId }); 
       return response.data;
     } catch (error) {
       throw new Error(
@@ -2958,30 +2933,7 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  private getComponents(data: any): string[] {
-    console.log("Start getComponents.");
-    let ids: string[] = [];
-
-    if (Array.isArray(data)) {
-      for (const item of data) {
-        ids = ids.concat(this.getComponents(item));
-      }
-    } else if (typeof data === "object" && data !== null) {
-      for (const key in data) {
-        if (key === "id") {
-          ids.push(data[key]);
-        } else {
-          ids = ids.concat(this.getComponents(data[key]));
-        }
-      }
-    }
-
-    return ids;
-  }
-
   getGraphEditorHtml(scriptUri: vscode.Uri): string {
-    console.log("STEP: Generating Webview HTML");
-    console.log("Script URI:", scriptUri.toString());
     return /* html */ `
     <!DOCTYPE html>
     <html lang="en">
@@ -3025,10 +2977,8 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
 
       // If we have a direct component version ID, fetch that specific version
       if (componentVersionId) {
-        console.log(`Fetching component version with ID: ${componentVersionId}`);
 
         const result = await this.apiClient.executeQuery(FETCH_COMPONENT_VERSION_BY_ID_QUERY, { id: componentVersionId });
-        console.log("Direct version query result:", JSON.stringify(result, null, 2));
 
         if (result.data?.node) {
           const version = result.data.node;
@@ -3044,13 +2994,10 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
       }
       // For the component+project case
       else if (componentId && projectId) {
-        console.log(`Fetching versions for component ID: ${componentId} in project: ${projectId}`);
 
         const result = await this.apiClient.executeQuery(GET_COMPONENT_VERSIONS_IN_PROJECT_QUERY, {
           projectId: projectId
         });
-
-        console.log("Component+Project query result:", JSON.stringify(result, null, 2));
 
         if (result.data?.project) {
           const project = result.data.project;
