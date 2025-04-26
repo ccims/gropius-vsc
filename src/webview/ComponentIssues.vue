@@ -624,7 +624,6 @@ export default {
             });
           });
       } else if (message.command === "issueTemplatesLoaded") {
-        console.log("Received issue templates:", message.templates);
         this.issueTemplates = message.templates || [];
 
         if (message.error) {
@@ -1111,8 +1110,6 @@ export default {
         templatedFields: formattedFields
       };
 
-      console.log("Creating issue with input:", input);
-
       // Send the creation request to the extension
       if (vscode) {
         vscode.postMessage({
@@ -1135,9 +1132,7 @@ export default {
       this.saveState();
     },
     setTypeFilter(type) {
-      console.log('ComponentIssues: setTypeFilter called with:', type, 'current value:', this.typeFilter);
       this.typeFilter = this.typeFilter === type ? null : type;
-      console.log('ComponentIssues: typeFilter set to:', this.typeFilter);
       this.saveState();
     },
 
@@ -1151,16 +1146,11 @@ export default {
       this.saveState();
     },
     openIssueDetails(issueId) {
-      console.log("ComponentIssues.vue: Opening issue details for issue id:", issueId);
       // Send a message with command "issueClicked" and the correct issue id
       vscode.postMessage({ command: "issueClicked", issueId });
     },
     toggleVersionFilter() {
-      console.log("Filter before:", this.componentVersionFilter);
       this.componentVersionFilter = !this.componentVersionFilter;
-      console.log("Filter after:", this.componentVersionFilter);
-      console.log("Selected version:", this.selectedVersionId);
-      console.log("Affected issues count:", this.affectedIssueIds.size);
       this.saveState();
     },
     toggleSortMenu() {

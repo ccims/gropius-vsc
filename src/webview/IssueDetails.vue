@@ -1388,12 +1388,10 @@ export default {
 
       // Check if we already have types for this template
       if (this.assignmentTypesMap[templateId] && this.assignmentTypesMap[templateId].length > 0) {
-        console.log(`[IssueDetails.vue] Using cached assignment types for template ${templateId}`);
         this.assignmentTypes = this.assignmentTypesMap[templateId];
         return;
       }
 
-      console.log(`[IssueDetails.vue] Requesting assignment types for template: ${templateId}`);
 
       // Clear current assignment types while loading
       this.assignmentTypes = [];
@@ -1406,7 +1404,6 @@ export default {
       }
     },
     async confirmRemoveAssignment(assignment) {
-      console.log(`[IssueDetails] Attempting to remove assignment:`, assignment);
       alert(`Removing assignment: ${assignment.id}`); // Add this line
 
       if (!assignment || !assignment.id) {
@@ -1414,7 +1411,6 @@ export default {
         return;
       }
 
-      console.log(`[IssueDetails] Removing assignment with ID: ${assignment.id}`);
 
       if (vscode) {
         vscode.postMessage({
@@ -1431,8 +1427,6 @@ export default {
         console.error('[IssueDetails.vue] Cannot update assignment type: Missing assignment ID');
         return;
       }
-
-      console.log(`[IssueDetails.vue] Updating assignment ${assignmentId} to type ${typeId || 'null'}`);
 
       if (vscode) {
         vscode.postMessage({
@@ -1517,8 +1511,6 @@ export default {
         return;
       }
 
-      console.log(`[IssueDetails] Creating assignment for user: ${user.displayName || user.username}`);
-
       if (vscode) {
         vscode.postMessage({
           command: 'createAssignment',
@@ -1539,7 +1531,6 @@ export default {
 
     // Remove Assignment
     async confirmRemoveAssignment(assignment) {
-      console.log('[IssueDetails.vue] Confirming removal of assignment:', assignment.id);
 
       if (!assignment || !assignment.id) {
         console.error('[IssueDetails.vue] Cannot remove assignment: Missing assignment ID');
@@ -1678,7 +1669,6 @@ export default {
         return;
       }
 
-      console.log("[IssueDetails.vue] Creating artifact for issue:", this.issue.id);
       if (vscode) {
         vscode.postMessage({
           command: 'createArtifact',
@@ -1711,7 +1701,6 @@ export default {
     },
 
     openArtifactFile(artifact) {
-      console.log("[IssueDetails.vue] Attempting to open artifact:", artifact);
 
       // Comprehensive null/undefined checks
       if (!artifact) {
@@ -1733,8 +1722,6 @@ export default {
           to: artifact.to || undefined,
           id: artifact.id || ''
         };
-
-        console.log("[IssueDetails.vue] Sending artifact file data:", artifactData);
 
         vscode.postMessage({
           command: 'openArtifactFile',
@@ -1791,8 +1778,6 @@ export default {
         return;
       }
 
-      console.log("[IssueDetails.vue] Updating description for body:", bodyId);
-
       if (vscode) {
         vscode.postMessage({
           command: 'updateDescription',
@@ -1810,11 +1795,9 @@ export default {
       }
 
       const templateId = this.issue.template.id;
-      console.log(`[IssueDetails.vue] Loading options for template: ${templateId}`);
 
       // Check if we already have cached options for this template
       if (this.issueOptionsMap[templateId]) {
-        console.log(`[IssueDetails.vue] Using cached options for template ${templateId}`);
         this.issueOptions = this.issueOptionsMap[templateId];
         return;
       }
@@ -1976,8 +1959,6 @@ export default {
       }
     },
     toggleTypeDropdown(assignmentId) {
-      console.log(`[IssueDetails.vue] Toggle type dropdown for assignment ${assignmentId}`);
-
       // If this dropdown is already active, close it
       if (this.activeTypeDropdown === assignmentId) {
         this.activeTypeDropdown = null;
@@ -1989,9 +1970,7 @@ export default {
 
           if (this.assignmentTypesMap[templateId]) {
             this.assignmentTypes = this.assignmentTypesMap[templateId];
-            console.log(`[IssueDetails.vue] Using cached assignment types for template ${templateId}:`, this.assignmentTypes);
           } else {
-            console.log(`[IssueDetails.vue] Loading assignment types for template ${templateId}`);
             this.loadAssignmentTypes();
           }
         }
@@ -2019,43 +1998,32 @@ export default {
     }
   },
   mounted() {
-    console.log("[IssueDetails.vue] Mounted");
     if (typeof acquireVsCodeApi !== "undefined") {
       vscode = acquireVsCodeApi();
-      console.log("[IssueDetails.vue] vscode API acquired");
     } else {
       console.error("[IssueDetails.vue] acquireVsCodeApi is undefined");
     }
 
     // Restore persisted state if available
-    console.log("[IssueDetails.vue] Mounted: retrieving state...");
     const state = vscode.getState();
     if (state) {
       if (state.originComponentId) {
         this.originComponentId = state.originComponentId;
-        console.log("[IssueDetails.vue] Mounted: originComponentId restored:", this.originComponentId);
       }
       if (state.issue) {
         this.issue = state.issue;
-        console.log("[IssueDetails.vue] Mounted: issue restored", this.issue);
       }
       if (state.error) {
         this.error = state.error;
-        console.log("[IssueDetails.vue] Mounted: error restored", this.error);
       }
-    } else {
-      console.log("[IssueDetails.vue] Mounted: No state found.");
     }
 
     document.addEventListener('click', this.handleClickOutside);
 
     window.addEventListener("message", async (event) => {
-      console.log("[IssueDetails.vue] Received message event:", event);
       const message = event.data;
-      console.log("[IssueDetails.vue] Message data:", message);
 
       if (message && message.command === "displayIssue") {
-        console.log("[IssueDetails.vue] Processing displayIssue message");
         this.issue = message.issue;
         // Save the originComponentId from the provider
         if (message.originComponentId) {
@@ -2070,10 +2038,8 @@ export default {
         });
 
         if (this.issue) {
-          console.log("[IssueDetails.vue] Issue updated:", this.issue);
           // Load options right after receiving the issue
           if (this.issue.template && this.issue.template.id) {
-            console.log("[IssueDetails.vue] Issue has template ID, loading options:", this.issue.template.id);
             this.loadIssueOptions();
           } else {
             console.warn("[IssueDetails.vue] Issue missing template ID, can't load options");
@@ -2085,7 +2051,6 @@ export default {
         }
       } else if (message && message.command === "descriptionUpdated") {
         // Handle description update from the extension
-        console.log("[IssueDetails.vue] Description updated message received");
         if (this.issue && this.issue.body) {
           this.issue.body.body = message.body;
           this.issue.body.lastModifiedAt = message.lastModifiedAt || new Date().toISOString();
@@ -2098,8 +2063,6 @@ export default {
       } else if (message && message.command === 'issueOptionsLoaded') {
         const templateId = this.issue?.template?.id;
         if (templateId) {
-          console.log(`[IssueDetails.vue] Options loaded for template ${templateId}:`, message.options);
-
           // Cache the options for this template
           this.issueOptionsMap[templateId] = message.options;
           // Update current options
@@ -2111,28 +2074,23 @@ export default {
         console.error("[IssueDetails.vue] Error loading options:", message.error);
       } else if (message && message.command === 'issueStateUpdated') {
         if (this.issue && this.issue.state) {
-          console.log("[IssueDetails.vue] State updated:", message.state);
           this.issue.state = message.state;
         }
       } else if (message && message.command === 'issueTypeUpdated') {
         if (this.issue && this.issue.type) {
-          console.log("[IssueDetails.vue] Type updated:", message.type);
           this.issue.type = message.type;
         }
       } else if (message && message.command === 'issuePriorityUpdated') {
         if (this.issue && this.issue.priority) {
-          console.log("[IssueDetails.vue] Priority updated:", message.priority);
           this.issue.priority = message.priority;
         }
       } else if (message && message.command === 'issueTitleUpdated') {
         if (this.issue) {
-          console.log("[IssueDetails.vue] Title updated:", message.title);
           this.issue.title = message.title;
         }
       } else if (message && message.command === 'assignmentTypesLoaded') {
         const templateId = this.issue?.template?.id;
         if (templateId) {
-          console.log(`[IssueDetails.vue] Assignment types loaded for template ${templateId}:`, message.types);
 
           // Store in the map and update current array
           this.assignmentTypesMap[templateId] = message.types || [];
@@ -2147,7 +2105,6 @@ export default {
         console.error('[IssueDetails.vue] Error loading assignment types:', message.error);
         this.assignmentTypes = [];
       } else if (message && message.command === 'assignmentRemoved') {
-        console.log('[IssueDetails.vue] Assignment removed:', message.assignmentId);
 
         // The issue will be refreshed, so no need to update local state
         vscode.window.showInformationMessage('Assignment removed successfully.');
@@ -2156,10 +2113,8 @@ export default {
         console.error('[IssueDetails.vue] Error with assignment:', message.error);
         vscode.window.showErrorMessage(`Error: ${message.error}`);
       } else if (message.command === 'removeAssignment') {
-        console.log(`[IssueDetailsProvider] Received removeAssignment request for ID: ${message.assignmentId}`);
         try {
           await this.removeAssignment(message.assignmentId);
-          console.log(`[IssueDetailsProvider] Successfully removed assignment ID: ${message.assignmentId}`);
           this._view?.webview.postMessage({
             command: 'assignmentRemoved',
             assignmentId: message.assignmentId
@@ -2175,10 +2130,8 @@ export default {
           });
         }
       } else if (message && message.command === 'userSearchResults') {
-        console.log('[IssueDetails.vue] User search results:', message.users);
         this.userSearchResults = message.users || [];
       } else if (message && message.command === 'assignmentCreated') {
-        console.log('[IssueDetails.vue] Assignment created successfully');
         vscode.window.showInformationMessage('Assignment created successfully.');
         // The issue will be refreshed with the new assignment
       } else if (message && message.command === 'relationTypesLoaded') {
@@ -2190,12 +2143,6 @@ export default {
         console.error('Error loading relation types:', message.error);
         this.relationTypes = [];
         this.relationTypesLoading = false;
-      } else if (message.command === 'relationTypeChanged') {
-        // You can now use message.newType (with id and name) to update your UI.
-        // Optionally, refresh the issue details or update the specific outgoing relation locally.
-        // For instance:
-        console.log('Outgoing relation updated, new type:', message.newType);
-        // Optionally: this.refreshCurrentIssue();
       } else if (message && message.command === "newOutgoingRelationList") {
         if (this.issue && this.issue.id) {
           this.newRelationIssues = message.issues.filter(issue => issue.id !== this.issue.id);
@@ -2210,7 +2157,6 @@ export default {
         this.relationTypes = [];
         this.relationTypesLoading = false;
       } else if (message && message.command === "allLabelsLoaded") {
-        console.log("[IssueDetails.vue] allLabelsLoaded received:", message.labels);
         this.labelsLoading = false;
         this.allLabels = message.labels;
       } else if (message && message.command === "allLabelsError") {
@@ -2222,28 +2168,19 @@ export default {
         console.error("Error adding label:", message.error);
         // Optionally, you could use an in-app notification package or even alert.
         alert("Error adding label: " + message.error);
-      } else if (message.command === "labelAddedToIssue") {
-        console.log("Label added successfully:", message.label);
-        // Optionally update your local state or simply refresh the issue.
       } else if (message.command === "labelRemovedFromIssue") {
-        // You may choose to update the labels in the current issue,
-        // for example by filtering out the removed label:
         const removed = message.removedLabel;
         if (this.issue && this.issue.labels && this.issue.labels.nodes) {
           this.issue.labels.nodes = this.issue.labels.nodes.filter(label => label.id !== removed.id);
         }
-        // Optionally, display a success message:
-        console.log("Label removed successfully:", removed);
       } else if (message.command === "removeLabelFromIssueError") {
         console.error("Error removing label:", message.error);
         vscode.postMessage({ command: 'showErrorNotification', message: "Error: " + message.error });
       } else if (message && message.command === 'availableArtifactsLoaded') {
-        console.log('[IssueDetails.vue] Received available artifacts:', message.artifacts);
         this.artifactsLoading = false;
         this.availableArtifacts = message.artifacts || [];
       }
       else if (message && message.command === 'artifactAddedToIssue') {
-        console.log('[IssueDetails.vue] Artifact added successfully:', message.artifactId);
         vscode.window.showInformationMessage('Artifact added to issue successfully.');
         this.refreshCurrentIssue();
       }
@@ -2251,7 +2188,6 @@ export default {
         console.error('[IssueDetails.vue] Error adding artifact:', message.error);
         vscode.window.showErrorMessage(`Error adding artifact: ${message.error}`);
       } else if (message && message.command === 'artifactRemovedFromIssue') {
-        console.log('[IssueDetails.vue] Artifact removed successfully:', message.artifactId);
         vscode.window.showInformationMessage('Artifact removed from issue successfully.');
 
         this.refreshCurrentIssue();
