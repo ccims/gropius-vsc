@@ -2031,7 +2031,6 @@ export default {
     },
     // Graph  
     openIssueGraph() {
-      console.log("Start issue graph");
       if (vscode) {
         vscode.postMessage({ command: "showIssueGraph" });
       }

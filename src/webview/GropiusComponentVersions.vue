@@ -212,7 +212,6 @@ export default defineComponent({
             }
         };
         const openWorkspaceGraph = () => {
-            console.log("Start workspace graph!");
             if (vscode) {
                 vscode.postMessage({ command: "showWorkspaceGraph" });
             }
@@ -228,7 +227,6 @@ export default defineComponent({
                 const message = event.data;
 
                 if (message.command === 'componentVersionsData') {
-                    console.log("Received component versions data:", message.data);
                     treeItems.value = message.data.map((item: any) => ({
                         ...item,
                         expanded: false
