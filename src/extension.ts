@@ -88,7 +88,6 @@ interface DescriptionEditorData {
  */
 async function loadAndRegisterOpenIssueArtifacts() {
   try {
-    console.log('[loadAndRegisterOpenIssueArtifacts] Loading artifacts for open issues...');
 
     // Authenticate before making API calls
     await globalApiClient.authenticate();
@@ -131,7 +130,6 @@ async function loadAndRegisterOpenIssueArtifacts() {
     // Process the results
     if (result.data?.searchIssues) {
       const openIssues = result.data.searchIssues;
-      console.log(`[loadAndRegisterOpenIssueArtifacts] Found ${openIssues.length} open issues`);
 
       // Track the number of artifacts registered
       let artifactsRegistered = 0;
@@ -162,7 +160,6 @@ async function loadAndRegisterOpenIssueArtifacts() {
         }
       }
 
-      console.log(`[loadAndRegisterOpenIssueArtifacts] Registered ${artifactsRegistered} artifacts from open issues`);
     }
   } catch (error) {
     console.error('[loadAndRegisterOpenIssueArtifacts] Error:', error);
@@ -191,7 +188,6 @@ async function loadAndRegisterIssueArtifacts(issueId: string) {
       const issue = result.data.node;
 
       if (issue.artefacts && issue.artefacts.nodes) {
-        console.log(`[loadAndRegisterIssueArtifacts] Found ${issue.artefacts.nodes.length} artifacts for issue ${issueId}`);
 
         // Register each artifact for this issue
         for (const artifact of issue.artefacts.nodes) {
@@ -212,7 +208,6 @@ async function loadAndRegisterIssueArtifacts(issueId: string) {
           }
         }
       } else {
-        console.log(`[loadAndRegisterIssueArtifacts] No artifacts found for issue ${issueId}`);
       }
     }
   } catch (error) {
@@ -742,8 +737,6 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand('extension.openArtifactFile', async (message) => {
       try {
-        console.log('[extension.openArtifactFile] Received message:', JSON.stringify(message, null, 2));
-
         // Handle both message object and direct artifact data scenarios
         let artifactData;
         if (message.artifactData) {
@@ -762,8 +755,6 @@ export function activate(context: vscode.ExtensionContext) {
           to = undefined,
           id = ''
         } = artifactData;
-
-        console.log(`[extension.openArtifactFile] Processing artifact: ${file}`);
 
         // Validate file path
         if (!file) {
@@ -815,7 +806,6 @@ export function activate(context: vscode.ExtensionContext) {
         // If a source issue was provided, you might want to do something with it
         const sourceIssueId = message.sourceIssueId || message.issueId;
         if (sourceIssueId) {
-          console.log(`[extension.openArtifactFile] Source issue ID: ${sourceIssueId}`);
           // You could potentially store or use this information
         }
 
@@ -931,7 +921,6 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
           break;
         case 'showWorkspaceGraph':
           // Opens the workspace graph for the given workspace
-          console.log("Start workspaceGraph");
           this.openWorkspaceGraphEditor();
       }
     });
@@ -943,7 +932,6 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
    * 
    */
   public async openWorkspaceGraphEditor(): Promise<void> {
-    console.log("Start openWorkspaceGraphEditor.");
     const panel = vscode.window.createWebviewPanel(
       "graphWorkspaceEditor",
       "Graph Editor",
@@ -964,7 +952,6 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
     }
 
     panel.webview.onDidReceiveMessage((message: any): void => {
-      console.log("START: onDidReceiveMessage in ComponentVersionsProvider");
       if (message.type === "ready") {
         (async () => {
           try {
@@ -978,8 +965,6 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
             vscode.window.showErrorMessage(`Data fetch failed: ${error}`);
           }
         })();
-      } else {
-        console.log("We are in EEEEEEEEEEEEEEEEEELLLLLLLLLLLLLLLLLLSSSSSSSSSSSSSSSSSEEEEEEEEEEEEEEE");
       }
       return;
     });
@@ -991,7 +976,6 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
    * @returns 
    */
   private async fetchWorkspaceGraphData(): Promise<any> {
-    console.log("Start fetchWorkspaceData");
     try {
       await this.apiClient.authenticate();
       const mappings = await loadConfigurations();
@@ -1007,7 +991,6 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
     }
   }
   private getComponents(data: any): string[] {
-    console.log("Start getComponents.");
     let ids: string[] = [];
 
     if (Array.isArray(data)) {
@@ -1027,8 +1010,6 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
     return ids;
   }
   getGraphEditorHtml(scriptUri: vscode.Uri): string {
-    console.log("STEP: Generating Webview HTML");
-    console.log("Script URI:", scriptUri.toString());
     return /* html */ `
       <!DOCTYPE html>
       <html lang="en">
@@ -1330,16 +1311,12 @@ async function getComponentVersionsForFile(
     const fileUri = vscode.Uri.parse(filePath);
     const normalizedFilePath = fileUri.fsPath;
 
-    console.log(`[getComponentVersionsForFile] Checking mappings for file: ${normalizedFilePath}`);
-
     // Iterate through workspace folders and their mappings
     for (const [rootPath, folderMappings] of mappings.entries()) {
       // Check if file is in this workspace folder
       if (!normalizedFilePath.startsWith(rootPath)) {
         continue;
       }
-
-      console.log(`[getComponentVersionsForFile] File is in workspace folder: ${rootPath}`);
 
       // Calculate relative path from workspace root
       let relativePath = normalizedFilePath.substring(rootPath.length);
@@ -1348,8 +1325,6 @@ async function getComponentVersionsForFile(
       if (!relativePath.startsWith('/')) {
         relativePath = '/' + relativePath;
       }
-
-      console.log(`[getComponentVersionsForFile] Relative path: ${relativePath}`);
 
       // Check each mapping to see if it applies to this file
       for (const mapping of folderMappings) {
@@ -1361,12 +1336,9 @@ async function getComponentVersionsForFile(
 
         // Check if the file is in this mapped folder
         if (relativePath === mappingPath || relativePath.startsWith(mappingPath)) {
-          console.log(`[getComponentVersionsForFile] Found matching mapping: ${mappingPath}`);
 
           // Direct component version mapping
           if (mapping.componentVersion) {
-            console.log(`[getComponentVersionsForFile] Direct component version mapping: ${mapping.componentVersion}`);
-
             // Fetch component version details
             const cvResult = await apiClient.executeQuery(FETCH_COMPONENT_VERSION_BY_ID_QUERY, { id: mapping.componentVersion });
 
@@ -1383,7 +1355,6 @@ async function getComponentVersionsForFile(
           }
           // Component+Project mapping
           else if (mapping.component && mapping.project) {
-            console.log(`[getComponentVersionsForFile] Component+Project mapping: Component=${mapping.component}, Project=${mapping.project}`);
 
             // Add component trackable
             mappedTrackables.push({
@@ -1406,9 +1377,6 @@ async function getComponentVersionsForFile(
         }
       }
     }
-
-    // Log the results
-    console.log(`[getComponentVersionsForFile] Found ${mappedTrackables.length} mapped trackables:`, mappedTrackables);
 
     // Filter out duplicate trackables (using a Map with ID as key)
     const uniqueTrackables = new Map();
@@ -1458,12 +1426,10 @@ async function getAvailableTrackablesForFile(filePath: string) {
     const mappedTrackables = await getComponentVersionsForFile(filePath, mappings, globalApiClient);
 
     if (mappedTrackables.length > 0) {
-      console.log(`[getAvailableTrackablesForFile] Found ${mappedTrackables.length} mapped trackables for file: ${filePath}`);
       return mappedTrackables;
     }
 
     // If no mappings found, return empty array (we won't use a fallback)
-    console.log(`[getAvailableTrackablesForFile] No mappings found for file: ${filePath}`);
     return [];
   } catch (error) {
     console.error("[getAvailableTrackablesForFile] Error:", error);
@@ -2133,15 +2099,9 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
       } else if (message.command === 'getIssueOptions') {
         // Fetch available options for issue editing
         const templateId = message.templateId;
-        console.log(`[IssueDetailsProvider] Received getIssueOptions request for template: ${templateId}`);
         if (templateId) {
           try {
             const options = await this.fetchIssueOptions(templateId);
-            console.log(`[IssueDetailsProvider] Sending options to webview:`, {
-              states: options.states.length,
-              types: options.types.length,
-              priorities: options.priorities.length
-            });
 
             this._view?.webview.postMessage({
               command: 'issueOptionsLoaded',
@@ -2245,7 +2205,6 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
       } else if (message.command === 'getAssignmentTypes') {
         // Fetch available assignment types for a template
         const templateId = message.templateId;
-        console.log(`[IssueDetailsProvider] Received getAssignmentTypes request for template: ${templateId}`);
         if (templateId) {
           try {
             const types = await this.fetchAssignmentTypesForTemplate(templateId);
@@ -2306,7 +2265,6 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
           });
         }
       } else if (message.command === 'removeIssueRelation') {
-        console.log(`[IssueDetailsProvider] Received removeIssueRelation request for relation: ${message.relationId}`);
         try {
           await this.removeIssueRelation(message.relationId);
           vscode.window.showInformationMessage("Relation removed successfully.");
@@ -2316,7 +2274,6 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
           vscode.window.showErrorMessage(`Failed to remove relation: ${error instanceof Error ? error.message : String(error)}`);
         }
       } else if (message.command === "showIssueGraph") {
-        console.log("Start issueGraph");
         this.openIssueGraphEditor();
       } else if (message.command === 'getRelationTypes') {
         try {
@@ -2513,7 +2470,6 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
             // Use originComponentId for trackables instead of the issue id.
             trackables: [this.originComponentId]
           };
-          console.log('Creating label with input:', labelInput);
 
           const result = await globalApiClient.executeQuery(CREATE_LABEL_MUTATION, {
             input: labelInput
@@ -2554,8 +2510,6 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
             return;
           }
 
-          console.log(`[IssueDetailsProvider] Fetching available artifacts for trackables:`, trackableIds);
-
           this.fetchAvailableArtifacts(trackableIds, issueId)
             .then(artifacts => {
               this._view?.webview.postMessage({
@@ -2591,8 +2545,6 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
             });
             return;
           }
-
-          console.log(`[IssueDetailsProvider] Adding artifact ${input.artefact} to issue ${input.issue}`);
 
           this.addArtifactToIssue(input)
             .then(result => {
@@ -2630,8 +2582,6 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
             });
             return;
           }
-
-          console.log(`[IssueDetailsProvider] Removing artifact ${input.artefact} from issue ${input.issue}`);
 
           this.removeArtifactFromIssue(input)
             .then(result => {
@@ -2683,8 +2633,6 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
         }
       }
 
-      console.log(`[IssueDetailsProvider] Issue has ${existingArtifactIds.size} artifacts already`);
-
       // Fetch artifacts for each trackable
       const allArtifacts = [];
 
@@ -2708,8 +2656,6 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
           const availableArtifacts = trackableArtifacts.filter(
             (artifact: any) => !existingArtifactIds.has(artifact.id)
           );
-
-          console.log(`[IssueDetailsProvider] Found ${availableArtifacts.length} available artifacts for trackable ${trackableId}`);
 
           // Add these artifacts to our collection
           allArtifacts.push(...availableArtifacts);
@@ -2750,8 +2696,6 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
       // Now, fetch the full artifact and issue details to properly register the artifact
       const artifactId = input.artefact;
       const issueId = input.issue;
-
-      console.log(`[IssueDetailsProvider] Artifact ${artifactId} added to issue ${issueId}, registering for highlighting`);
 
       // Fetch the artifact details to get file path, line numbers, etc.
       const artifactResult = await this.apiClient.executeQuery(`
@@ -2887,7 +2831,6 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
    * 
    */
   public async openIssueGraphEditor(): Promise<void> {
-    console.log("Start openIssueGraphEditor.");
     const panel = vscode.window.createWebviewPanel(
       "graphIssueEditor",
       "Graph Editor",
@@ -2908,7 +2851,6 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
     }
 
     panel.webview.onDidReceiveMessage((message: any): void => {
-      console.log("START: onDidReceiveMessage in IssueDetailsProvider");
       if (message.type === "ready") {
         (async () => {
           try {
@@ -2925,8 +2867,6 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
             vscode.window.showErrorMessage(`Data fetch failed: ${error}`);
           }
         })();
-      } else {
-        console.log("We are in EEEEEEEEEEEEEEEEEELLLLLLLLLLLLLLLLLLSSSSSSSSSSSSSSSSSEEEEEEEEEEEEEEE");
       }
       return;
     });
@@ -2939,16 +2879,12 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
    * @returns 
    */
   private async fetchIssueGraphData(): Promise<any> {
-    console.log("Start fetchIssueData");
     try {
       await this.apiClient.authenticate();
       const mappings = await loadConfigurations();
       const workspaceData = await this._buildTreeData(mappings);
       const components = this.getComponents(workspaceData);
       const response = await this.apiClient.executeQuery(FETCH_TEMP_ISSUE_GRAPH, { id: this.lastIssueId }); //this.lastIssueId
-      console.log("YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY");
-      console.log(JSON.stringify(response.data.node));
-      console.log("YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY");
       return response.data;
     } catch (error) {
       throw new Error(
@@ -2959,7 +2895,6 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
   }
 
   private getComponents(data: any): string[] {
-    console.log("Start getComponents.");
     let ids: string[] = [];
 
     if (Array.isArray(data)) {
@@ -2980,8 +2915,6 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
   }
 
   getGraphEditorHtml(scriptUri: vscode.Uri): string {
-    console.log("STEP: Generating Webview HTML");
-    console.log("Script URI:", scriptUri.toString());
     return /* html */ `
     <!DOCTYPE html>
     <html lang="en">
@@ -3025,10 +2958,8 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
 
       // If we have a direct component version ID, fetch that specific version
       if (componentVersionId) {
-        console.log(`Fetching component version with ID: ${componentVersionId}`);
 
         const result = await this.apiClient.executeQuery(FETCH_COMPONENT_VERSION_BY_ID_QUERY, { id: componentVersionId });
-        console.log("Direct version query result:", JSON.stringify(result, null, 2));
 
         if (result.data?.node) {
           const version = result.data.node;
@@ -3044,13 +2975,9 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
       }
       // For the component+project case
       else if (componentId && projectId) {
-        console.log(`Fetching versions for component ID: ${componentId} in project: ${projectId}`);
-
         const result = await this.apiClient.executeQuery(GET_COMPONENT_VERSIONS_IN_PROJECT_QUERY, {
           projectId: projectId
         });
-
-        console.log("Component+Project query result:", JSON.stringify(result, null, 2));
 
         if (result.data?.project) {
           const project = result.data.project;
@@ -3444,16 +3371,6 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
       })
       .then(([issueData, artifactsData]) => {
         if (issueData.data && issueData.data.node) {
-          // Check if assignments data exists and log it
-          if (issueData.data.node.assignments) {
-            console.log(`[IssueDetailsProvider] Issue ${issueId} has assignments data:`,
-              issueData.data.node.assignments.nodes ?
-                `${issueData.data.node.assignments.nodes.length} assignments` :
-                'No assignments nodes');
-          } else {
-            console.log(`[IssueDetailsProvider] Issue ${issueId} has no assignments data`);
-          }
-
           const issueWithArtifacts = {
             ...issueData.data.node,
             artifacts: artifactsData.data?.node?.artefacts?.nodes || []
@@ -3489,22 +3406,17 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
   private async fetchAssignmentTypesForTemplate(templateId: string): Promise<any[]> {
     try {
       await globalApiClient.authenticate();
-      console.log(`[IssueDetailsProvider] Fetching assignment types for template: ${templateId}`);
 
       const result = await globalApiClient.executeQuery(
         GET_ASSIGNMENT_TYPES_FOR_TEMPLATE,
         { templateId }
       );
 
-      console.log('[IssueDetailsProvider] Assignment types query result:', result);
-
       if (result.data?.node?.assignmentTypes?.nodes) {
         const types = result.data.node.assignmentTypes.nodes;
-        console.log(`[IssueDetailsProvider] Found ${types.length} assignment types for template`);
         return types;
       }
 
-      console.warn('[IssueDetailsProvider] No assignment types found for template');
       return [];
     } catch (error) {
       console.error('[IssueDetailsProvider] Error fetching assignment types:', error);
@@ -3525,8 +3437,6 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
         input.type = data.typeId;
       }
 
-      console.log('[IssueDetailsProvider] Sending changeAssignmentType mutation:', input);
-
       const result = await globalApiClient.executeQuery(
         CHANGE_ASSIGNMENT_TYPE_MUTATION,
         { input }
@@ -3535,8 +3445,6 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
       if (result.errors) {
         throw new Error(result.errors[0].message);
       }
-
-      console.log('[IssueDetailsProvider] Assignment type updated:', result);
 
       // Return the updated assignment
       return result.data?.changeAssignmentType?.assignmentTypeChangedEvent?.assignment;
@@ -3631,8 +3539,6 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
    */
   private async fetchIssueOptions(templateId: string): Promise<{ states: any[], types: any[], priorities: any[] }> {
     try {
-      console.log(`[IssueDetailsProvider] Fetching options for template ${templateId}`);
-
       const result = await globalApiClient.executeQuery(
         GET_TEMPLATE_OPTIONS,
         { templateId }
@@ -3651,12 +3557,6 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
       const states = template.issueStates?.nodes || [];
       const types = template.issueTypes?.nodes || [];
       const priorities = template.issuePriorities?.nodes || [];
-
-      console.log(`[IssueDetailsProvider] Fetched template-specific options:`, {
-        states: states.length,
-        types: types.length,
-        priorities: priorities.length
-      });
 
       return { states, types, priorities };
     } catch (error) {
@@ -3813,8 +3713,6 @@ class ArtifactDecoratorManager {
         newTo = to + 1;
       }
 
-      console.log(`[ArtifactDecoratorManager] Moving artifact ${id} ${direction}: from ${from}-${to} to ${newFrom}-${newTo}`);
-
       // Call the backend to update the artifact
       await globalApiClient.authenticate();
       const result = await globalApiClient.executeQuery(
@@ -3835,8 +3733,6 @@ class ArtifactDecoratorManager {
       if (!updatedArtifact) {
         throw new Error('Failed to update artifact: No data returned');
       }
-
-      console.log(`[ArtifactDecoratorManager] Successfully updated artifact to ${updatedArtifact.from}-${updatedArtifact.to}`);
 
       // Update our local tracking of the artifact
       this.updateArtifactRanges(id, file, from, to, updatedArtifact.from, updatedArtifact.to);
@@ -3946,8 +3842,6 @@ class ArtifactDecoratorManager {
       return;
     }
 
-    console.log(`[ArtifactDecoratorManager] Changing currently selected issue from ${this.currentlySelectedIssueId} to ${issueId}`);
-
     // Store old issue ID
     const oldIssueId = this.currentlySelectedIssueId;
 
@@ -3993,8 +3887,7 @@ class ArtifactDecoratorManager {
  * Force a complete decoration refresh by disposing and recreating all decorations
  */
   private forceCompleteDecorationsRefresh(affectedUris: string[]): void {
-    console.log(`[ArtifactDecoratorManager] Forcing complete decoration refresh for ${affectedUris.length} files`);
-
+ 
     // Save current active editor and visible editors
     const activeEditor = vscode.window.activeTextEditor;
     const visibleEditors = vscode.window.visibleTextEditors;
@@ -4024,74 +3917,6 @@ class ArtifactDecoratorManager {
   }
 
   /**
-   * Cleans up artifacts from closed issues that are no longer selected
-   */
-  private cleanupClosedIssueArtifacts(issueId: string): void {
-    console.log(`[ArtifactDecoratorManager] Cleaning up artifacts for issue ${issueId}`);
-
-    // Find all artifacts associated with this issue
-    const affectedArtifacts: string[] = [];
-
-    for (const [artifactId, issues] of this.artifactIssues.entries()) {
-      // Check if this artifact is associated with the issue
-      const issueIndex = issues.findIndex(issue => issue.issueId === issueId);
-
-      if (issueIndex >= 0) {
-        const issue = issues[issueIndex];
-
-        // Only clean up if the issue is closed
-        if (!issue.isOpen) {
-          affectedArtifacts.push(artifactId);
-        }
-      }
-    }
-
-    // Clean up affected artifacts
-    if (affectedArtifacts.length > 0) {
-      console.log(`[ArtifactDecoratorManager] Found ${affectedArtifacts.length} artifacts to clean up`);
-
-      // Clear decorations for affected artifacts
-      this.clearArtifactDecorations(affectedArtifacts);
-    }
-  }
-
-  /**
-   * Clears decorations for specific artifacts
-   */
-  private clearArtifactDecorations(artifactIds: string[]): void {
-    // For each visible editor
-    vscode.window.visibleTextEditors.forEach(editor => {
-      const uriString = editor.document.uri.toString();
-
-      // Check if we have artifacts for this file
-      if (!this.artifactRanges.has(uriString)) {
-        return;
-      }
-
-      const fileData = this.artifactRanges.get(uriString)!;
-
-      // Get ranges for artifacts we need to clear
-      const rangesToClear: vscode.Range[] = [];
-
-      for (const rangeData of fileData.ranges) {
-        if (artifactIds.includes(rangeData.artifactId)) {
-          rangesToClear.push(rangeData.range);
-        }
-      }
-
-      if (rangesToClear.length > 0) {
-        // Create an empty decoration type if needed
-        if (!this.decorationTypes.has('empty')) {
-          this.decorationTypes.set('empty', vscode.window.createTextEditorDecorationType({}));
-        }
-
-        // Apply empty decoration to clear the ranges
-        editor.setDecorations(this.decorationTypes.get('empty')!, rangesToClear);
-      }
-    });
-  }
-
-  /**
    * Register an artifact to be highlighted in editors
    * @param artifactId Artifact ID
    * @param fileUri File URI string
@@ -4113,8 +3938,6 @@ class ArtifactDecoratorManager {
     }
   ): void {
     try {
-      console.log(`[ArtifactDecoratorManager] Registering artifact ${artifactId} for issue ${issueData.issueId} (${issueData.isOpen ? 'open' : 'closed'})`);
-
       const uri = vscode.Uri.parse(fileUri);
       const uriString = uri.toString();
 
@@ -4186,11 +4009,9 @@ class ArtifactDecoratorManager {
       if (existingIssueIndex >= 0) {
         // Update existing issue data
         artifactIssues[existingIssueIndex] = issueData;
-        console.log(`[ArtifactDecoratorManager] Updated existing issue association for artifact ${artifactId}`);
       } else {
         // Add new issue association
         artifactIssues.push(issueData);
-        console.log(`[ArtifactDecoratorManager] Added new issue association for artifact ${artifactId}, total: ${artifactIssues.length}`);
       }
 
       // Apply decorations to open editors
@@ -4213,8 +4034,6 @@ class ArtifactDecoratorManager {
  * Remove an artifact registration and immediately update any open editors
  */
   public unregisterArtifact(artifactId: string): void {
-    console.log(`[ArtifactDecoratorManager] Unregistering artifact: ${artifactId}`);
-
     // Remove issue associations
     this.artifactIssues.delete(artifactId);
 
