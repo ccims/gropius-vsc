@@ -258,6 +258,11 @@ export default defineComponent({
 </script>
 
 <style>
+
+body {
+  padding: 0 0 0 25px !important;
+}
+
 .webview-root {
   margin: 0;
   padding: 0 0 0 12px;
@@ -303,7 +308,6 @@ export default defineComponent({
     cursor: pointer;
     width: 100%;
     box-sizing: border-box;
-    justify-content: space-between;
 }
 
 .tree-node:hover {
