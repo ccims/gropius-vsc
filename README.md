@@ -3,6 +3,7 @@
 1. **Apply Credentials**
    - Open `src/config.ts`.
    - Enter your **client credentials**, API endpoints, or any other required configuration.
+   - You need this to connect the extension with the gropius frontend.
 
 2. **Install Dependencies**
    ```bash
