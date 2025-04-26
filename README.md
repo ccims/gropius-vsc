@@ -5,6 +5,9 @@
    - Enter your **client credentials**, API endpoints, or any other required configuration.
    - You need this to connect the extension with the gropius frontend.
 
+   Example configuration:
+   ![Example configuration for config.ts](./assets/image-18.png)
+
 2. **Install Dependencies**
    ```bash
    npm install
