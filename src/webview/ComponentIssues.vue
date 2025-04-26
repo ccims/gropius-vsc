@@ -456,11 +456,6 @@ export default {
       return Boolean(this.componentId);
     },
     filteredIssues() {
-      console.log('ComponentIssues: Computing filteredIssues with typeFilter:', this.typeFilter);
-
-      if (this.typeFilter) {
-        console.log('ComponentIssues: Will filter by type:', this.typeFilter);
-      }
 
       let result = [...this.issues];
 

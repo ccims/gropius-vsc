@@ -272,7 +272,6 @@ function getComponentVersion(data: any): string[] {
       result.push(version.id);
     });
   });
-  console.log(result);
   return result;
 }
 
