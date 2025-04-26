@@ -175,8 +175,6 @@ async function loadAndRegisterOpenIssueArtifacts() {
  */
 async function loadAndRegisterIssueArtifacts(issueId: string) {
   try {
-    console.log(`[loadAndRegisterIssueArtifacts] Loading artifacts for issue ${issueId}...`);
-
     // Authenticate before making API calls
     await globalApiClient.authenticate();
 
@@ -529,7 +527,8 @@ export function activate(context: vscode.ExtensionContext) {
                 issueId: issueId,
                 issueType: issueDetailsResult.data?.node?.type?.name || 'Bug',
                 isOpen: issueDetailsResult.data?.node?.state?.isOpen || false,
-                title: issueDetailsResult.data?.node?.title || 'Unknown Issue'
+                title: issueDetailsResult.data?.node?.title || 'Unknown Issue',
+                iconPath: issueDetailsResult.data?.node?.type?.iconPath // Add this line
               }
             );
           }
