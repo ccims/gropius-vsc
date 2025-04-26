@@ -489,7 +489,6 @@
                       </div>
                       <button class="remove-button" @click="(event) => {
                         event.stopPropagation();
-                        console.log('Remove button clicked for assignment:', assignment.id);
                         confirmRemoveAssignment(assignment);
                       }" title="Remove assignment">
                         ✕
@@ -748,9 +747,7 @@ export default {
       const filtered = this.allLabels.filter(label => {
         return label.id && !existing.has(label.id);
       });
-      console.log("[availableLabels] All fetched labels:", this.allLabels);
-      console.log("[availableLabels] Labels already on issue:", Array.from(existing));
-      console.log("[availableLabels] Filtered (to be shown):", filtered);
+
       return filtered;
     },
     hasRelations() {
@@ -884,7 +881,6 @@ export default {
   watch: {
     issue(newIssue) {
       if (newIssue && newIssue.template && newIssue.template.id) {
-        console.log('[IssueDetails.vue] Issue changed, loading options for template:', newIssue.template.id);
         this.loadIssueOptions();
       }
     }
@@ -950,7 +946,6 @@ export default {
       this.artifactsLoading = true;
 
       if (vscode) {
-        console.log('[IssueDetails.vue] Requesting available artifacts for trackables:', trackableIds);
         vscode.postMessage({
           command: 'getAvailableArtifacts',
           trackableIds: trackableIds,
@@ -1054,7 +1049,6 @@ export default {
         console.error("Cannot remove label – label or its id is missing.");
         return;
       }
-      console.log("Removing label:", label);
       if (vscode) {
         vscode.postMessage({
           command: 'removeLabelFromIssue',
@@ -1075,7 +1069,6 @@ export default {
       } else {
         this.labelsLoading = true;
         this.newLabelDropdownVisible = true;
-        console.log("[toggleNewLabelDropdown] Requesting all labels from extension");
         // Request all labels from your extension including originComponentId.
         if (vscode) {
           vscode.postMessage({
@@ -1090,7 +1083,6 @@ export default {
     },
     // Called when a label is selected from the dropdown
     selectNewLabel(label) {
-      console.log("Selected label:", label);
       if (vscode) {
         vscode.postMessage({
           command: 'addLabelToIssue',
@@ -1128,7 +1120,6 @@ export default {
     },
     // When a relation type is selected:
     selectNewRelationType(type) {
-      console.log("Selected new relation type:", type);
       if (vscode) {
         vscode.postMessage({
           command: 'createIssueRelation',
@@ -1309,8 +1300,7 @@ export default {
       const issueId = this.issue?.id;
       if (!compId || !issueId) {
         console.warn("Cannot open in browser: missing compId or issueId");
-        console.log("compId:" + compId);
-        console.log("issueId:" + issueId);
+
         return;
       }
       const url = `http://localhost:4200/components/${compId}/issues/${issueId}`;
@@ -1344,14 +1334,6 @@ export default {
     },
     toggleSection(sectionName) {
       this.expandedSections[sectionName] = !this.expandedSections[sectionName];
-
-      // Add logging for assignments section
-      if (sectionName === 'assignments') {
-        console.log(`[IssueDetails.vue] Assignments section toggled to ${this.expandedSections.assignments}`);
-        if (this.issue && this.issue.assignments) {
-          console.log('[IssueDetails.vue] Assignments data:', JSON.stringify(this.issue.assignments));
-        }
-      }
     },
 
     getAssignmentType(assignment) {
@@ -2314,7 +2296,6 @@ export default {
 
     if (vscode) {
       vscode.postMessage({ command: "vueAppReady" });
-      console.log("[IssueDetails.vue] Posted vueAppReady message");
     }
   },
   beforeDestroy() {

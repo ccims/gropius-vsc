@@ -128,11 +128,6 @@ export default defineComponent({
             const uniqueId = `${item.id}-${version}-${index}`;
             const versionId = item.componentVersionIds && item.componentVersionIds[index];
 
-            console.log("[GropiusComponentVersions.vue] handleVersionClick: clicked version", {
-                uniqueId,
-                versionId,
-                componentId: item.id
-            });
 
             // Set temporary click feedback
             clickedVersion.value = uniqueId;
@@ -146,13 +141,7 @@ export default defineComponent({
             activeVersion.value = uniqueId;
 
             if (versionId) {
-                // Send message to trigger component version issues
-                console.log("[GropiusComponentVersions.vue] Posting message 'showComponentVersionIssues' with data:", {
-                componentName: item.name,
-                version: version,
-                componentId: item.id,
-                componentVersionId: versionId
-                });
+
                 vscode.postMessage({
                 command: 'showComponentVersionIssues',
                 data: {
@@ -194,10 +183,6 @@ export default defineComponent({
             activeComponent.value = item.id;
             activeVersion.value = null;
 
-            console.log("[GropiusComponentVersions.vue] handleComponentClick: clicked component", {
-                componentName: item.name,
-                componentId: item.id
-            });
 
             if (item.id) {
                 vscode.postMessage({
