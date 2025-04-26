@@ -30,12 +30,6 @@
           "id": "issueDetails",
           "name": "Issue Details",
           "icon": "resources/icons/gropius-component-verison-icon.png"
-        },
-        {
-          "type": "webview",
-          "id": "graphs",
-          "name": "Graphs",
-          "icon": "resources/icons/gropius-component-verison-icon.png"
         }
       ]
     },
@@ -45,7 +39,8 @@
           "when": "editorHasSelection",
           "command": "extension.createStandaloneArtifact",
           "group": "gropius"
-        }, {
+        },
+        {
           "command": "extension.moveArtifactIconUp",
           "group": "navigation",
           "when": "editorHasSelection && editorTextFocus"
@@ -84,10 +79,6 @@
         "title": "Show Issue Details"
       },
       {
-        "command": "extension.showGraph",
-        "title": "Show Graph"
-      },
-      {
         "command": "extension.rebuildVue",
         "title": "Rebuild Vue Bundles"
       },
@@ -103,18 +94,19 @@
         "command": "extension.showIssueGraph",
         "title": "Show Issue Graph"
       }
-    ], "keybindings": [
-    {
-      "command": "extension.moveArtifactIconUp",
-      "key": "alt+shift+up",
-      "when": "editorTextFocus"
-    },
-    {
-      "command": "extension.moveArtifactIconDown",
-      "key": "alt+shift+down",
-      "when": "editorTextFocus"
-    }
-  ]
+    ],
+    "keybindings": [
+      {
+        "command": "extension.moveArtifactIconUp",
+        "key": "alt+shift+up",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "extension.moveArtifactIconDown",
+        "key": "alt+shift+down",
+        "when": "editorTextFocus"
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
