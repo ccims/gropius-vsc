@@ -6,10 +6,6 @@ import { loadConfigurations } from './mapping/config-loader';
 import {
   REMOVE_ARTIFACT_FROM_ISSUE_MUTATION,
   GET_ARTIFACTS_FOR_ISSUE_WITH_ICON,
-  GET_AVAILABLE_ARTIFACTS_FOR_TRACKABLES,
-  FETCH_COMPONENT_VERSIONS_QUERY,
-  FETCH_DYNAMIC_PROJECTS_QUERY,
-  FETCH_PROJECT_GRAPH_QUERY,
   GET_ISSUES_OF_COMPONENT_VERSION_QUERY,
   GET_ISSUE_DETAILS,
   FETCH_COMPONENT_VERSION_BY_ID_QUERY,
@@ -37,7 +33,6 @@ import {
   CHANGE_ISSUE_RELATION_TYPE_MUTATION,
   GET_ISSUE_RELATION_TYPES,
   FETCH_ALL_WORKSPACE_COMPONENTS_AND_ISSUES,
-  FETCH_FOR_ISSUE_GRAPH,
   FETCH_TEMP_ISSUE_GRAPH,
   GET_COMPONENT_ISSUES_BY_ID_QUERY,
   CREATE_ISSUE_RELATION_MUTATION,
@@ -54,7 +49,6 @@ import {
   UPDATE_ARTIFACT_LINES_MUTATION
 } from "./queries";
 import path from "path";
-import { workerData } from "worker_threads";
 
 // Create a single, global API client instance
 const globalApiClient = new APIClient(API_URL, CLIENT_ID, CLIENT_SECRET);
@@ -965,6 +959,7 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
             vscode.window.showErrorMessage(`Data fetch failed: ${error}`);
           }
         })();
+      } else {
       }
       return;
     });
@@ -2867,6 +2862,7 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
             vscode.window.showErrorMessage(`Data fetch failed: ${error}`);
           }
         })();
+      } else {
       }
       return;
     });
@@ -2881,10 +2877,7 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
   private async fetchIssueGraphData(): Promise<any> {
     try {
       await this.apiClient.authenticate();
-      const mappings = await loadConfigurations();
-      const workspaceData = await this._buildTreeData(mappings);
-      const components = this.getComponents(workspaceData);
-      const response = await this.apiClient.executeQuery(FETCH_TEMP_ISSUE_GRAPH, { id: this.lastIssueId }); //this.lastIssueId
+      const response = await this.apiClient.executeQuery(FETCH_TEMP_ISSUE_GRAPH, { id: this.lastIssueId }); 
       return response.data;
     } catch (error) {
       throw new Error(
@@ -2892,26 +2885,6 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
         }`
       );
     }
-  }
-
-  private getComponents(data: any): string[] {
-    let ids: string[] = [];
-
-    if (Array.isArray(data)) {
-      for (const item of data) {
-        ids = ids.concat(this.getComponents(item));
-      }
-    } else if (typeof data === "object" && data !== null) {
-      for (const key in data) {
-        if (key === "id") {
-          ids.push(data[key]);
-        } else {
-          ids = ids.concat(this.getComponents(data[key]));
-        }
-      }
-    }
-
-    return ids;
   }
 
   getGraphEditorHtml(scriptUri: vscode.Uri): string {
