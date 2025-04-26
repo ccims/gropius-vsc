@@ -2094,27 +2094,28 @@ export default {
   display: block;
 }
 
-.issue-icon {
-  width: 500px;
-  height: 500px;
-  flex-shrink: 0;
-}
 .icon-stack {
-  position: relative;
-  width: 24px;
-  height: 24px;
-  flex-shrink: 0;
+  position: relative !important;
+  width: 24px !important;
+  height: 24px !important;
 }
-.overlay-icon {
-  width: 24px;
-  height: 24px;
-  flex-shrink: 0;
-  object-fit: contain;
+
+.issue-icon {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 90% !important;
+  height: 90% !important;
 }
 
 .overlay-icon {
   position: absolute;
-  top: 0;
-  left: 0;
+  top: 2px;  /* leicht nach unten verschoben */
+  left: 2px; /* leicht nach rechts verschoben */
+  width: 16px; /* kleiner als das Haupticon */
+  height: 16px;
+  pointer-events: none; /* falls es nicht klickbar sein soll */
 }
+
+
 </style>
