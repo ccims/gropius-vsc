@@ -181,7 +181,7 @@ async function loadAndRegisterIssueArtifacts(issueId: string) {
 
     // Get the issue details with its artifacts - now including iconPath
     const result = await globalApiClient.executeQuery(
-      GET_ARTIFACTS_FOR_ISSUE_WITH_ICON, 
+      GET_ARTIFACTS_FOR_ISSUE_WITH_ICON,
       { issueId }
     );
 
@@ -2728,6 +2728,9 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
         throw new Error('Failed to remove artifact from issue: No confirmation data returned');
       }
 
+      // Add this line to immediately unregister the artifact
+      artifactDecoratorManager.unregisterArtifact(input.artefact);
+
       return result.data.removeArtefactFromIssue.removedArtefactEvent;
     } catch (error) {
       console.error('[IssueDetailsProvider] Error in removeArtifactFromIssue:', error);
@@ -4093,17 +4096,33 @@ class ArtifactDecoratorManager {
   }
 
   /**
-   * Remove an artifact registration
-   */
+ * Remove an artifact registration and immediately update any open editors
+ */
   public unregisterArtifact(artifactId: string): void {
+    console.log(`[ArtifactDecoratorManager] Unregistering artifact: ${artifactId}`);
+
     // Remove issue associations
     this.artifactIssues.delete(artifactId);
 
-    // Remove from last accessed tracking
-    this.lastAccessedFrom.delete(artifactId);
+    // Remove from last accessed tracking (if you still have this)
+    if (this.lastAccessedFrom) {
+      this.lastAccessedFrom.delete(artifactId);
+    }
+
+    // Find all ranges for this artifact to clear them
+    const rangesToClear = new Map<string, vscode.Range[]>();
 
     // Find and remove all ranges for this artifact
     for (const [uriString, fileData] of this.artifactRanges.entries()) {
+      // Find ranges for this artifact
+      const artifactRanges = fileData.ranges
+        .filter(r => r.artifactId === artifactId)
+        .map(r => r.range);
+
+      if (artifactRanges.length > 0) {
+        rangesToClear.set(uriString, artifactRanges);
+      }
+
       // Filter out ranges for this artifact
       const updatedRanges = fileData.ranges.filter(r => r.artifactId !== artifactId);
 
@@ -4116,10 +4135,30 @@ class ArtifactDecoratorManager {
       }
     }
 
-    // Reapply decorations
+    // Clear decorations from all visible editors
+    if (rangesToClear.size > 0) {
+      // Create an empty decoration type if needed
+      if (!this.decorationTypes.has('empty')) {
+        this.decorationTypes.set('empty', vscode.window.createTextEditorDecorationType({}));
+      }
+
+      // Get the empty decoration type
+      const emptyDecoration = this.decorationTypes.get('empty')!;
+
+      // For each editor, clear the decorations for the removed artifact
+      for (const editor of vscode.window.visibleTextEditors) {
+        const uriString = editor.document.uri.toString();
+
+        if (rangesToClear.has(uriString)) {
+          const ranges = rangesToClear.get(uriString)!;
+          editor.setDecorations(emptyDecoration, ranges);
+        }
+      }
+    }
+
+    // Reapply decorations to ensure proper redraw
     this.applyDecorationsToOpenEditors();
   }
-
   /**
    * Clear all artifact registrations
    */
@@ -4239,6 +4278,9 @@ class ArtifactDecoratorManager {
   /**
  * Create or get the decoration type for an artifact
  */
+  /**
+ * Create or get the decoration type for an artifact
+ */
   private getDecorationForArtifact(
     artifactId: string,
     issues: Array<{
@@ -4249,38 +4291,39 @@ class ArtifactDecoratorManager {
       iconPath?: string
     }>
   ): vscode.TextEditorDecorationType {
-    // Filter open issues
-    const openIssues = issues.filter(issue => issue.isOpen);
-
-    // Determine which icon to use
+    // Initialize icon variables with defaults
     let iconPath: string | undefined;
-    let iconColor: string = 'green';
+    let iconColor: string = 'green'; // Default to green
 
     // Only show count if there are ACTUALLY multiple issues
     // Use a Set to get the unique count of issue IDs
     const uniqueIssueIds = new Set(issues.map(issue => issue.issueId));
     const issueCount = uniqueIssueIds.size > 1 ? uniqueIssueIds.size : 0;
 
-    // Determine which icon to use, prioritizing:
-    // 1. Currently selected issue
-    // 2. Open issues
-    // 3. Any other issue
+    // Prioritization logic:
+    // 1. Currently selected issue (highest priority, regardless of open/closed status)
+    // 2. Open issues (if no currently selected issue)
+    // 3. Any other issue (lowest priority)
 
-    // check if the currently selected issue is associated with this artifact
+    // First check if the currently selected issue is associated with this artifact
     const selectedIssue = issues.find(issue => issue.issueId === this.currentlySelectedIssueId);
     if (selectedIssue) {
+      // Always prioritize the selected issue, whether open or closed
       iconPath = selectedIssue.iconPath;
       iconColor = selectedIssue.isOpen ? 'green' : 'red';
     }
-    // check if there are any open issues
-    else if (openIssues.length > 0) {
-      iconPath = openIssues[0].iconPath;
-      iconColor = 'green'; // Open issues are green
-    }
-    // Otherwise use the first issue
-    else if (issues.length > 0) {
-      iconPath = issues[0].iconPath;
-      iconColor = issues[0].isOpen ? 'green' : 'red';
+    // If no selected issue, then check for open issues
+    else {
+      const openIssues = issues.filter(issue => issue.isOpen);
+      if (openIssues.length > 0) {
+        iconPath = openIssues[0].iconPath;
+        iconColor = 'green'; // Open issues are green
+      }
+      // Otherwise use the first issue if any
+      else if (issues.length > 0) {
+        iconPath = issues[0].iconPath;
+        iconColor = issues[0].isOpen ? 'green' : 'red';
+      }
     }
 
     // Create a unique key for the decoration type
@@ -4322,7 +4365,6 @@ class ArtifactDecoratorManager {
 
     return decorationType;
   }
-
   /**
    * Creates an inline SVG URI for the icon
    * This allows us to use SVG paths from the backend
