@@ -1,11 +1,6 @@
 <template>
   <div id="app" class="issue-details">
-    <!-- Show issue graph -->
-    <div class="showGraph">
-      <button class="graph-button" @click="openIssueGraph">
-        Graph
-      </button>
-    </div>
+
     <div v-if="issue" class="issue-container">
 
       <!-- Title Section with Edit Button -->
@@ -25,6 +20,10 @@
 
             <!-- Spacer to push the browser button to the right -->
             <div class="flex-spacer"></div>
+
+            <button class="open-in-browser-button compact-button" @click="openIssueGraph">
+              Graph
+            </button>
 
             <!-- Open in Browser Button - always on the right -->
             <button class="open-in-browser-button compact-button" @click="openInBrowser">
@@ -3532,14 +3531,12 @@ ul {
   background-color: var(--vscode-button-secondaryBackground, #2d2d2d);
   color: var(--vscode-button-secondaryForeground, #cccccc);
   border: none;
-  border-radius: 4px;
-  padding: 4px 8px;
-  font-size: 12px;
+  border-radius: 3px;
+  padding: 3px 8px;
+  font-size: 0.85em;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  height: 24px;
+  white-space: nowrap;
+  margin-right: 8px;
 }
 
 .graph-button:hover {
