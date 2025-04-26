@@ -12,16 +12,10 @@
    ```bash
    npm install
    ```
-
-3. **Build with Webpack**
-   ```bash
-   npm run compile
-   npm run webpack
-   ```
-
-4. **Launch in VS Code**
-   - Open the project in Visual Studio Code.
+   
+3. **Launch in VS Code**
    - Press **F5** to start a new VS Code instance with your extension (or application) loaded.
+   - Open a workspace in Visual Studio Code.
 
 ---
 
