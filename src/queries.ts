@@ -49,43 +49,6 @@ query GetArtifactsForTrackable($trackableId: ID!) {
 }
 `;
 
-export const GET_ARTIFACTS_FOR_ISSUE_WITH_ICON = `
-query GetArtifactsForIssueWithIcon($issueId: ID!) {
-  node(id: $issueId) {
-    ... on Issue {
-      id
-      title
-      type {
-        name
-        iconPath
-      }
-      state {
-        isOpen
-      }
-      incomingRelations {
-        totalCount
-      }
-      outgoingRelations {
-        totalCount
-      }
-      artefacts {
-        nodes {
-          id
-          file
-          from
-          to
-          version
-          templatedFields {
-            name
-            value
-          }
-        }
-      }
-    }
-  }
-}
-`;
-
 export const GET_ARTIFACTS_FOR_ISSUE = `
 query GetArtifactsForIssue($issueId: ID!) {
   node(id: $issueId) {

@@ -5,7 +5,6 @@ import { APIClient } from "./apiClient";
 import { loadConfigurations } from './mapping/config-loader';
 import {
   REMOVE_ARTIFACT_FROM_ISSUE_MUTATION,
-  GET_ARTIFACTS_FOR_ISSUE_WITH_ICON,
   GET_AVAILABLE_ARTIFACTS_FOR_TRACKABLES,
   FETCH_COMPONENT_VERSIONS_QUERY,
   FETCH_DYNAMIC_PROJECTS_QUERY,
@@ -176,14 +175,48 @@ async function loadAndRegisterOpenIssueArtifacts() {
  */
 async function loadAndRegisterIssueArtifacts(issueId: string) {
   try {
+    console.log(`[loadAndRegisterIssueArtifacts] Loading artifacts for issue ${issueId}...`);
+
     // Authenticate before making API calls
     await globalApiClient.authenticate();
 
     // Get the issue details with its artifacts - now including iconPath
-    const result = await globalApiClient.executeQuery(
-      GET_ARTIFACTS_FOR_ISSUE_WITH_ICON,
-      { issueId }
-    );
+    const result = await globalApiClient.executeQuery(`
+      query GetArtifactsForIssue($issueId: ID!) {
+        node(id: $issueId) {
+          ... on Issue {
+            id
+            title
+            type {
+              name
+              iconPath
+            }
+            state {
+              isOpen
+            }
+            incomingRelations {
+              totalCount
+            }
+            outgoingRelations {
+              totalCount
+            }
+            artefacts {
+              nodes {
+                id
+                file
+                from
+                to
+                version
+                templatedFields {
+                  name
+                  value
+                }
+              }
+            }
+          }
+        }
+      }
+    `, { issueId });
 
     // Process the result
     if (result.data?.node) {
@@ -496,8 +529,7 @@ export function activate(context: vscode.ExtensionContext) {
                 issueId: issueId,
                 issueType: issueDetailsResult.data?.node?.type?.name || 'Bug',
                 isOpen: issueDetailsResult.data?.node?.state?.isOpen || false,
-                title: issueDetailsResult.data?.node?.title || 'Unknown Issue',
-                iconPath: issueDetailsResult.data?.node?.type?.iconPath // Add this line
+                title: issueDetailsResult.data?.node?.title || 'Unknown Issue'
               }
             );
           }
@@ -2681,8 +2713,8 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
   }
 
   /**
- * Adds an artifact to an issue and immediately registers it for highlighting
- */
+   * Adds an artifact to an issue
+   */
   private async addArtifactToIssue(input: { issue: string, artefact: string }): Promise<any> {
     try {
       await this.apiClient.authenticate();
@@ -2700,63 +2732,13 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
         throw new Error('Failed to add artifact to issue: No confirmation data returned');
       }
 
-      // Now, fetch the full artifact and issue details to properly register the artifact
-      const artifactId = input.artefact;
-      const issueId = input.issue;
-
-      console.log(`[IssueDetailsProvider] Artifact ${artifactId} added to issue ${issueId}, registering for highlighting`);
-
-      // Fetch the artifact details to get file path, line numbers, etc.
-      const artifactResult = await this.apiClient.executeQuery(`
-      query GetArtifactDetails($artifactId: ID!) {
-        node(id: $artifactId) {
-          ... on Artefact {
-            id
-            file
-            from
-            to
-            version
-          }
-        }
-      }
-    `, { artifactId });
-
-      // Fetch the issue details to get type, state, icon path, etc.
-      const issueResult = await this.apiClient.executeQuery(
-        GET_ISSUE_DETAILS,
-        { id: issueId }
-      );
-
-      if (artifactResult.data?.node && issueResult.data?.node) {
-        const artifact = artifactResult.data.node;
-        const issue = issueResult.data.node;
-
-        // Register the artifact with the decorator manager
-        artifactDecoratorManager.registerArtifact(
-          artifactId,
-          artifact.file,
-          artifact.from,
-          artifact.to,
-          {
-            issueId: issueId,
-            issueType: issue.type.name,
-            isOpen: issue.state.isOpen,
-            title: issue.title,
-            iconPath: issue.type.iconPath
-          }
-        );
-
-        // Force complete decoration refresh for the affected file
-        const affectedUris = [artifact.file];
-        artifactDecoratorManager.simulateEditorReopen(affectedUris);
-      }
-
       return result.data.addArtefactToIssue.addedArtefactEvent;
     } catch (error) {
       console.error('[IssueDetailsProvider] Error in addArtifactToIssue:', error);
       throw error;
     }
   }
+
 
   /**
    * Removes an artifact from an issue
@@ -2777,9 +2759,6 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
       if (!result.data?.removeArtefactFromIssue?.removedArtefactEvent) {
         throw new Error('Failed to remove artifact from issue: No confirmation data returned');
       }
-
-      // Add this line to immediately unregister the artifact
-      artifactDecoratorManager.unregisterArtifact(input.artefact);
 
       return result.data.removeArtefactFromIssue.removedArtefactEvent;
     } catch (error) {
@@ -3940,8 +3919,9 @@ class ArtifactDecoratorManager {
   }
 
   /**
- * Sets the currently selected issue and forces a complete decoration refresh
- */
+   * Sets the currently selected issue and updates decorations
+   * @param issueId The ID of the currently selected issue
+   */
   public setCurrentIssue(issueId: string | null): void {
     // Skip if there's no change
     if (this.currentlySelectedIssueId === issueId) {
@@ -3950,79 +3930,19 @@ class ArtifactDecoratorManager {
 
     console.log(`[ArtifactDecoratorManager] Changing currently selected issue from ${this.currentlySelectedIssueId} to ${issueId}`);
 
-    // Store old issue ID
+    // Store old issue ID to clean up
     const oldIssueId = this.currentlySelectedIssueId;
 
     // Update the currently selected issue
     this.currentlySelectedIssueId = issueId;
 
-    // Collect all affected file URIs from both old and new issues
-    const affectedUris = new Set<string>();
-
-    // Find all artifacts affected by the old issue
+    // Clean up decorations from the old issue if it was closed
     if (oldIssueId) {
-      for (const [artifactId, issues] of this.artifactIssues.entries()) {
-        if (issues.some(issue => issue.issueId === oldIssueId)) {
-          // Find all files containing this artifact
-          for (const [uriString, fileData] of this.artifactRanges.entries()) {
-            if (fileData.ranges.some(r => r.artifactId === artifactId)) {
-              affectedUris.add(uriString);
-            }
-          }
-        }
-      }
+      this.cleanupClosedIssueArtifacts(oldIssueId);
     }
 
-    // Find all artifacts affected by the new issue
-    if (issueId) {
-      for (const [artifactId, issues] of this.artifactIssues.entries()) {
-        if (issues.some(issue => issue.issueId === issueId)) {
-          // Find all files containing this artifact
-          for (const [uriString, fileData] of this.artifactRanges.entries()) {
-            if (fileData.ranges.some(r => r.artifactId === artifactId)) {
-              affectedUris.add(uriString);
-            }
-          }
-        }
-      }
-    }
-
-    // Force complete decoration refresh for affected files
-    this.forceCompleteDecorationsRefresh(Array.from(affectedUris));
-  }
-
-  /**
- * Force a complete decoration refresh by disposing and recreating all decorations
- */
-  private forceCompleteDecorationsRefresh(affectedUris: string[]): void {
-    console.log(`[ArtifactDecoratorManager] Forcing complete decoration refresh for ${affectedUris.length} files`);
-
-    // Save current active editor and visible editors
-    const activeEditor = vscode.window.activeTextEditor;
-    const visibleEditors = vscode.window.visibleTextEditors;
-
-    for (const [key, decorationType] of this.decorationTypes.entries()) {
-      decorationType.dispose();
-    }
-
-    // Clear the decorations map
-    this.decorationTypes.clear();
-
-    // For each affected URI, find the editor and force a refresh
-    for (const uriString of affectedUris) {
-      // Find any editor showing this document
-      const editor = visibleEditors.find(e => e.document.uri.toString() === uriString);
-
-      if (editor) {
-        // Apply decorations to this editor
-        this.applyDecorationsToEditor(editor);
-      }
-    }
-
-    // 4. Finally, apply decorations to all visible editors to ensure everything is updated
-    setTimeout(() => {
-      this.applyDecorationsToOpenEditors();
-    }, 50);
+    // Re-apply decorations to reflect the change
+    this.applyDecorationsToOpenEditors();
   }
 
   /**
@@ -4212,33 +4132,17 @@ class ArtifactDecoratorManager {
   }
 
   /**
- * Remove an artifact registration and immediately update any open editors
- */
+   * Remove an artifact registration
+   */
   public unregisterArtifact(artifactId: string): void {
-    console.log(`[ArtifactDecoratorManager] Unregistering artifact: ${artifactId}`);
-
     // Remove issue associations
     this.artifactIssues.delete(artifactId);
 
-    // Remove from last accessed tracking (if you still have this)
-    if (this.lastAccessedFrom) {
-      this.lastAccessedFrom.delete(artifactId);
-    }
-
-    // Find all ranges for this artifact to clear them
-    const rangesToClear = new Map<string, vscode.Range[]>();
+    // Remove from last accessed tracking
+    this.lastAccessedFrom.delete(artifactId);
 
     // Find and remove all ranges for this artifact
     for (const [uriString, fileData] of this.artifactRanges.entries()) {
-      // Find ranges for this artifact
-      const artifactRanges = fileData.ranges
-        .filter(r => r.artifactId === artifactId)
-        .map(r => r.range);
-
-      if (artifactRanges.length > 0) {
-        rangesToClear.set(uriString, artifactRanges);
-      }
-
       // Filter out ranges for this artifact
       const updatedRanges = fileData.ranges.filter(r => r.artifactId !== artifactId);
 
@@ -4251,44 +4155,10 @@ class ArtifactDecoratorManager {
       }
     }
 
-    // Clear all existing decoration types to force a refresh
-    for (const [key, decorationType] of this.decorationTypes.entries()) {
-      // Don't dispose the empty decoration type if it exists
-      if (key !== 'empty') {
-        decorationType.dispose();
-        this.decorationTypes.delete(key);
-      }
-    }
-
-    // Create an empty decoration type if needed
-    if (!this.decorationTypes.has('empty')) {
-      this.decorationTypes.set('empty', vscode.window.createTextEditorDecorationType({}));
-    }
-
-    // Get the empty decoration type
-    const emptyDecoration = this.decorationTypes.get('empty')!;
-
-    // Clear all decorations from each visible editor
-    for (const editor of vscode.window.visibleTextEditors) {
-      const uriString = editor.document.uri.toString();
-
-      if (rangesToClear.has(uriString)) {
-        const ranges = rangesToClear.get(uriString)!;
-
-        // First clear the specific ranges
-        editor.setDecorations(emptyDecoration, ranges);
-
-        // Then force a refresh of all decorations
-        this.applyDecorationsToEditor(editor);
-      }
-      this.forceDecorationsRefresh();
-    }
-
-    // Finally, apply all decorations again to ensure everything is updated
-    setTimeout(() => {
-      this.applyDecorationsToOpenEditors();
-    }, 50); // Small delay to ensure the UI has time to process the clear command
+    // Reapply decorations
+    this.applyDecorationsToOpenEditors();
   }
+
   /**
    * Clear all artifact registrations
    */
@@ -4314,79 +4184,10 @@ class ArtifactDecoratorManager {
   /**
    * Apply decorations to all open editors
    */
-  /**
- * Apply decorations to all open editors
- */
   public applyDecorationsToOpenEditors(): void {
-    // First clear all decorations
-    this.clearAllDecorations();
-
-    // Small delay to ensure clear operation is processed
-    setTimeout(() => {
-      // Then reapply all decorations
-      vscode.window.visibleTextEditors.forEach(editor => {
-        this.applyDecorationsToEditor(editor);
-      });
-    }, 10);
-  }
-
-  /**
-   * Clear all decorations from all editors without removing registrations
-   */
-  private clearAllDecorations(): void {
-    // Create an empty decoration if needed
-    if (!this.decorationTypes.has('empty')) {
-      this.decorationTypes.set('empty', vscode.window.createTextEditorDecorationType({}));
-    }
-
-    const emptyDecoration = this.decorationTypes.get('empty')!;
-
-    // For each editor, clear all decorations
-    for (const editor of vscode.window.visibleTextEditors) {
-      const uriString = editor.document.uri.toString();
-
-      if (this.artifactRanges.has(uriString)) {
-        const allRanges = this.artifactRanges.get(uriString)!.ranges.map(r => r.range);
-        editor.setDecorations(emptyDecoration, allRanges);
-      }
-    }
-  }
-
-  /**
- * Emergency workaround to force VS Code to refresh decorations
- */
-  private forceDecorationsRefresh(): void {
-    // Save the active editor
-    const activeEditor = vscode.window.activeTextEditor;
-
-    // Get all visible text editors
-    const visibleEditors = [...vscode.window.visibleTextEditors];
-
-    // Force a selection change to trigger decoration refresh
-    if (activeEditor) {
-      const currentSelection = activeEditor.selection;
-      const tempSelection = new vscode.Selection(
-        currentSelection.start,
-        currentSelection.start
-      );
-
-      // Change selection then change it back
-      activeEditor.selection = tempSelection;
-
-      // After a small delay, restore the original selection
-      setTimeout(() => {
-        if (activeEditor === vscode.window.activeTextEditor) {
-          activeEditor.selection = currentSelection;
-        }
-      }, 10);
-    }
-
-    // Apply decorations to each editor
-    setTimeout(() => {
-      for (const editor of visibleEditors) {
-        this.applyDecorationsToEditor(editor);
-      }
-    }, 20);
+    vscode.window.visibleTextEditors.forEach(editor => {
+      this.applyDecorationsToEditor(editor);
+    });
   }
 
   private applyDecorationsToEditor(editor: vscode.TextEditor): void {
@@ -4475,11 +4276,8 @@ class ArtifactDecoratorManager {
   }
 
   /**
- * Create or get the decoration type for an artifact
- */
-  /**
- * Create or get the decoration type for an artifact
- */
+   * Create or get the decoration type for an artifact
+   */
   private getDecorationForArtifact(
     artifactId: string,
     issues: Array<{
@@ -4490,39 +4288,36 @@ class ArtifactDecoratorManager {
       iconPath?: string
     }>
   ): vscode.TextEditorDecorationType {
-    // Initialize icon variables with defaults
+    // Filter open issues
+    const openIssues = issues.filter(issue => issue.isOpen);
+
+    // Determine which icon to use
     let iconPath: string | undefined;
-    let iconColor: string = 'green'; // Default to green
+    let iconColor: string;
 
     // Only show count if there are ACTUALLY multiple issues
     // Use a Set to get the unique count of issue IDs
     const uniqueIssueIds = new Set(issues.map(issue => issue.issueId));
     const issueCount = uniqueIssueIds.size > 1 ? uniqueIssueIds.size : 0;
 
-    // Prioritization logic:
-    // 1. Currently selected issue (highest priority, regardless of open/closed status)
-    // 2. Open issues (if no currently selected issue)
-    // 3. Any other issue (lowest priority)
+    // If the artifact was last accessed from a specific issue, use that issue's type
+    const lastAccessedIssueId = this.lastAccessedFrom.get(artifactId);
 
-    // First check if the currently selected issue is associated with this artifact
-    const selectedIssue = issues.find(issue => issue.issueId === this.currentlySelectedIssueId);
-    if (selectedIssue) {
-      // Always prioritize the selected issue, whether open or closed
-      iconPath = selectedIssue.iconPath;
-      iconColor = selectedIssue.isOpen ? 'green' : 'red';
-    }
-    // If no selected issue, then check for open issues
-    else {
-      const openIssues = issues.filter(issue => issue.isOpen);
-      if (openIssues.length > 0) {
-        iconPath = openIssues[0].iconPath;
-        iconColor = 'green'; // Open issues are green
+    if (lastAccessedIssueId) {
+      // Find the last accessed issue
+      const lastAccessedIssue = issues.find(issue => issue.issueId === lastAccessedIssueId);
+
+      if (lastAccessedIssue) {
+        iconPath = lastAccessedIssue.iconPath;
+        iconColor = lastAccessedIssue.isOpen ? 'green' : 'red';
+      } else {
+        // Fallback to default selection logic if the last accessed issue is no longer associated
+        this.lastAccessedFrom.delete(artifactId);
+        [iconPath, iconColor] = this.selectIconTypeAndColor(openIssues, issues);
       }
-      // Otherwise use the first issue if any
-      else if (issues.length > 0) {
-        iconPath = issues[0].iconPath;
-        iconColor = issues[0].isOpen ? 'green' : 'red';
-      }
+    } else {
+      // Default selection logic
+      [iconPath, iconColor] = this.selectIconTypeAndColor(openIssues, issues);
     }
 
     // Create a unique key for the decoration type
@@ -4564,6 +4359,7 @@ class ArtifactDecoratorManager {
 
     return decorationType;
   }
+
   /**
    * Creates an inline SVG URI for the icon
    * This allows us to use SVG paths from the backend
@@ -4634,63 +4430,6 @@ class ArtifactDecoratorManager {
         return color === 'green' ? "exclamation-green.png" : "exclamation-red.png";
       default:
         return color === 'green' ? "bug-green.png" : "bug-red.png";
-    }
-  }
-
-  /**
- * Simulates closing and reopening editors to force decoration refresh
- * This is a public method that can be called from outside the class
- */
-  public async simulateEditorReopen(affectedUris: string[]): Promise<void> {
-    // Save active editor state
-    const activeEditor = vscode.window.activeTextEditor;
-    let activeUri: vscode.Uri | undefined;
-    let activeSelection: vscode.Selection | undefined;
-
-    if (activeEditor) {
-      activeUri = activeEditor.document.uri;
-      activeSelection = activeEditor.selection;
-    }
-
-    // For each affected URI, try to reload the document
-    for (const uriString of affectedUris) {
-      try {
-        const uri = vscode.Uri.parse(uriString);
-
-        // Find if this document is open in an editor
-        const editor = vscode.window.visibleTextEditors.find(e => e.document.uri.toString() === uriString);
-
-        if (editor) {
-          // Get document contents and metadata
-          const document = editor.document;
-          const viewState = editor.viewColumn;
-
-          // Close the document
-          await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
-
-          // Reopen the document
-          await vscode.window.showTextDocument(uri, { viewColumn: viewState });
-
-          // Apply decorations to the newly opened document
-          this.applyDecorationsToOpenEditors();
-        }
-      } catch (error) {
-        console.error(`[ArtifactDecoratorManager] Error simulating editor reopen for ${uriString}:`, error);
-      }
-    }
-
-    // Restore active editor if possible
-    if (activeUri) {
-      try {
-        const document = await vscode.workspace.openTextDocument(activeUri);
-        const editor = await vscode.window.showTextDocument(document);
-
-        if (activeSelection) {
-          editor.selection = activeSelection;
-        }
-      } catch (error) {
-        console.error('[ArtifactDecoratorManager] Error restoring active editor:', error);
-      }
     }
   }
 
