@@ -45,10 +45,27 @@
           "when": "editorHasSelection",
           "command": "extension.createStandaloneArtifact",
           "group": "gropius"
+        }, {
+          "command": "extension.moveArtifactIconUp",
+          "group": "navigation",
+          "when": "editorHasSelection && editorTextFocus"
+        },
+        {
+          "command": "extension.moveArtifactIconDown",
+          "group": "navigation",
+          "when": "editorHasSelection && editorTextFocus"
         }
       ]
     },
     "commands": [
+      {
+        "command": "extension.moveArtifactIconUp",
+        "title": "Move Artifact Icon Up"
+      },
+      {
+        "command": "extension.moveArtifactIconDown",
+        "title": "Move Artifact Icon Down"
+      },
       {
         "command": "extension.createStandaloneArtifact",
         "title": "Create Standalone Artifact"
@@ -86,7 +103,18 @@
         "command": "extension.showIssueGraph",
         "title": "Show Issue Graph"
       }
-    ]
+    ], "keybindings": [
+    {
+      "command": "extension.moveArtifactIconUp",
+      "key": "alt+shift+up",
+      "when": "editorTextFocus"
+    },
+    {
+      "command": "extension.moveArtifactIconDown",
+      "key": "alt+shift+down",
+      "when": "editorTextFocus"
+    }
+  ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",

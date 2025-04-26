@@ -86,6 +86,24 @@ query GetArtifactsForIssueWithIcon($issueId: ID!) {
 }
 `;
 
+export const UPDATE_ARTIFACT_LINES_MUTATION = `
+mutation UpdateArtifactLines($id: ID!, $from: Int, $to: Int) {
+  updateArtefact(input: {
+    id: $id,
+    from: $from,
+    to: $to
+  }) {
+    artefact {
+      id
+      file
+      from
+      to
+      version
+    }
+  }
+}
+`;
+
 export const GET_ARTIFACTS_FOR_ISSUE = `
 query GetArtifactsForIssue($issueId: ID!) {
   node(id: $issueId) {

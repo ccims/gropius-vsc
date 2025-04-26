@@ -50,7 +50,8 @@ import {
   GET_COMPONENTS_BY_IDS,
   GET_AVAILABLE_COMPONENTS,
   GET_AVAILABLE_PROJECTS,
-  GET_ARTIFACTS_FOR_TRACKABLE
+  GET_ARTIFACTS_FOR_TRACKABLE,
+  UPDATE_ARTIFACT_LINES_MUTATION
 } from "./queries";
 import path from "path";
 import { workerData } from "worker_threads";
@@ -220,6 +221,47 @@ async function loadAndRegisterIssueArtifacts(issueId: string) {
   }
 }
 
+// Helper function to move artifact at cursor position
+async function moveArtifactIconAtCursor(direction: 'up' | 'down'): Promise<void> {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    vscode.window.showWarningMessage('No active editor found.');
+    return;
+  }
+  
+  const cursorLine = editor.selection.active.line;
+  const uriString = editor.document.uri.toString();
+  
+  // Find artifacts at this line
+  const artifactsAtLine = artifactDecoratorManager.getArtifactsAtLine(uriString, cursorLine);
+  
+  if (artifactsAtLine.length === 0) {
+    vscode.window.showInformationMessage('No artifacts found at this line.');
+    return;
+  }
+  
+  if (artifactsAtLine.length === 1) {
+    // Only one artifact, move it directly
+    const artifact = artifactsAtLine[0];
+    await artifactDecoratorManager.moveArtifactIcon(artifact, direction);
+  } else {
+    // Multiple artifacts, ask user which one to move
+    const items = artifactsAtLine.map(artifact => ({
+      label: `Artifact ${artifact.id.substring(0, 8)}`,
+      description: `Lines ${artifact.from}-${artifact.to}`,
+      artifact
+    }));
+    
+    const selected = await vscode.window.showQuickPick(items, {
+      placeHolder: 'Select which artifact to move'
+    });
+    
+    if (selected) {
+      await artifactDecoratorManager.moveArtifactIcon(selected.artifact, direction);
+    }
+  }
+}
+
 
 /**
  * Registers all providers and commands in VS Code
@@ -233,6 +275,12 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand('extension.refreshArtifactHighlights', () => {
       loadAndRegisterOpenIssueArtifacts();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('extension.moveArtifactIcon', async (artifact, direction) => {
+      await artifactDecoratorManager.moveArtifactIcon(artifact, direction);
     })
   );
 
@@ -267,6 +315,8 @@ export function activate(context: vscode.ExtensionContext) {
       componentIssuesProvider.refreshCurrentIssues();
     })
   );
+
+
   // Register command to handle issue updates and propagate them to other views
   context.subscriptions.push(
     vscode.commands.registerCommand('extension.issueUpdated', (data) => {
@@ -517,6 +567,18 @@ export function activate(context: vscode.ExtensionContext) {
         console.error("[extension.createArtifact] Error:", error);
         vscode.window.showErrorMessage(`Error: ${error instanceof Error ? error.message : String(error)}`);
       }
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('extension.moveArtifactIconUp', async () => {
+      await moveArtifactIconAtCursor('up');
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('extension.moveArtifactIconDown', async () => {
+      await moveArtifactIconAtCursor('down');
     })
   );
 
@@ -3905,6 +3967,118 @@ class ArtifactDecoratorManager {
     }>
   }> = new Map();
 
+  /**
+ * Moves an artifact icon up or down and updates the backend
+ * @param artifactId The ID of the artifact to move
+ * @param direction 'up' or 'down' to move the icon
+ */
+  public async moveArtifactIcon(artifactData: { id: string, file: string, from: number, to: number }, direction: 'up' | 'down'): Promise<void> {
+    try {
+      // Extract artifact data
+      const { id, file, from, to } = artifactData;
+
+      // Calculate new line numbers
+      let newFrom = from;
+      let newTo = to;
+
+      if (direction === 'up') {
+        newFrom = Math.max(1, from - 1);
+        newTo = Math.max(1, to - 1);
+      } else if (direction === 'down') {
+        newFrom = from + 1;
+        newTo = to + 1;
+      }
+
+      console.log(`[ArtifactDecoratorManager] Moving artifact ${id} ${direction}: from ${from}-${to} to ${newFrom}-${newTo}`);
+
+      // Call the backend to update the artifact
+      await globalApiClient.authenticate();
+      const result = await globalApiClient.executeQuery(
+        UPDATE_ARTIFACT_LINES_MUTATION,
+        {
+          id,
+          from: newFrom,
+          to: newTo
+        }
+      );
+
+      if (result.errors) {
+        throw new Error(result.errors[0].message);
+      }
+
+      const updatedArtifact = result.data?.updateArtefact?.artefact;
+
+      if (!updatedArtifact) {
+        throw new Error('Failed to update artifact: No data returned');
+      }
+
+      console.log(`[ArtifactDecoratorManager] Successfully updated artifact to ${updatedArtifact.from}-${updatedArtifact.to}`);
+
+      // Update our local tracking of the artifact
+      this.updateArtifactRanges(id, file, from, to, updatedArtifact.from, updatedArtifact.to);
+
+      // Refresh decorations in all editors
+      this.clearAllDecorations();
+      this.applyDecorationsToOpenEditors();
+
+      // Notify the issue details view to refresh artifact list
+      vscode.commands.executeCommand('extension.refreshCurrentIssue');
+
+      // Show confirmation
+      vscode.window.showInformationMessage(`Artifact moved to lines ${updatedArtifact.from}-${updatedArtifact.to}`);
+
+    } catch (error) {
+      console.error(`[ArtifactDecoratorManager] Error moving artifact:`, error);
+      vscode.window.showErrorMessage(`Failed to move artifact: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * Updates the internal tracking of artifact ranges after a move
+   */
+  private updateArtifactRanges(
+    artifactId: string,
+    fileUri: string,
+    oldFrom: number,
+    oldTo: number,
+    newFrom: number,
+    newTo: number
+  ): void {
+    const uriString = fileUri.toString();
+
+    if (!this.artifactRanges.has(uriString)) {
+      console.warn(`[ArtifactDecoratorManager] Cannot update artifact ranges: file ${uriString} not found`);
+      return;
+    }
+
+    const fileData = this.artifactRanges.get(uriString)!;
+
+    // Find the ranges for this artifact
+    for (let i = 0; i < fileData.ranges.length; i++) {
+      const rangeData = fileData.ranges[i];
+
+      if (rangeData.artifactId === artifactId) {
+        // Check if this is a start or end line
+        const isStartLine = rangeData.range.start.line === oldFrom - 1;
+        const isEndLine = rangeData.range.end.line === oldTo - 1;
+
+        if (isStartLine || isEndLine) {
+          // Create a new range with updated line numbers
+          const newRange = new vscode.Range(
+            isStartLine ? new vscode.Position(newFrom - 1, 0) : rangeData.range.start,
+            isEndLine ? new vscode.Position(newTo - 1, Number.MAX_SAFE_INTEGER) : rangeData.range.end
+          );
+
+          // Update the range
+          fileData.ranges[i] = {
+            artifactId,
+            range: newRange
+          };
+        }
+      }
+    }
+  }
+
   // Map of artifact ID to associated issues data
   private artifactIssues: Map<string, Array<{
     issueId: string,
@@ -4477,9 +4651,6 @@ class ArtifactDecoratorManager {
   /**
  * Create or get the decoration type for an artifact
  */
-  /**
- * Create or get the decoration type for an artifact
- */
   private getDecorationForArtifact(
     artifactId: string,
     issues: Array<{
@@ -4693,6 +4864,45 @@ class ArtifactDecoratorManager {
       }
     }
   }
+
+  /**
+ * Gets all artifacts at a specific line
+ */
+public getArtifactsAtLine(uriString: string, line: number): Array<{ id: string, file: string, from: number, to: number }> {
+  const result: Array<{ id: string, file: string, from: number, to: number }> = [];
+  
+  if (!this.artifactRanges.has(uriString)) {
+    return result;
+  }
+  
+  const fileData = this.artifactRanges.get(uriString)!;
+  
+  // Find all artifacts that have ranges containing this line
+  for (const rangeData of fileData.ranges) {
+    const range = rangeData.range;
+    
+    // Check if this line is the start or end of the range
+    if (range.start.line === line || range.end.line === line) {
+      const artifactId = rangeData.artifactId;
+      
+      // Get the 1-based line numbers
+      const from = range.start.line + 1;
+      const to = range.end.line + 1;
+      
+      // Add to result if not already included
+      if (!result.some(a => a.id === artifactId)) {
+        result.push({
+          id: artifactId,
+          file: uriString,
+          from,
+          to
+        });
+      }
+    }
+  }
+  
+  return result;
+}
 
   /**
    * Dispose all decoration types
