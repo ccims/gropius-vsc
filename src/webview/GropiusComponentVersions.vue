@@ -260,7 +260,7 @@ export default defineComponent({
 <style>
 .webview-root {
   margin: 0;
-  padding: 0 12px;
+  padding: 0 0 0 12px;
   text-align: left;
   display: block;
   max-width: 100%;
@@ -296,11 +296,14 @@ export default defineComponent({
 .tree-node {
     display: flex;
     align-items: center;
-    padding: 0 8px;
+    padding: 0 4px 0 8px;
     height: 22px;
     line-height: 22px;
     font-size: var(--vscode-font-size);
     cursor: pointer;
+    width: 100%;
+    box-sizing: border-box;
+    justify-content: space-between;
 }
 
 .tree-node:hover {
@@ -340,16 +343,16 @@ export default defineComponent({
 }
 
 .node-name {
-    flex-grow: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .version-tags {
     display: flex;
     flex-wrap: wrap;
     gap: 4px;
+    margin-left: auto;
 }
 
 .version-tag {
