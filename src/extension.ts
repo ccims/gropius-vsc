@@ -5,6 +5,7 @@ import { APIClient } from "./apiClient";
 import { loadConfigurations } from './mapping/config-loader';
 import {
   REMOVE_ARTIFACT_FROM_ISSUE_MUTATION,
+  GET_ARTIFACTS_FOR_ISSUE_WITH_ICON,
   GET_AVAILABLE_ARTIFACTS_FOR_TRACKABLES,
   FETCH_COMPONENT_VERSIONS_QUERY,
   FETCH_DYNAMIC_PROJECTS_QUERY,
@@ -179,42 +180,10 @@ async function loadAndRegisterIssueArtifacts(issueId: string) {
     await globalApiClient.authenticate();
 
     // Get the issue details with its artifacts - now including iconPath
-    const result = await globalApiClient.executeQuery(`
-      query GetArtifactsForIssue($issueId: ID!) {
-        node(id: $issueId) {
-          ... on Issue {
-            id
-            title
-            type {
-              name
-              iconPath
-            }
-            state {
-              isOpen
-            }
-            incomingRelations {
-              totalCount
-            }
-            outgoingRelations {
-              totalCount
-            }
-            artefacts {
-              nodes {
-                id
-                file
-                from
-                to
-                version
-                templatedFields {
-                  name
-                  value
-                }
-              }
-            }
-          }
-        }
-      }
-    `, { issueId });
+    const result = await globalApiClient.executeQuery(
+      GET_ARTIFACTS_FOR_ISSUE_WITH_ICON, 
+      { issueId }
+    );
 
     // Process the result
     if (result.data?.node) {
