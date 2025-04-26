@@ -12,7 +12,6 @@ module.exports = {
         gropiusComponentVersions: './src/webview/gropius-component-versions.ts',
         componentIssues: './src/webview/componentIssues.ts',
         issueDetails: './src/webview/issueDetails.ts',
-        graphEditor: './src/webview/graph-editor.ts',
         graphWorkspaceEditor: './src/webview/GraphWorkspace.ts',
         graphIssueEditor: './src/webview/GraphIssue.ts'
     },
