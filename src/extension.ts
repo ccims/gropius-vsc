@@ -3890,23 +3890,89 @@ class ArtifactDecoratorManager {
   }
 
   /**
-   * Sets the currently selected issue and updates decorations
-   * @param issueId The ID of the currently selected issue
-   */
+ * Sets the currently selected issue and forces a complete decoration refresh
+ */
   public setCurrentIssue(issueId: string | null): void {
     // Skip if there's no change
     if (this.currentlySelectedIssueId === issueId) {
       return;
     }
 
-    // Store old issue ID to clean up
+    console.log(`[ArtifactDecoratorManager] Changing currently selected issue from ${this.currentlySelectedIssueId} to ${issueId}`);
+
+    // Store old issue ID
     const oldIssueId = this.currentlySelectedIssueId;
 
     // Update the currently selected issue
     this.currentlySelectedIssueId = issueId;
 
-    // Re-apply decorations to reflect the change
-    this.applyDecorationsToOpenEditors();
+    // Collect all affected file URIs from both old and new issues
+    const affectedUris = new Set<string>();
+
+    // Find all artifacts affected by the old issue
+    if (oldIssueId) {
+      for (const [artifactId, issues] of this.artifactIssues.entries()) {
+        if (issues.some(issue => issue.issueId === oldIssueId)) {
+          // Find all files containing this artifact
+          for (const [uriString, fileData] of this.artifactRanges.entries()) {
+            if (fileData.ranges.some(r => r.artifactId === artifactId)) {
+              affectedUris.add(uriString);
+            }
+          }
+        }
+      }
+    }
+
+    // Find all artifacts affected by the new issue
+    if (issueId) {
+      for (const [artifactId, issues] of this.artifactIssues.entries()) {
+        if (issues.some(issue => issue.issueId === issueId)) {
+          // Find all files containing this artifact
+          for (const [uriString, fileData] of this.artifactRanges.entries()) {
+            if (fileData.ranges.some(r => r.artifactId === artifactId)) {
+              affectedUris.add(uriString);
+            }
+          }
+        }
+      }
+    }
+
+    // Force complete decoration refresh for affected files
+    this.forceCompleteDecorationsRefresh(Array.from(affectedUris));
+  }
+
+  /**
+ * Force a complete decoration refresh by disposing and recreating all decorations
+ */
+  private forceCompleteDecorationsRefresh(affectedUris: string[]): void {
+    console.log(`[ArtifactDecoratorManager] Forcing complete decoration refresh for ${affectedUris.length} files`);
+
+    // Save current active editor and visible editors
+    const activeEditor = vscode.window.activeTextEditor;
+    const visibleEditors = vscode.window.visibleTextEditors;
+
+    for (const [key, decorationType] of this.decorationTypes.entries()) {
+      decorationType.dispose();
+    }
+
+    // Clear the decorations map
+    this.decorationTypes.clear();
+
+    // For each affected URI, find the editor and force a refresh
+    for (const uriString of affectedUris) {
+      // Find any editor showing this document
+      const editor = visibleEditors.find(e => e.document.uri.toString() === uriString);
+
+      if (editor) {
+        // Apply decorations to this editor
+        this.applyDecorationsToEditor(editor);
+      }
+    }
+
+    // 4. Finally, apply decorations to all visible editors to ensure everything is updated
+    setTimeout(() => {
+      this.applyDecorationsToOpenEditors();
+    }, 50);
   }
 
   /**
@@ -4135,29 +4201,43 @@ class ArtifactDecoratorManager {
       }
     }
 
-    // Clear decorations from all visible editors
-    if (rangesToClear.size > 0) {
-      // Create an empty decoration type if needed
-      if (!this.decorationTypes.has('empty')) {
-        this.decorationTypes.set('empty', vscode.window.createTextEditorDecorationType({}));
-      }
-
-      // Get the empty decoration type
-      const emptyDecoration = this.decorationTypes.get('empty')!;
-
-      // For each editor, clear the decorations for the removed artifact
-      for (const editor of vscode.window.visibleTextEditors) {
-        const uriString = editor.document.uri.toString();
-
-        if (rangesToClear.has(uriString)) {
-          const ranges = rangesToClear.get(uriString)!;
-          editor.setDecorations(emptyDecoration, ranges);
-        }
+    // Clear all existing decoration types to force a refresh
+    for (const [key, decorationType] of this.decorationTypes.entries()) {
+      // Don't dispose the empty decoration type if it exists
+      if (key !== 'empty') {
+        decorationType.dispose();
+        this.decorationTypes.delete(key);
       }
     }
 
-    // Reapply decorations to ensure proper redraw
-    this.applyDecorationsToOpenEditors();
+    // Create an empty decoration type if needed
+    if (!this.decorationTypes.has('empty')) {
+      this.decorationTypes.set('empty', vscode.window.createTextEditorDecorationType({}));
+    }
+
+    // Get the empty decoration type
+    const emptyDecoration = this.decorationTypes.get('empty')!;
+
+    // Clear all decorations from each visible editor
+    for (const editor of vscode.window.visibleTextEditors) {
+      const uriString = editor.document.uri.toString();
+
+      if (rangesToClear.has(uriString)) {
+        const ranges = rangesToClear.get(uriString)!;
+
+        // First clear the specific ranges
+        editor.setDecorations(emptyDecoration, ranges);
+
+        // Then force a refresh of all decorations
+        this.applyDecorationsToEditor(editor);
+      }
+      this.forceDecorationsRefresh();
+    }
+
+    // Finally, apply all decorations again to ensure everything is updated
+    setTimeout(() => {
+      this.applyDecorationsToOpenEditors();
+    }, 50); // Small delay to ensure the UI has time to process the clear command
   }
   /**
    * Clear all artifact registrations
@@ -4184,10 +4264,79 @@ class ArtifactDecoratorManager {
   /**
    * Apply decorations to all open editors
    */
+  /**
+ * Apply decorations to all open editors
+ */
   public applyDecorationsToOpenEditors(): void {
-    vscode.window.visibleTextEditors.forEach(editor => {
-      this.applyDecorationsToEditor(editor);
-    });
+    // First clear all decorations
+    this.clearAllDecorations();
+
+    // Small delay to ensure clear operation is processed
+    setTimeout(() => {
+      // Then reapply all decorations
+      vscode.window.visibleTextEditors.forEach(editor => {
+        this.applyDecorationsToEditor(editor);
+      });
+    }, 10);
+  }
+
+  /**
+   * Clear all decorations from all editors without removing registrations
+   */
+  private clearAllDecorations(): void {
+    // Create an empty decoration if needed
+    if (!this.decorationTypes.has('empty')) {
+      this.decorationTypes.set('empty', vscode.window.createTextEditorDecorationType({}));
+    }
+
+    const emptyDecoration = this.decorationTypes.get('empty')!;
+
+    // For each editor, clear all decorations
+    for (const editor of vscode.window.visibleTextEditors) {
+      const uriString = editor.document.uri.toString();
+
+      if (this.artifactRanges.has(uriString)) {
+        const allRanges = this.artifactRanges.get(uriString)!.ranges.map(r => r.range);
+        editor.setDecorations(emptyDecoration, allRanges);
+      }
+    }
+  }
+
+  /**
+ * Emergency workaround to force VS Code to refresh decorations
+ */
+  private forceDecorationsRefresh(): void {
+    // Save the active editor
+    const activeEditor = vscode.window.activeTextEditor;
+
+    // Get all visible text editors
+    const visibleEditors = [...vscode.window.visibleTextEditors];
+
+    // Force a selection change to trigger decoration refresh
+    if (activeEditor) {
+      const currentSelection = activeEditor.selection;
+      const tempSelection = new vscode.Selection(
+        currentSelection.start,
+        currentSelection.start
+      );
+
+      // Change selection then change it back
+      activeEditor.selection = tempSelection;
+
+      // After a small delay, restore the original selection
+      setTimeout(() => {
+        if (activeEditor === vscode.window.activeTextEditor) {
+          activeEditor.selection = currentSelection;
+        }
+      }, 10);
+    }
+
+    // Apply decorations to each editor
+    setTimeout(() => {
+      for (const editor of visibleEditors) {
+        this.applyDecorationsToEditor(editor);
+      }
+    }, 20);
   }
 
   private applyDecorationsToEditor(editor: vscode.TextEditor): void {
