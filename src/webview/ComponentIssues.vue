@@ -1211,9 +1211,7 @@ export default {
       }
     }, 
     getRelationalIconPathFor(someIssue) {
-      console.log("Start getRelationalIconPathFor.");
       if (!someIssue) {
-        console.log("There is no issue for Relation icon!!!");
         return new URL("../../resources/icons/none.png", import.meta.url).href;
       }
       const hasIncoming = someIssue.incomingRelations && someIssue.incomingRelations.totalCount > 0;
@@ -1226,7 +1224,6 @@ export default {
       } else if (hasOutgoing) {
         return new URL("../../resources/icons/outgoing.png", import.meta.url).href;
       }
-      console.log("END getRelationaliconPathFor with none.png");
       return new URL("../../resources/icons/none.png", import.meta.url).href;
     },
   }
