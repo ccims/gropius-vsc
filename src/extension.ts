@@ -2681,8 +2681,8 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
   }
 
   /**
-   * Adds an artifact to an issue
-   */
+ * Adds an artifact to an issue and immediately registers it for highlighting
+ */
   private async addArtifactToIssue(input: { issue: string, artefact: string }): Promise<any> {
     try {
       await this.apiClient.authenticate();
@@ -2700,13 +2700,63 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
         throw new Error('Failed to add artifact to issue: No confirmation data returned');
       }
 
+      // Now, fetch the full artifact and issue details to properly register the artifact
+      const artifactId = input.artefact;
+      const issueId = input.issue;
+
+      console.log(`[IssueDetailsProvider] Artifact ${artifactId} added to issue ${issueId}, registering for highlighting`);
+
+      // Fetch the artifact details to get file path, line numbers, etc.
+      const artifactResult = await this.apiClient.executeQuery(`
+      query GetArtifactDetails($artifactId: ID!) {
+        node(id: $artifactId) {
+          ... on Artefact {
+            id
+            file
+            from
+            to
+            version
+          }
+        }
+      }
+    `, { artifactId });
+
+      // Fetch the issue details to get type, state, icon path, etc.
+      const issueResult = await this.apiClient.executeQuery(
+        GET_ISSUE_DETAILS,
+        { id: issueId }
+      );
+
+      if (artifactResult.data?.node && issueResult.data?.node) {
+        const artifact = artifactResult.data.node;
+        const issue = issueResult.data.node;
+
+        // Register the artifact with the decorator manager
+        artifactDecoratorManager.registerArtifact(
+          artifactId,
+          artifact.file,
+          artifact.from,
+          artifact.to,
+          {
+            issueId: issueId,
+            issueType: issue.type.name,
+            isOpen: issue.state.isOpen,
+            title: issue.title,
+            iconPath: issue.type.iconPath
+          }
+        );
+
+        // Force complete decoration refresh for the affected file
+        const affectedUris = [artifact.file];
+        artifactDecoratorManager.simulateEditorReopen(affectedUris);
+      }
+
       return result.data.addArtefactToIssue.addedArtefactEvent;
     } catch (error) {
       console.error('[IssueDetailsProvider] Error in addArtifactToIssue:', error);
       throw error;
     }
   }
-
 
   /**
    * Removes an artifact from an issue
@@ -4584,6 +4634,63 @@ class ArtifactDecoratorManager {
         return color === 'green' ? "exclamation-green.png" : "exclamation-red.png";
       default:
         return color === 'green' ? "bug-green.png" : "bug-red.png";
+    }
+  }
+
+  /**
+ * Simulates closing and reopening editors to force decoration refresh
+ * This is a public method that can be called from outside the class
+ */
+  public async simulateEditorReopen(affectedUris: string[]): Promise<void> {
+    // Save active editor state
+    const activeEditor = vscode.window.activeTextEditor;
+    let activeUri: vscode.Uri | undefined;
+    let activeSelection: vscode.Selection | undefined;
+
+    if (activeEditor) {
+      activeUri = activeEditor.document.uri;
+      activeSelection = activeEditor.selection;
+    }
+
+    // For each affected URI, try to reload the document
+    for (const uriString of affectedUris) {
+      try {
+        const uri = vscode.Uri.parse(uriString);
+
+        // Find if this document is open in an editor
+        const editor = vscode.window.visibleTextEditors.find(e => e.document.uri.toString() === uriString);
+
+        if (editor) {
+          // Get document contents and metadata
+          const document = editor.document;
+          const viewState = editor.viewColumn;
+
+          // Close the document
+          await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+
+          // Reopen the document
+          await vscode.window.showTextDocument(uri, { viewColumn: viewState });
+
+          // Apply decorations to the newly opened document
+          this.applyDecorationsToOpenEditors();
+        }
+      } catch (error) {
+        console.error(`[ArtifactDecoratorManager] Error simulating editor reopen for ${uriString}:`, error);
+      }
+    }
+
+    // Restore active editor if possible
+    if (activeUri) {
+      try {
+        const document = await vscode.workspace.openTextDocument(activeUri);
+        const editor = await vscode.window.showTextDocument(document);
+
+        if (activeSelection) {
+          editor.selection = activeSelection;
+        }
+      } catch (error) {
+        console.error('[ArtifactDecoratorManager] Error restoring active editor:', error);
+      }
     }
   }
 
