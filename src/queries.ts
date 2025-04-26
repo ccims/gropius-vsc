@@ -216,6 +216,18 @@ query GetIssuesOfComponent($id: ID!) {
           state {
             isOpen
           }
+          incomingRelations {
+            nodes {
+              id
+            }
+            totalCount
+          }
+          outgoingRelations {
+            nodes {
+              id
+            }
+            totalCount
+          }
         }
       }
     }

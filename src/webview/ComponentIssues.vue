@@ -74,7 +74,10 @@
     <ul v-if="filteredIssues.length" class="issues-list">
       <li v-for="issue in filteredIssues" :key="issue.id" class="issue-item" @click="openIssueDetails(issue.id)">
         <div class="issue-title-line">
-          <IssueIcon :issue="issue" class="issue-icon" />
+          <div class="icon-stack">
+            <IssueIcon :issue="issue" class="issue-icon" />
+            <img class="overlay-icon" .src="getRelationalIconPathFor(issue)" alt="" />
+          </div>
           <span class="issue-name">{{ issue.title }}</span>
           <span v-if="issueSourceMap[issue.id]?.versionOnly" class="version-badge"
             title="This issue affects only this version">V</span>
@@ -1191,7 +1194,26 @@ export default {
           sortOrder: this.sortOrder
         });
       }
-    }
+    },
+    getRelationalIconPathFor(someIssue) {
+      console.log("Start getRelationalIconPathFor.");
+      if (!someIssue) {
+        console.log("There is no issue for Relation icon!!!");
+        return new URL("../../resources/icons/none.png", import.meta.url).href;
+      }
+      const hasIncoming = someIssue.incomingRelations && someIssue.incomingRelations.totalCount > 0;
+      const hasOutgoing = someIssue.outgoingRelations && someIssue.outgoingRelations.totalCount > 0;
+
+      if (hasIncoming && hasOutgoing) {
+        return new URL("../../resources/icons/incoming-outgoing.png", import.meta.url).href;
+      } else if (hasIncoming) {
+        return new URL("../../resources/icons/incoming.png", import.meta.url).href;
+      } else if (hasOutgoing) {
+        return new URL("../../resources/icons/outgoing.png", import.meta.url).href;
+      }
+      console.log("END getRelationaliconPathFor with none.png");
+      return new URL("../../resources/icons/none.png", import.meta.url).href;
+    },
   }
 
 };
@@ -2059,5 +2081,23 @@ export default {
   width: 500px;
   height: 500px;
   flex-shrink: 0;
+}
+.icon-stack {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+.overlay-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.overlay-icon {
+  position: absolute;
+  top: 0;
+  left: 0;
 }
 </style>
