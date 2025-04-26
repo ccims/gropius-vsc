@@ -160,16 +160,3 @@ In addition, all relevant component versions of other issues that are related to
 Open the graph with the “Graph” button. This opens a window that displays the graph.
 #### Example graph
 ![Example Issue graph](./assets/image-6.png)
-
-## Project Graph View
-This is an overview of all existing projects. If you select a project, you can display the project graph.
-![Example Project Graph View](./assets/image-7.png)
-
-#### Example project graph
-![Example Project Graph](assets/image-8.png)
-* Shows the project graph for the project "Interface project"
-* There are all included component versions of the project
-* Includes
-	* Issues
-	* Component relations
-	* Interfaces
