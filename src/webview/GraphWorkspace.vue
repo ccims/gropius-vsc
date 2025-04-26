@@ -27,11 +27,6 @@ const props = defineProps({
 const editorId = ref(`workspace-graph-editor-${uuidv4()}`);
 const modelSource = shallowRef<CustomModelSource>();
 const workspaceData = ref<any>(null);
-const issueData = ref<any>(null);
-const showIssueRelations = ref(true);
-let workspaceComponentVersions: string[] = [];
-
-console.log("Start GraphWorkspace.vue.");
 
 class CustomModelSource extends GraphModelSource {
   protected override handleCreateRelation(context: CreateRelationContext): void {
@@ -66,10 +61,8 @@ async function autolayout(graph: Graph): Promise<GraphLayout> {
  * @param component 
  */
  function extractIssueTypes(componentversion: any) {
-  console.log("START extractIssueTypes!!!");
 
   if (!componentversion.aggregatedIssues.nodes.length) {
-    console.log("Nothing about ISSUES");
     return [];
   }
 
@@ -103,9 +96,7 @@ async function autolayout(graph: Graph): Promise<GraphLayout> {
  */
 
 function extractIssueRelations(componentVersion: any): any[] {
-  console.log("START extractIssueRelations");
   if (!componentVersion?.aggregatedIssues?.nodes) {
-    console.log('Skipping issue relations for', componentVersion?.id);
     return [];
   }  
   const aggregatedRelations = new Map<string, { start: string; end: string; count: number }>();
@@ -140,9 +131,7 @@ function extractIssueRelations(componentVersion: any): any[] {
  * @param componentVersion 
  */
 function extractRelations(componentVersion: any): any[] {
-  console.log("START extractRelations!");
   if (!componentVersion?.incomingRelations?.nodes) {
-    console.log('No relation on componentversion: ' + componentVersion?.id);
     return [];
   }
   const relations = new Map<string, { id: string; name: string; start: string; end: string; style: {}; contextMenu: {} }>();
@@ -177,19 +166,14 @@ function extractRelations(componentVersion: any): any[] {
 }
 
 function extractInterfaces(componentVersion: any): any []{
-  console.log("Start extractInterfaces");
   if(!componentVersion?.interfaceDefinitions?.nodes){
-    console.log("No Interfaces for componentversion: " + componentVersion.id);
-    console.log("BREAK 1");
     return [];
   }
   const interfaceResult = new Map<string, { id: string; name: string; version: string; style: {}; issueTypes: any []; contextMenu: {} }>();
   componentVersion.interfaceDefinitions?.nodes.forEach((interfaceInstance: any) => {
     if(!interfaceInstance.visibleInterface.id) {
-      console.log("BREAK 4");
       return [];
     }
-    console.log("BREAK 2");
     const id = interfaceInstance.visibleInterface.id;
     const name = interfaceInstance.interfaceSpecificationVersion.interfaceSpecification.name;
     const version = interfaceInstance.interfaceSpecificationVersion.version;
@@ -207,7 +191,6 @@ function extractInterfaces(componentVersion: any): any []{
       contextMenu: contextMenu,
     });
   });
-  console.log("BREAK 3");
   const result = Array.from(interfaceResult.values())
   return result ?? [];
 }
@@ -227,7 +210,6 @@ function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout 
   const layout: GraphLayout = {};
 
   if (!workspace?.nodes) {
-    console.log("Something went wrong with workspace data in GraphWorkspace.vue");
     return { graph, layout };
   }
 
@@ -237,7 +219,6 @@ function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout 
         graph.issueRelations.push(...extractIssueRelations(version));
         graph.relations.push(...extractRelations(version));
         const compInterfaces = extractInterfaces(version);
-        console.log("Interface: " + JSON.stringify(compInterfaces));
         graph.components.push({
           id: version.id,
           name: component.name,
@@ -257,7 +238,6 @@ function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout 
         graph.issueRelations.push(...extractIssueRelations(version));
         graph.relations.push(...extractRelations(version));
         const compInterfaces = extractInterfaces(version);
-        console.log("Interface: " + JSON.stringify(compInterfaces[0]));
         graph.components.push({
           id: version.id,
           name: component.name,
@@ -274,39 +254,10 @@ function createGraphData(data: any = null): { graph: Graph; layout: GraphLayout 
       });
     }
 });
-
-console.log("__________________________________________");
-console.log("Komponenten: ");
-graph.components.forEach((component ) => {
-  console.log("ID: " + component.id);
-  console.log("Name: " + component.name);
-  console.log("Version: " + component.version);
-  //console.log("Style: " + component.style);
-  console.log("Interface: " + component.interfaces);
-  console.log("ISSUES: ");
-  component.issueTypes.forEach((issue) => {
-    console.log("IssueID: " + issue.id);
-    console.log( "Issuename: " + issue.name);
-    console.log("issue count: " + issue.count);
-    //console.log("issue iconpath :" + issue.iconPath);
-    console.log( "isOpen: " + issue.isOpen);
-  });
-  //console.log("contextmenu: " + component.contextMenu);
-});
-console.log("ISSUE RELATIONS: ");
-graph.issueRelations.forEach((relation) => {
-  console.log("IssueRelation START: " + relation.start);
-  console.log("IssueRelation END: " + relation.end);
-  console.log("IssueRelation COUNT: " + relation.count);
-});
-console.log("__________________________________________");
 // Filter the relations
 if (workspace.nodes.length > 0){
-  console.log("Start filter Relations");
-  console.log("workspace: " + JSON.stringify(workspace.nodes));
   graph.relations = filterRelations(graph.relations, getComponentVersion(workspace.nodes));
 }
-console.log(JSON.stringify(graph));
   return { graph, layout };
 }
 
@@ -348,7 +299,6 @@ function filterRelations(relations: any, values: any) : any[] {
 
 function handleMessage(event: MessageEvent) {
   const message = event.data;
-  console.log('Received message:', message);
   
   if (message.type === "workspaceData") {
     workspaceData.value = message.data;
@@ -374,7 +324,6 @@ async function updateGraph(data: any = null) {
 }
 
 onMounted(() => {
-  console.log('Component mounted, initializing...');
   
   const container = createContainer(editorId.value);
   container.bind(CustomModelSource).toSelf().inSingletonScope();
@@ -387,7 +336,6 @@ onMounted(() => {
   updateGraph();
 
   // Request project data
-  console.log('Sending ready message...');
   props.vscodeApi.postMessage({
     type: 'ready'
   });
