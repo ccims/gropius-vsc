@@ -3928,18 +3928,11 @@ class ArtifactDecoratorManager {
       return;
     }
 
-    console.log(`[ArtifactDecoratorManager] Changing currently selected issue from ${this.currentlySelectedIssueId} to ${issueId}`);
-
     // Store old issue ID to clean up
     const oldIssueId = this.currentlySelectedIssueId;
 
     // Update the currently selected issue
     this.currentlySelectedIssueId = issueId;
-
-    // Clean up decorations from the old issue if it was closed
-    if (oldIssueId) {
-      this.cleanupClosedIssueArtifacts(oldIssueId);
-    }
 
     // Re-apply decorations to reflect the change
     this.applyDecorationsToOpenEditors();
@@ -4276,8 +4269,8 @@ class ArtifactDecoratorManager {
   }
 
   /**
-   * Create or get the decoration type for an artifact
-   */
+ * Create or get the decoration type for an artifact
+ */
   private getDecorationForArtifact(
     artifactId: string,
     issues: Array<{
@@ -4293,31 +4286,33 @@ class ArtifactDecoratorManager {
 
     // Determine which icon to use
     let iconPath: string | undefined;
-    let iconColor: string;
+    let iconColor: string = 'green';
 
     // Only show count if there are ACTUALLY multiple issues
     // Use a Set to get the unique count of issue IDs
     const uniqueIssueIds = new Set(issues.map(issue => issue.issueId));
     const issueCount = uniqueIssueIds.size > 1 ? uniqueIssueIds.size : 0;
 
-    // If the artifact was last accessed from a specific issue, use that issue's type
-    const lastAccessedIssueId = this.lastAccessedFrom.get(artifactId);
+    // Determine which icon to use, prioritizing:
+    // 1. Currently selected issue
+    // 2. Open issues
+    // 3. Any other issue
 
-    if (lastAccessedIssueId) {
-      // Find the last accessed issue
-      const lastAccessedIssue = issues.find(issue => issue.issueId === lastAccessedIssueId);
-
-      if (lastAccessedIssue) {
-        iconPath = lastAccessedIssue.iconPath;
-        iconColor = lastAccessedIssue.isOpen ? 'green' : 'red';
-      } else {
-        // Fallback to default selection logic if the last accessed issue is no longer associated
-        this.lastAccessedFrom.delete(artifactId);
-        [iconPath, iconColor] = this.selectIconTypeAndColor(openIssues, issues);
-      }
-    } else {
-      // Default selection logic
-      [iconPath, iconColor] = this.selectIconTypeAndColor(openIssues, issues);
+    // check if the currently selected issue is associated with this artifact
+    const selectedIssue = issues.find(issue => issue.issueId === this.currentlySelectedIssueId);
+    if (selectedIssue) {
+      iconPath = selectedIssue.iconPath;
+      iconColor = selectedIssue.isOpen ? 'green' : 'red';
+    }
+    // check if there are any open issues
+    else if (openIssues.length > 0) {
+      iconPath = openIssues[0].iconPath;
+      iconColor = 'green'; // Open issues are green
+    }
+    // Otherwise use the first issue
+    else if (issues.length > 0) {
+      iconPath = issues[0].iconPath;
+      iconColor = issues[0].isOpen ? 'green' : 'red';
     }
 
     // Create a unique key for the decoration type
