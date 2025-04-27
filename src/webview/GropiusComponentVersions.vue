@@ -529,7 +529,7 @@ body {
 .version-toolbar {
   display: flex;
   /* justify-content: flex-end; */
-  margin: 8px;
+  margin: 4px 8px;
   align-items: center;
 }
 </style>

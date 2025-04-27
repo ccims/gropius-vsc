@@ -1220,7 +1220,6 @@ export default {
 #app {
   font-family: var(--vscode-font-family);
   color: var(--vscode-foreground);
-  padding: 8px;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -1232,7 +1231,7 @@ export default {
   display: flex;
   flex-wrap: nowrap;
   gap: 4px;
-  margin-bottom: 12px;
+  /* margin-bottom: 12px; */
   align-items: center;
   width: calc(100% - 16px);
   padding-right: 16px;
@@ -1243,6 +1242,7 @@ export default {
   flex: 1 1 auto;
   min-width: 100px;
   max-width: none;
+  position: relative;
 }
 
 .sort-dropdown,
@@ -1396,10 +1396,11 @@ export default {
   margin: 0;
   overflow-y: auto;
   flex-grow: 1;
+  padding-right: 16px
 }
 
 .issue-item {
-  padding: 8px 10px;
+  padding: 6px 10px 6px 2px;
   border-bottom: 1px solid var(--vscode-panel-border, rgba(255, 255, 255, 0.1));
   cursor: pointer;
 }
@@ -1879,6 +1880,7 @@ export default {
 /* Editor content area */
 .editor-content {
   padding: 0;
+  overflow: auto;
 }
 
 .github-textarea {
@@ -1888,13 +1890,18 @@ export default {
   max-height: 120px;
   padding: 8px 16px;
   border: none;
-  resize: vertical;
   background-color: var(--vscode-input-background, #252526);
   color: var(--vscode-input-foreground, #ccc);
   font-family: var(--vscode-font-family, sans-serif);
   font-size: var(--vscode-font-size, 13px);
   line-height: 1.5;
   overflow-y: auto;
+  width: 100%;
+  /* prevent overflow */
+  box-sizing: border-box;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  resize: vertical;
 }
 
 .github-textarea:focus {
@@ -2099,5 +2106,304 @@ export default {
   pointer-events: none; /* falls es nicht klickbar sein soll */
 }
 
+/* ========== Copied from global.css for ComponentIssues.vue ========== */
 
+/* Issue Icon (legacy styling, not used with icon stacking) */
+.issue-icon {
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+}
+
+/* ---------------- Issue Details Styling ---------------- */
+.issue-details {
+  color: var(--vscode-foreground);
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+  line-height: 1.5;
+  padding: 0 !important;
+  margin: 0 !important;
+  height: 100%;
+  width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+.issue-container {
+  display: flex;
+  flex-direction: column;
+  padding: 5px 5px 5px 0px;
+  gap: 5px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* -------- Issue Header (used in IssueDetails.vue) -------- */
+.issue-header {
+  display: flex;
+  align-items: center; /* Keeps icon and title on the same baseline */
+  gap: 8px;
+  margin-bottom: 8px;  /* Spacing below the header */
+  border-bottom: none; /* Removes the horizontal line */
+}
+
+.issue-title {
+  margin: 0;
+  font-size: 1.3em;
+  font-weight: 600;
+}
+
+.issue-id {
+  font-family: var(--vscode-editor-font-family);
+  font-size: 0.85em;
+  opacity: 0.8;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* ---------------- Sections ---------------- */
+.issue-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 0px;
+}
+
+.info-section {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--vscode-editor-background);
+  border-bottom: 1px solid var(--vscode-editor-lineHighlightBorder, rgba(255, 255, 255, 0.1));
+  padding: 6px 0;
+}
+
+.info-section[v-if="issue.body"] {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.info-section[v-if="issue.body"] .section-header {
+  margin-bottom: 4px;
+}
+
+.section-header {
+  font-weight: 600;
+  font-size: 0.95em;
+  color: var(--vscode-foreground);
+  margin-bottom: 8px;
+  margin-left: 10px;
+  padding-right: 10px;
+  white-space: nowrap;
+  min-width: auto;
+}
+
+.section-content {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: 10px;
+  padding-right: 10px;
+}
+
+/* ---------------- Badges ---------------- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+.type-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.9em;
+  background-color: rgba(0, 0, 0, 0.2);
+  color: white;
+  gap: 3px;
+}
+
+.type-icon {
+  width: 16px;
+  height: 16px;
+  opacity: 0.9;
+}
+
+.state-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-weight: normal;
+  background-color: rgba(0, 0, 0, 0.2);
+  white-space: nowrap;
+  gap: 3px;
+  min-width: fit-content;
+}
+
+.state-open {
+  color: #2ea043;
+}
+
+.state-completed,
+.state-not-planned {
+  color: #f85149;
+}
+
+.priority-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-weight: normal;
+  background-color: rgba(0, 0, 0, 0.2);
+  color: white;
+}
+
+.priority-icon {
+  width: 16px;
+  height: 16px;
+  opacity: 0.9;
+  margin-right: 6px;
+}
+
+.label-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.9em;
+  background-color: rgba(0, 0, 0, 0.2);
+  color: white;
+  white-space: nowrap;
+}
+
+/* ---------------- Entity Badges ---------------- */
+.entity-badge {
+  display: inline-flex;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.9em;
+  background-color: rgba(0, 0, 0, 0.2);
+  color: white;
+  white-space: nowrap;
+}
+
+.component-badge {
+  color: #f664e0;
+}
+
+.component-version-badge {
+  color: #4fc3f7;
+}
+
+.project-badge {
+  color: #81c784;
+}
+
+.interface-badge {
+  color: #ffb74d;
+}
+
+.interface-part-badge {
+  color: #ff8a65;
+}
+
+.generic-entity-badge {
+  color: #bdbdbd;
+}
+
+/* ---------------- Date Section ---------------- */
+.dates-section .section-content {
+  flex-direction: column;
+  gap: 4px;
+}
+
+.date-row {
+  display: flex;
+  font-size: 0.9em;
+}
+
+.date-label {
+  min-width: 120px;
+  font-weight: 500;
+}
+
+/* ---------------- Description ---------------- */
+.description-content {
+  display: block;
+  padding-right: 10px;
+}
+
+.description-text {
+  white-space: pre-wrap;
+  padding: 0;
+  margin-bottom: 0;
+}
+
+.description-text p {
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+.description-text > *:last-child {
+  margin-bottom: 0;
+}
+
+/* =================== Relations =================== */
+.relations-group {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.relations-group:first-child {
+  margin-top: 0;
+}
+
+.relations-subheader {
+  font-size: 0.9em;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.relations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.relation-item {
+  padding: 8px 10px;
+  background-color: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9em;
+}
+
+.relation-item:hover {
+  background-color: var(--vscode-list-hoverBackground);
+}
+
+/* =================== Empty and Error States =================== */
+.empty-state,
+.error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 32px;
+  text-align: center;
+  color: var(--vscode-descriptionForeground);
+}
+
+.error-icon {
+  font-size: 2em;
+  margin-bottom: 16px;
+}
+
+.error-message {
+  max-width: 300px;
+}
 </style>
