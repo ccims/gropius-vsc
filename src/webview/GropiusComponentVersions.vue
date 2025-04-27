@@ -1,251 +1,316 @@
 <template>
-    <link href="https://cdn.jsdelivr.net/npm/@vscode/codicons@latest/dist/codicon.css" rel="stylesheet" />
-    <div class="webview-root"> 
-        <!-- Show workspace graph -->
-        <div class="showGraph">
-            <div class="version-toolbar">
-              <button class="graph-button" @click="openWorkspaceGraph">
-                Graph
-              </button>
-            </div>
-        </div>
-        <div class="gropius-component-versions">
-            <div v-if="loading" class="loading">
-                <p>Loading component versions...</p>
-            </div>
-            <div v-else-if="treeItems.length === 0" class="empty-state">
-                <p>No component versions found. Please check your folder mappings.</p>
-            </div>
-            <div class="component-tree">
-                <div class="tree-item" v-for="(item, index) in treeItems" :key="index">
-                    <!-- Wrap both the node and its description in a single container -->
-                    <div class="node-container" @mouseenter="hoveredItem = item" @mouseleave="hoveredItem = null">
-                        <div class="tree-node" :class="{ 'has-children': item.children && item.children.length > 0 }"
-                            @click="handleNodeClick(item)">
-                            <!-- Use the VS Code codicon for twisties -->
-                            <span v-if="item.children && item.children.length > 0" class="twisty">
-                                <span v-if="item.expanded"
-                                    class="codicon codicon-chevron-down"></span>
-                                <span v-else class="codicon codicon-chevron-right"></span>
-                            </span>
-                            <img v-else class="custom-icon" :src="customIconPath" alt="Component"
-                                @error="handleImageError" />
+  <!-- Load VS Code’s codicon font library -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/@vscode/codicons@latest/dist/codicon.css"
+    rel="stylesheet"
+  />
 
-                            <span class="node-name">
-                                {{ item.name }}
-                            </span>
-
-                            <span class="version-tags">
-                                <span class="version-tag" v-for="(version, vIndex) in item.versions" :key="vIndex"
-                                    @click.stop="handleVersionClick(item, version, vIndex)" :class="{
-                                        'clicked': clickedVersion === `${item.id}-${version}-${vIndex}`,
-                                        'active': activeVersion === `${item.id}-${version}-${vIndex}`
-                                    }">
-                                    {{ version }}
-                                </span>
-                            </span>
-                        </div>
-
-                        <div class="description-panel" v-if="hoveredItem === item && item.description">
-                            {{ item.description }}
-                        </div>
-                    </div>
-
-                    <div class="children" v-if="item.expanded && item.children && item.children.length > 0">
-                        <div class="tree-item" v-for="(child, childIndex) in item.children" :key="childIndex">
-                            <!-- Same pattern for child nodes -->
-                            <div class="node-container" @mouseenter="hoveredItem = child" @mouseleave="hoveredItem = null">
-                                <div class="tree-node child-node" @click="handleNodeClick(child)">
-                                    <img class="custom-icon" :src="customIconPath" alt="Component"
-                                        @error="handleImageError" />
-
-                                    <span class="node-name">
-                                        {{ child.name }}
-                                    </span>
-
-                                    <span class="version-tags">
-                                        <span class="version-tag" v-for="(version, vIndex) in child.versions" :key="vIndex"
-                                            @click.stop="handleVersionClick(child, version, vIndex)" :class="{
-                                                'clicked': clickedVersion === `${child.id}-${version}-${vIndex}`,
-                                                'active': activeVersion === `${child.id}-${version}-${vIndex}`
-                                            }">
-                                            {{ version }}
-                                        </span>
-                                    </span>
-                                </div>
-
-                                <div class="description-panel" v-if="hoveredItem === child && child.description">
-                                    {{ child.description }}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+  <!-- Root wrapper for padding/scrolling -->
+  <div class="webview-root">
+    <!-- Workspace-graph button, wrapped in a flex toolbar -->
+    <div class="showGraph">
+      <div class="version-toolbar">
+        <button class="graph-button" @click="openWorkspaceGraph">
+          Graph
+        </button>
+      </div>
     </div>
+
+    <!-- Main component‐versions view -->
+    <div class="gropius-component-versions">
+      <!-- Loading indicator -->
+      <div v-if="loading" class="loading">
+        <p>Loading component versions…</p>
+      </div>
+
+      <!-- Empty state message -->
+      <div v-else-if="treeItems.length === 0" class="empty-state">
+        <p>No component versions found. Please check your folder mappings.</p>
+      </div>
+
+      <!-- Tree of component versions -->
+      <div class="component-tree">
+        <div
+          class="tree-item"
+          v-for="(item, index) in treeItems"
+          :key="index"
+        >
+          <!-- Wrap node + description so hover works on both -->
+          <div
+            class="node-container"
+            @mouseenter="hoveredItem = item"
+            @mouseleave="hoveredItem = null"
+          >
+            <!-- Row representing name + twistie + versions -->
+            <div
+              class="tree-node"
+              :class="{ 'has-children': item.children && item.children.length > 0 }"
+              @click="handleNodeClick(item)"
+            >
+              <!-- Expand/collapse twistie -->
+              <span v-if="item.children && item.children.length > 0" class="twisty">
+                <span v-if="item.expanded" class="codicon codicon-chevron-down"></span>
+                <span v-else class="codicon codicon-chevron-right"></span>
+              </span>
+
+              <!-- Fallback icon when no children -->
+              <img
+                v-else
+                class="custom-icon"
+                :src="customIconPath"
+                alt="Component"
+                @error="handleImageError"
+              />
+
+              <!-- Component name -->
+              <span class="node-name">
+                {{ item.name }}
+              </span>
+
+              <!-- Version badges -->
+              <span class="version-tags">
+                <span
+                  class="version-tag"
+                  v-for="(version, vIndex) in item.versions"
+                  :key="vIndex"
+                  @click.stop="handleVersionClick(item, version, vIndex)"
+                  :class="{
+                    clicked: clickedVersion === `${item.id}-${version}-${vIndex}`,
+                    active: activeVersion === `${item.id}-${version}-${vIndex}`
+                  }"
+                >
+                  {{ version }}
+                </span>
+              </span>
+            </div>
+
+            <!-- Description shown on hover -->
+            <div
+              class="description-panel"
+              v-if="hoveredItem === item && item.description"
+            >
+              {{ item.description }}
+            </div>
+          </div>
+
+          <!-- Render child nodes recursively -->
+          <div
+            class="children"
+            v-if="item.expanded && item.children && item.children.length > 0"
+          >
+            <div
+              class="tree-item"
+              v-for="(child, childIndex) in item.children"
+              :key="childIndex"
+            >
+              <div
+                class="node-container"
+                @mouseenter="hoveredItem = child"
+                @mouseleave="hoveredItem = null"
+              >
+                <div class="tree-node child-node" @click="handleNodeClick(child)">
+                  <img
+                    class="custom-icon"
+                    :src="customIconPath"
+                    alt="Component"
+                    @error="handleImageError"
+                  />
+
+                  <span class="node-name">
+                    {{ child.name }}
+                  </span>
+
+                  <span class="version-tags">
+                    <span
+                      class="version-tag"
+                      v-for="(version, vIndex) in child.versions"
+                      :key="vIndex"
+                      @click.stop="handleVersionClick(child, version, vIndex)"
+                      :class="{
+                        clicked: clickedVersion === `${child.id}-${version}-${vIndex}`,
+                        active: activeVersion === `${child.id}-${version}-${vIndex}`
+                      }"
+                    >
+                      {{ version }}
+                    </span>
+                  </span>
+                </div>
+
+                <div
+                  class="description-panel"
+                  v-if="hoveredItem === child && child.description"
+                >
+                  {{ child.description }}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script lang="ts">
 import { defineComponent, ref, onMounted } from 'vue';
 
 interface TreeItem {
-    id?: string; // optional property
-    componentVersionIds?: string[];
-    name: string;
-    description?: string;
-    versions?: string[];
-    children?: TreeItem[];
-    expanded: boolean;
+  id?: string;                // GraphQL node ID
+  componentVersionIds?: string[];
+  name: string;               // Display name
+  description?: string;
+  versions?: string[];
+  children?: TreeItem[];
+  expanded: boolean;          // UI state
 }
 
-// Acquire the vscode API
+// VS Code Webview API
 declare const acquireVsCodeApi: () => {
-    postMessage: (message: any) => void;
-    setState: (state: any) => void;
-    getState: () => any;
+  postMessage: (message: any) => void;
+  setState: (state: any) => void;
+  getState: () => any;
 };
-
 const vscode = acquireVsCodeApi();
 
 export default defineComponent({
-    name: 'GropiusComponentVersions',
-    setup() {
+  name: 'GropiusComponentVersions',
 
-        const activeVersion = ref<string | null>(null);
+  setup() {
+    // === Reactive state ===
+    const loading = ref(true);
+    const treeItems = ref<TreeItem[]>([]);
+    const customIconPath = ref((window as any).customIconPath || '');
+    const hoveredItem = ref<TreeItem | null>(null);
 
-        const loading = ref(true);
-        const treeItems = ref<TreeItem[]>([]);
-        const customIconPath = ref((window as any).customIconPath || '');
-        const hoveredItem = ref<TreeItem | null>(null);
+    const clickedVersion = ref<string | null>(null);
+    const clickFeedbackTimer = ref<number | null>(null);
 
-        const clickedVersion = ref<string | null>(null);
-        const clickFeedbackTimer = ref<number | null>(null);
+    const activeVersion = ref<string | null>(null);
+    const activeComponent = ref<string | null | undefined>(null);
 
-        const activeComponent = ref<string | null | undefined>(null);
+    // === Handlers ===
 
+    // When a version badge is clicked
+    const handleVersionClick = (
+      item: TreeItem,
+      version: string,
+      index: number
+    ) => {
+      const uniqueId = `${item.id}-${version}-${index}`;
+      const versionId = item.componentVersionIds?.[index];
 
-        // Handle version tag click
-        const handleVersionClick = (item: TreeItem, version: string, index: number) => {
-            const uniqueId = `${item.id}-${version}-${index}`;
-            const versionId = item.componentVersionIds && item.componentVersionIds[index];
+      // Show click feedback briefly
+      clickedVersion.value = uniqueId;
+      if (clickFeedbackTimer.value !== null) {
+        clearTimeout(clickFeedbackTimer.value);
+      }
+      clickFeedbackTimer.value = setTimeout(() => {
+        clickedVersion.value = null;
+      }, 500) as unknown as number;
 
+      activeVersion.value = uniqueId;
 
-            // Set temporary click feedback
-            clickedVersion.value = uniqueId;
-            if (clickFeedbackTimer.value !== null) {
-                clearTimeout(clickFeedbackTimer.value);
-            }
-            clickFeedbackTimer.value = setTimeout(() => {
-                clickedVersion.value = null;
-            }, 500) as unknown as number;
-
-            activeVersion.value = uniqueId;
-
-            if (versionId) {
-
-                vscode.postMessage({
-                command: 'showComponentVersionIssues',
-                data: {
-                    componentName: item.name,
-                    version: version,
-                    componentId: item.id,
-                    componentVersionId: versionId
-                }
-                });
-            } else {
-                console.error("[GropiusComponentVersions.vue] handleVersionClick: Missing versionId for", item);
-            }
-        };
-
-        const handleNodeClick = (item: TreeItem) => {
-            // If the item has children, toggle expansion
-            if (item.children && item.children.length > 0) {
-                toggleExpand(item);
-            }
-            // Otherwise, handle as component click
-            else if (item.id) {
-                handleComponentClick(item);
-            }
-        };
-
-        // Function to toggle the expanded state of a tree item
-        const toggleExpand = (item: TreeItem) => {
-            item.expanded = !item.expanded;
-        };
-
-        const handleImageError = (event: Event) => {
-            console.error('Failed to load icon:', customIconPath.value);
-            // Use a fallback icon if the image fails to load
-            (event.target as HTMLImageElement).style.display = 'none';
-        };
-
-        // handle component clicks
-        const handleComponentClick = (item: TreeItem) => {
-            activeComponent.value = item.id;
-            activeVersion.value = null;
-
-
-            if (item.id) {
-                vscode.postMessage({
-                command: 'showComponentIssues',
-                data: {
-                    componentName: item.name,
-                    componentId: item.id
-                }
-                });
-            } else {
-                console.error("[GropiusComponentVersions.vue] handleComponentClick: Missing componentId for", item);
-            }
-        };
-        const openWorkspaceGraph = () => {
-            if (vscode) {
-                vscode.postMessage({ command: "showWorkspaceGraph" });
-            }
-        };
-
-        onMounted(() => {
-            document.body.classList.add('vscode-codicon-host');
-            // Request component version data from the extension
-            vscode.postMessage({ command: 'getComponentVersions' });
-
-            // Listen for messages from the extension
-            window.addEventListener('message', event => {
-                const message = event.data;
-
-                if (message.command === 'componentVersionsData') {
-                    treeItems.value = message.data.map((item: any) => ({
-                        ...item,
-                        expanded: false
-                    }));
-                    loading.value = false;
-                }
-            });
+      if (versionId) {
+        vscode.postMessage({
+          command: 'showComponentVersionIssues',
+          data: {
+            componentName: item.name,
+            version,
+            componentId: item.id,
+            componentVersionId: versionId
+          }
         });
+      } else {
+        console.error(
+          "[GropiusComponentVersions.vue] handleVersionClick: Missing versionId for",
+          item
+        );
+      }
+    };
 
-        return {
-            loading,
-            treeItems,
-            toggleExpand,
-            customIconPath,
-            handleImageError,
-            hoveredItem,
-            clickedVersion,
-            handleVersionClick,
-            activeVersion,
-            activeComponent,
-            handleComponentClick,
-            handleNodeClick,
-            openWorkspaceGraph
-        };
-    }
+    // Click on the node row
+    const handleNodeClick = (item: TreeItem) => {
+      if (item.children?.length) {
+        toggleExpand(item);
+      } else if (item.id) {
+        handleComponentClick(item);
+      }
+    };
+
+    // Toggle expand/collapse of children
+    const toggleExpand = (item: TreeItem) => {
+      item.expanded = !item.expanded;
+    };
+
+    // Image load error fallback
+    const handleImageError = (event: Event) => {
+      console.error('Failed to load icon:', customIconPath.value);
+      (event.target as HTMLImageElement).style.display = 'none';
+    };
+
+    // Click on a component (no children)
+    const handleComponentClick = (item: TreeItem) => {
+      activeComponent.value = item.id;
+      activeVersion.value = null;
+      if (item.id) {
+        vscode.postMessage({
+          command: 'showComponentIssues',
+          data: {
+            componentName: item.name,
+            componentId: item.id
+          }
+        });
+      } else {
+        console.error(
+          "[GropiusComponentVersions.vue] handleComponentClick: Missing componentId for",
+          item
+        );
+      }
+    };
+
+    // Show the workspace-level graph
+    const openWorkspaceGraph = () => {
+      vscode.postMessage({ command: 'showWorkspaceGraph' });
+    };
+
+    // === Lifecycle ===
+    onMounted(() => {
+      document.body.classList.add('vscode-codicon-host');
+      vscode.postMessage({ command: 'getComponentVersions' });
+
+      window.addEventListener('message', event => {
+        const message = event.data;
+        if (message.command === 'componentVersionsData') {
+          // Initialize our tree
+          treeItems.value = message.data.map((item: any) => ({
+            ...item,
+            expanded: false
+          }));
+          loading.value = false;
+        }
+      });
+    });
+
+    return {
+      loading,
+      treeItems,
+      customIconPath,
+      hoveredItem,
+      clickedVersion,
+      activeVersion,
+      activeComponent,
+      handleVersionClick,
+      handleNodeClick,
+      handleImageError,
+      handleComponentClick,
+      openWorkspaceGraph
+    };
+  }
 });
 </script>
 
 <style>
-/* ============ global.css rules this component needs ============ */
 
-/* Explorer container styling */
 #app {
   font-family: var(--vscode-font-family, sans-serif);
   font-size: var(--vscode-font-size, 13px);
@@ -257,14 +322,11 @@ export default defineComponent({
   margin-left: -25px;
 }
 
-/* Reset list styling */
 ul {
   list-style: none;
   margin: 0;
   padding: 0;
 }
-
-/* ============ existing in-file styles ============ */
 
 body {
   padding: 0 0 0 25px !important;
@@ -290,14 +352,12 @@ body {
   color: var(--vscode-foreground);
 }
 
-.loading {
+.loading, .empty-state {
   text-align: center;
   padding: 20px;
 }
 
 .empty-state {
-  text-align: center;
-  padding: 20px;
   color: var(--vscode-disabledForeground);
 }
 
@@ -324,31 +384,20 @@ body {
 .codicon {
   font-family: 'codicon' !important;
   font-size: 16px;
-  font-style: normal;
-  font-weight: normal;
   display: inline-block;
-  text-decoration: none;
   width: 16px;
   height: 16px;
   line-height: 16px;
   margin-right: 4px;
-  text-align: center;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
   user-select: none;
 }
 
-.codicon-chevron-right:before {
-  content: "\ea6a";
-}
-
-.codicon-chevron-down:before {
-  content: "\ea69";
-}
+.codicon-chevron-right:before { content: "\ea6a"; }
+.codicon-chevron-down:before  { content: "\ea69"; }
 
 .custom-icon {
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
   margin-right: 6px;
 }
 
@@ -382,14 +431,14 @@ body {
 
 .version-tag:hover {
   background-color: var(--vscode-button-hoverBackground, #0e639c);
-  box-shadow: 0 0 0 1px rgba(0, 120, 212, 0.4);
+  box-shadow: 0 0 0 1px rgba(0,120,212,0.4);
   transform: translateY(-1px);
 }
 
 .version-tag.clicked {
   background-color: var(--vscode-button-background, #0e639c);
   transform: translateY(1px);
-  box-shadow: 0 0 0 1px rgba(0, 120, 212, 0.6);
+  box-shadow: 0 0 0 1px rgba(0,120,212,0.6);
 }
 
 .version-tag.active {
@@ -399,7 +448,6 @@ body {
 
 .children {
   margin-left: 16px;
-  margin-top: 0px;
 }
 
 .child-node {
@@ -415,30 +463,23 @@ body {
   margin-left: 2px;
   padding: 8px 12px;
   background-color: var(--vscode-editor-background);
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255,255,255,0.85);
   font-size: 12px;
   border-radius: 0 3px 3px 0;
   line-height: 1.6;
-  animation: fadeIn 0.2s ease-in;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
+  animation: slideUpFade 0.3s ease forwards;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
   cursor: text;
   user-select: text;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
   opacity: 0;
   transform: translateY(5px);
-  animation: slideUpFade 0.3s ease forwards;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
 @keyframes slideUpFade {
-  0% {
-    opacity: 0;
-    transform: translateY(5px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  0% { opacity: 0; transform: translateY(5px); }
+  100% { opacity: 1; transform: translateY(0); }
 }
 
 .twisty .codicon {
@@ -461,10 +502,11 @@ body {
   margin-right: 4px;
 }
 
-/* Workspace graph button */
+/* Workspace graph button container */
 .showGraph {
   position: relative;
 }
+
 .graph-button {
   background-color: var(--vscode-button-secondaryBackground, #2d2d2d);
   color: var(--vscode-button-secondaryForeground, #cccccc);
@@ -478,14 +520,16 @@ body {
   gap: 4px;
   height: 24px;
 }
+
 .graph-button:hover {
   background-color: var(--vscode-button-secondaryHoverBackground, #3d3d3d);
 }
 
+/* Flex wrapper for right-aligning the graph button */
 .version-toolbar {
   display: flex;
-  justify-content: flex-end;  /* pushes button to the right */
-  margin-bottom: 8px;         /* space below */
-  align-items: center;        /* if you have other items, keeps them centered vertically */
+  /* justify-content: flex-end; */
+  margin: 8px;
+  align-items: center;
 }
 </style>
