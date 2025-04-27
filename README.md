@@ -1,3 +1,10 @@
+# Running the Gropius Visual Studio Code Extension
+
+Before you start, note that **more detailed information** about the extension, its functionality, and usage can be found in the [Gropius VS Code Extension Wiki](https://github.com/ccims/gropius-vsc/wiki).  
+We highly recommend checking the [User Documentation](https://github.com/ccims/gropius-vsc/wiki/User-Documentation) to better understand the concepts and functionality behind the extension.
+
+---
+
 # How to Run the Application
 
 1. **Apply Credentials**
