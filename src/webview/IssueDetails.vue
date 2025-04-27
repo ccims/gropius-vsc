@@ -3926,13 +3926,13 @@ ul {
 .comments-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   width: 100%;
   margin-top: 8px;
 }
 
 .comment-item {
-  padding: 4px 6px;
+  padding: 4px 8px;
   margin-bottom: 4px;
   border-radius: 4px;
   background-color: var(--vscode-editor-background);
