@@ -3,9 +3,11 @@
     <div class="webview-root"> 
         <!-- Show workspace graph -->
         <div class="showGraph">
-            <button class="graph-button" @click="openWorkspaceGraph">
-            Graph
-            </button>
+            <div class="version-toolbar">
+              <button class="graph-button" @click="openWorkspaceGraph">
+                Graph
+              </button>
+            </div>
         </div>
         <div class="gropius-component-versions">
             <div v-if="loading" class="loading">
@@ -241,6 +243,28 @@ export default defineComponent({
 </script>
 
 <style>
+/* ============ global.css rules this component needs ============ */
+
+/* Explorer container styling */
+#app {
+  font-family: var(--vscode-font-family, sans-serif);
+  font-size: var(--vscode-font-size, 13px);
+  color: var(--vscode-foreground, #cccccc);
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  max-width: 100%;
+  margin-left: -25px;
+}
+
+/* Reset list styling */
+ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* ============ existing in-file styles ============ */
 
 body {
   padding: 0 0 0 25px !important;
@@ -255,78 +279,77 @@ body {
 }
 
 .node-container {
-    margin-bottom: 0;
-    cursor: pointer;
+  margin-bottom: 0;
+  cursor: pointer;
 }
 
 .gropius-component-versions {
-    padding: 0;
-    margin: 0;
-    font-family: var(--vscode-font-family);
-    color: var(--vscode-foreground);
+  padding: 0;
+  margin: 0;
+  font-family: var(--vscode-font-family);
+  color: var(--vscode-foreground);
 }
 
 .loading {
-    text-align: center;
-    padding: 20px;
+  text-align: center;
+  padding: 20px;
 }
 
 .empty-state {
-    text-align: center;
-    padding: 20px;
-    color: var(--vscode-disabledForeground);
+  text-align: center;
+  padding: 20px;
+  color: var(--vscode-disabledForeground);
 }
 
 .tree-item {
-    margin-bottom: 0px;
+  margin-bottom: 0px;
 }
 
 .tree-node {
-    display: flex;
-    align-items: center;
-    padding: 0 4px 0 8px;
-    height: 22px;
-    line-height: 22px;
-    font-size: var(--vscode-font-size);
-    cursor: pointer;
-    width: 100%;
-    box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  padding: 0 4px 0 8px;
+  height: 22px;
+  line-height: 22px;
+  font-size: var(--vscode-font-size);
+  cursor: pointer;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .tree-node:hover {
-    background-color: var(--vscode-list-hoverBackground);
+  background-color: var(--vscode-list-hoverBackground);
 }
 
-
 .codicon {
-    font-family: 'codicon' !important;
-    font-size: 16px;
-    font-style: normal;
-    font-weight: normal;
-    display: inline-block;
-    text-decoration: none;
-    width: 16px;
-    height: 16px;
-    line-height: 16px;
-    margin-right: 4px;
-    text-align: center;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    user-select: none;
+  font-family: 'codicon' !important;
+  font-size: 16px;
+  font-style: normal;
+  font-weight: normal;
+  display: inline-block;
+  text-decoration: none;
+  width: 16px;
+  height: 16px;
+  line-height: 16px;
+  margin-right: 4px;
+  text-align: center;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  user-select: none;
 }
 
 .codicon-chevron-right:before {
-    content: "\ea6a";
+  content: "\ea6a";
 }
 
 .codicon-chevron-down:before {
-    content: "\ea69";
+  content: "\ea69";
 }
 
 .custom-icon {
-    width: 16px;
-    height: 16px;
-    margin-right: 6px;
+  width: 16px;
+  height: 16px;
+  margin-right: 6px;
 }
 
 .node-name {
@@ -336,133 +359,111 @@ body {
 }
 
 .version-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-left: auto;
 }
 
 .version-tag {
-    background-color: var(--vscode-badge-background);
-    color: var(--vscode-badge-foreground);
-    padding: 0 4px;
-    border-radius: 4px;
-    font-size: 0.75em;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    border: 1px solid transparent;
-    height: 16px;
-    line-height: 1.4;
-    display: inline-flex;
-    align-items: center;
+  background-color: var(--vscode-badge-background);
+  color: var(--vscode-badge-foreground);
+  padding: 0 4px;
+  border-radius: 4px;
+  font-size: 0.75em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  height: 16px;
+  line-height: 1.4;
+  display: inline-flex;
+  align-items: center;
 }
 
 .version-tag:hover {
-    background-color: var(--vscode-button-hoverBackground, #0e639c);
-    box-shadow: 0 0 0 1px rgba(0, 120, 212, 0.4);
-    transform: translateY(-1px);
+  background-color: var(--vscode-button-hoverBackground, #0e639c);
+  box-shadow: 0 0 0 1px rgba(0, 120, 212, 0.4);
+  transform: translateY(-1px);
 }
 
 .version-tag.clicked {
-    background-color: var(--vscode-button-background, #0e639c);
-    transform: translateY(1px);
-    box-shadow: 0 0 0 1px rgba(0, 120, 212, 0.6);
-}
-
-.children {
-    margin-left: 16px;
-    margin-top: 0px;
-}
-
-.child-node {
-    padding-left: 0px;
-}
-
-.has-children {
-    font-weight: normal;
+  background-color: var(--vscode-button-background, #0e639c);
+  transform: translateY(1px);
+  box-shadow: 0 0 0 1px rgba(0, 120, 212, 0.6);
 }
 
 .version-tag.active {
-    background-color: var(--vscode-button-background, #0e639c);
-    border: 1px solid var(--vscode-button-border, #0e639c);
+  background-color: var(--vscode-button-background, #0e639c);
+  border: 1px solid var(--vscode-button-border, #0e639c);
+}
+
+.children {
+  margin-left: 16px;
+  margin-top: 0px;
+}
+
+.child-node {
+  padding-left: 0px;
+}
+
+.has-children {
+  font-weight: normal;
 }
 
 .description-panel {
-    margin-top: 2px;
-    margin-left: 2px;
-    padding: 8px 12px;
-    background-color: var(--vscode-editor-background);
-    color: rgba(255, 255, 255, 0.85);
-    font-size: 12px;
-    border-radius: 0 3px 3px 0;
-    line-height: 1.6;
-    animation: fadeIn 0.2s ease-in;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    cursor: text;
-    user-select: text;
-    /* Animation properties */
-    opacity: 0;
-    transform: translateY(5px);
-    animation: slideUpFade 0.3s ease forwards;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  margin-top: 2px;
+  margin-left: 2px;
+  padding: 8px 12px;
+  background-color: var(--vscode-editor-background);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 12px;
+  border-radius: 0 3px 3px 0;
+  line-height: 1.6;
+  animation: fadeIn 0.2s ease-in;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  cursor: text;
+  user-select: text;
+  opacity: 0;
+  transform: translateY(5px);
+  animation: slideUpFade 0.3s ease forwards;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
 @keyframes slideUpFade {
-    0% {
-        opacity: 0;
-        transform: translateY(5px);
-    }
-
-    100% {
-        opacity: 1;
-        transform: translateY(0);
-    }
+  0% {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .twisty .codicon {
-    font-family: "codicon" !important;
+  font-family: "codicon" !important;
 }
 
 .explorer-arrow {
-    width: 16px;
-    height: 22px;
-    display: inline-block;
-    position: relative;
-}
-/*
-.explorer-arrow.collapsed::before {
-    content: ">";
-    position: absolute;
-    left: 2px;
-    top: 0;
-    font-size: 16px;
-    line-height: 22px;
+  width: 16px;
+  height: 22px;
+  display: inline-block;
+  position: relative;
 }
 
-.explorer-arrow.expanded::before {
-    content: "v";
-    position: absolute;
-    left: 2px;
-    top: 0px;
-    font-size: 16px;
-    line-height: 22px;
-}
-    */
 .twisty {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 16px;
-    height: 22px;
-    margin-right: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 22px;
+  margin-right: 4px;
 }
-    
 
-/* Workspace graph */
-
+/* Workspace graph button */
 .showGraph {
-  position:relative;
+  position: relative;
 }
 .graph-button {
   background-color: var(--vscode-button-secondaryBackground, #2d2d2d);
@@ -477,7 +478,14 @@ body {
   gap: 4px;
   height: 24px;
 }
-.graph-button:hover{
+.graph-button:hover {
   background-color: var(--vscode-button-secondaryHoverBackground, #3d3d3d);
+}
+
+.version-toolbar {
+  display: flex;
+  justify-content: flex-end;  /* pushes button to the right */
+  margin-bottom: 8px;         /* space below */
+  align-items: center;        /* if you have other items, keeps them centered vertically */
 }
 </style>
