@@ -269,6 +269,57 @@
           </div>
         </div>
 
+        <!-- Comments Section -->
+        <div class="info-section">
+          <div class="section-header" @click="toggleSection('comments')"
+            style="cursor: pointer; display: flex; justify-content: space-between;">
+            <span>Comments ({{ commentsCount }})</span>
+            <div>
+              <button v-if="expandedSections.comments" class="edit-button" @click.stop="addComment" title="Add comment">
+                <span class="edit-icon">+</span>
+              </button>
+              <span class="toggle-icon">{{ expandedSections.comments ? '▼' : '▶' }}</span>
+            </div>
+          </div>
+          <div class="section-content" v-if="expandedSections.comments">
+            <!-- No comments message -->
+            <div v-if="!allComments || allComments.length === 0" class="no-comments">
+              <p>No comments yet. Be the first to comment on this issue.</p>
+            </div>
+
+            <!-- Comments list -->
+            <div v-else class="comments-list">
+              <div v-for="comment in allComments" :key="comment.id" class="comment-item">
+                <div class="comment-header">
+                  <div class="comment-author">
+                    <div class="user-avatar">{{ getUserInitials(comment.createdBy) }}</div>
+                    <span class="user-name">{{ comment.createdBy.displayName || 'Unknown User' }}</span>
+                  </div>
+                  <div class="comment-actions">
+                    <span class="comment-date">{{ formatDate(comment.createdAt) }}</span>
+                    <button class="edit-button" @click.stop="editComment(comment)" title="Edit comment">
+                      <span class="edit-icon">✎</span>
+                    </button>
+                  </div>
+                </div>
+                <div class="comment-body">
+                  <!-- Conditionally render truncated or full comment -->
+                  <div v-if="isCommentTruncated(comment) && !expandedComments[comment.id]"
+                    class="comment-text markdown-content" v-html="markdownToHtml(truncateComment(comment.body))"></div>
+                  <div v-else class="comment-text markdown-content" v-html="markdownToHtml(comment.body)"></div>
+
+                  <!-- Show more/less button only for truncatable comments -->
+                  <div v-if="isCommentTruncated(comment)" class="show-more-container">
+                    <button class="show-more-button" @click.stop="toggleCommentExpansion(comment.id)">
+                      {{ expandedComments[comment.id] ? 'Show less' : 'Show more' }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Related Issues Section -->
         <div class="info-section" v-if="hasRelations">
           <div class="section-header" @click="toggleSection('relatedIssues')"
@@ -657,8 +708,11 @@ export default {
         description: false,
         dates: false,
         relatedIssues: false,
-        artifacts: false
+        artifacts: false,
+        comments: false,
       },
+      expandedComments: {},
+      commentMaxLength: 70,
       showFullDescription: false,
       descriptionMaxLength: 120, // Characters to show before truncating
       showTypeDropdown: false,
@@ -706,6 +760,7 @@ export default {
     };
   },
   computed: {
+
     filteredLabels() {
       // Ensure that availableLabels has been computed and that labelSearchQuery is available
       return this.availableLabels.filter(label => {
@@ -855,6 +910,27 @@ export default {
       return Object.fromEntries(
         Object.entries(grouped).filter(([_, items]) => items.length > 0)
       );
+    },/**
+   * Extracts all comments for the current issue
+   */
+    allComments() {
+      if (!this.issue ||
+        !this.issue.issueComments ||
+        !this.issue.issueComments.nodes) {
+        return [];
+      }
+
+      // Filter out deleted comments
+      return this.issue.issueComments.nodes
+        .filter(comment => !comment.isDeleted)
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)); // Sort by date (newest first)
+    },
+
+    /**
+  * Returns the total count of comments
+  */
+    commentsCount() {
+      return this.issue?.issueComments?.totalCount || 0;
     },
     // Computed properties for description truncation
     isDescriptionTruncated() {
@@ -876,7 +952,7 @@ export default {
       const endIndex = breakPoint > 0 ? breakPoint + 1 : this.descriptionMaxLength;
 
       return text.substring(0, endIndex) + '...';
-    }
+    },
   },
   watch: {
     issue(newIssue) {
@@ -1166,6 +1242,98 @@ export default {
       }
       // Close the dropdown after selection
       this.currentlyEditingRelation = null;
+    },
+    /**
+ * Checks if a comment's text is long enough to be truncated
+ */
+ isCommentTruncated(comment) {
+    return comment && 
+      comment.body && 
+      comment.body.length > this.commentMaxLength;
+  },
+
+    /**
+ * Truncates a comment's text to show approximately 3 lines
+ */
+    truncateComment(text) {
+      if (!text) return '';
+
+      // First try to find a paragraph break
+      let breakPoint = text.substring(0, this.commentMaxLength).lastIndexOf('\n\n');
+
+      // If no paragraph break, try a line break
+      if (breakPoint < 0) {
+        breakPoint = text.substring(0, this.commentMaxLength).lastIndexOf('\n');
+      }
+
+      // If no line break, try a sentence
+      if (breakPoint < 0) {
+        breakPoint = text.substring(0, this.commentMaxLength).lastIndexOf('.');
+      }
+
+      // If no good breaking point found, use max length
+      const endIndex = breakPoint > 0 ? breakPoint + 1 : this.commentMaxLength;
+
+      return text.substring(0, endIndex) + '...';
+    },
+
+    /**
+ * Toggles the expanded state of a specific comment
+ */
+    toggleCommentExpansion(commentId) {
+      // Use Vue.set to ensure reactivity
+      this.$set(this.expandedComments, commentId, !this.expandedComments[commentId]);
+    },
+
+    /**
+     * Truncates a comment's text to show approximately 2 lines
+     * Improved to find better breaking points
+     */
+    truncateComment(text) {
+      if (!text) return '';
+
+      // First try to find a paragraph break
+      let breakPoint = text.substring(0, this.commentMaxLength).lastIndexOf('\n\n');
+
+      // If no paragraph break, try a line break
+      if (breakPoint < 0) {
+        breakPoint = text.substring(0, this.commentMaxLength).lastIndexOf('\n');
+      }
+
+      // If no line break, try a sentence
+      if (breakPoint < 0) {
+        breakPoint = text.substring(0, this.commentMaxLength).lastIndexOf('.');
+      }
+
+      // If no good breaking point found, use max length
+      const endIndex = breakPoint > 0 ? breakPoint + 1 : this.commentMaxLength;
+
+      return text.substring(0, endIndex) + '...';
+    },
+    /**
+     * Placeholder for adding a comment
+     */
+    addComment() {
+      // This will be implemented later
+      if (vscode) {
+        vscode.postMessage({
+          command: 'showMessage',
+          message: 'Add comment functionality will be implemented soon.'
+        });
+      }
+    },
+
+    /**
+     * Placeholder for editing a comment
+     */
+    editComment(comment) {
+      // This will be implemented later
+      if (vscode) {
+        vscode.postMessage({
+          command: 'showMessage',
+          message: 'Edit comment functionality will be implemented soon.'
+        });
+      }
     },
     formatDate(dateString) {
       if (!dateString) return 'Unknown';
@@ -2273,7 +2441,7 @@ export default {
 }
 
 .show-more-container {
-  margin-top: 8px;
+  margin-top: 2px;
   text-align: right;
 }
 
@@ -2282,11 +2450,24 @@ export default {
   border: none;
   color: #0066cc;
   cursor: pointer;
-  font-size: 0.9em;
-  padding: 3px 8px;
+  font-size: 0.85em;
+  padding: 0;
   transition: background-color 0.2s;
-  border-radius: 3px;
+  text-decoration: none;
 }
+
+.comment-text.markdown-content p {
+  margin-top: 2px;
+  margin-bottom: 2px;
+}
+
+.comment-text.markdown-content ul,
+.comment-text.markdown-content ol {
+  margin-top: 2px;
+  margin-bottom: 2px;
+  padding-left: 16px;
+}
+
 
 .show-more-button:hover {
   background-color: rgba(0, 102, 204, 0.1);
@@ -3739,5 +3920,72 @@ ul {
   width: 15px;
   height: 15px;
   flex-shrink: 0;
+}
+
+/* Comments Section Styling */
+.comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.comment-item {
+  padding: 4px 6px;
+  margin-bottom: 4px;
+  border-radius: 4px;
+  background-color: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  transition: background-color 0.2s;
+}
+
+.comment-item:hover {
+  background-color: var(--vscode-list-hoverBackground);
+}
+
+.comment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.comment-author {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.comment-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.comment-date {
+  font-size: 0.85em;
+  color: var(--vscode-descriptionForeground);
+}
+
+.comment-body {
+  padding-left: 32px;
+  margin-top: 2px;
+  margin-bottom: 2px;
+}
+
+.comment-text {
+  white-space: pre-wrap;
+  line-height: 1.3;
+  margin: 0;
+}
+
+.no-comments {
+  font-style: italic;
+  color: var(--vscode-descriptionForeground);
+  text-align: center;
+  padding: 12px;
+  background-color: rgba(30, 30, 30, 0.2);
+  border-radius: 4px;
 }
 </style>

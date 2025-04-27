@@ -356,6 +356,20 @@ query GetIssueDetails($id: ID!) {
       title
       createdAt
       lastUpdatedAt
+      issueComments {
+        nodes {
+          id
+          body
+          createdAt
+          lastModifiedAt
+          createdBy {
+            displayName
+            username
+          }
+          isDeleted
+        }
+        totalCount
+      }
       template {
         id
         name
@@ -420,7 +434,6 @@ query GetIssueDetails($id: ID!) {
       type {
         id
         name
-        iconPath
       }
       priority {
         id
@@ -430,6 +443,10 @@ query GetIssueDetails($id: ID!) {
         id
         body
         lastModifiedAt
+        createdAt
+        createdBy {
+          username
+        }
       }
       templatedFields {
         name
@@ -443,17 +460,17 @@ query GetIssueDetails($id: ID!) {
             id
             title
             state {
-               isOpen
-             }
-             type {
-               name
-             }
-             incomingRelations {
-               totalCount
-             }
-             outgoingRelations {
-               totalCount
-             }
+              isOpen
+            }
+            type {
+              name
+            }
+            incomingRelations {
+              totalCount
+            }
+            outgoingRelations {
+              totalCount
+            }
           }
           id
         }
@@ -476,17 +493,17 @@ query GetIssueDetails($id: ID!) {
             id
             title
             state {
-               isOpen
-             }
-             type {
-               name
-             }
-             incomingRelations {
-               totalCount
-             }
-             outgoingRelations {
-               totalCount
-             }
+              isOpen
+            }
+            type {
+              name
+            }
+            incomingRelations {
+              totalCount
+            }
+            outgoingRelations {
+              totalCount
+            }
           }
         }
         totalCount
