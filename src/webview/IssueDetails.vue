@@ -297,21 +297,20 @@
                   </div>
                   <div class="comment-actions">
                     <span class="comment-date">{{ formatDate(comment.createdAt) }}</span>
-                    <button class="edit-button" @click.stop="editComment(comment)" title="Edit comment">
-                      <span class="edit-icon">✎</span>
-                    </button>
                   </div>
                 </div>
                 <div class="comment-body">
                   <!-- Conditionally render truncated or full comment -->
-                  <div v-if="isCommentTruncated(comment) && !expandedComments[comment.id]"
-                    class="comment-text markdown-content" v-html="markdownToHtml(truncateComment(comment.body))"></div>
-                  <div v-else class="comment-text markdown-content" v-html="markdownToHtml(comment.body)"></div>
+                  <div class="comment-text markdown-content" v-html="markdownToHtml(
+                    (this.isCommentTruncated(comment) && !this.expandedComments[String(comment.id)])
+                      ? this.truncateComment(comment.body)
+                      : comment.body
+                  )"></div>
 
                   <!-- Show more/less button only for truncatable comments -->
                   <div v-if="isCommentTruncated(comment)" class="show-more-container">
                     <button class="show-more-button" @click.stop="toggleCommentExpansion(comment.id)">
-                      {{ expandedComments[comment.id] ? 'Show less' : 'Show more' }}
+                      {{ expandedComments[String(comment.id)] ? 'Show less' : 'Show more' }}
                     </button>
                   </div>
                 </div>
@@ -711,8 +710,6 @@ export default {
         artifacts: false,
         comments: false,
       },
-      expandedComments: {},
-      commentMaxLength: 70,
       showFullDescription: false,
       descriptionMaxLength: 120, // Characters to show before truncating
       showTypeDropdown: false,
@@ -757,6 +754,8 @@ export default {
       newLabelName: '',
       newLabelDescription: '',
       newLabelColor: '#0c94d8',
+      expandedComments: {},
+      commentMaxLength: 70,
     };
   },
   computed: {
@@ -1246,15 +1245,14 @@ export default {
     /**
  * Checks if a comment's text is long enough to be truncated
  */
- isCommentTruncated(comment) {
-    return comment && 
-      comment.body && 
-      comment.body.length > this.commentMaxLength;
-  },
-
+    isCommentTruncated(comment) {
+      return comment &&
+        comment.body &&
+        comment.body.length > this.commentMaxLength;
+    },
     /**
- * Truncates a comment's text to show approximately 3 lines
- */
+    * Truncates a comment's text to show approximately 3 lines
+    */
     truncateComment(text) {
       if (!text) return '';
 
@@ -1281,8 +1279,13 @@ export default {
  * Toggles the expanded state of a specific comment
  */
     toggleCommentExpansion(commentId) {
-      // Use Vue.set to ensure reactivity
-      this.$set(this.expandedComments, commentId, !this.expandedComments[commentId]);
+      const id = String(commentId);
+
+      // Create a new object to trigger reactivity
+      this.expandedComments = {
+        ...this.expandedComments,
+        [id]: !this.expandedComments[id]
+      };
     },
 
     /**
@@ -1411,9 +1414,9 @@ export default {
       }
 
       if (someIssue.type && someIssue.type.iconPath) {
-    return someIssue.type.iconPath; // Use the backend-provided SVG icon path
-  }
-  
+        return someIssue.type.iconPath; // Use the backend-provided SVG icon path
+      }
+
       const isOpen = someIssue.state && someIssue.state.isOpen;
       const typeName = someIssue.type && someIssue.type.name;
 
