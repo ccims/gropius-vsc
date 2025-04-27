@@ -1235,6 +1235,7 @@ export default {
   align-items: center;
   width: calc(100% - 16px);
   padding-right: 16px;
+  padding-top: 4px;
 }
 
 /* Search Box */
@@ -2105,8 +2106,6 @@ export default {
   height: 16px;
   pointer-events: none; /* falls es nicht klickbar sein soll */
 }
-
-/* ========== Copied from global.css for ComponentIssues.vue ========== */
 
 /* Issue Icon (legacy styling, not used with icon stacking) */
 .issue-icon {

@@ -2506,7 +2506,7 @@ export default {
 
 .open-in-browser-button.compact-button {
   padding: 2px 6px;
-  font-size: 0.8em;
+  font-size: 12px;
   margin-left: 4px;
 }
 
@@ -2516,9 +2516,6 @@ export default {
   font-size: 1em;
   font-weight: bold;
 }
-
-
-/* =================== Merged global.css =================== */
 
 /* Common container styling to match VS Code Explorer */
 #app {
