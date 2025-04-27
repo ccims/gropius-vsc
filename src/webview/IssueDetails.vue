@@ -1409,6 +1409,11 @@ export default {
         // Fallback icon
         return new URL("../../resources/icons/bug-black.png", import.meta.url).href;
       }
+
+      if (someIssue.type && someIssue.type.iconPath) {
+    return someIssue.type.iconPath; // Use the backend-provided SVG icon path
+  }
+  
       const isOpen = someIssue.state && someIssue.state.isOpen;
       const typeName = someIssue.type && someIssue.type.name;
 
