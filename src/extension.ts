@@ -46,7 +46,8 @@ import {
   GET_AVAILABLE_COMPONENTS,
   GET_AVAILABLE_PROJECTS,
   GET_ARTIFACTS_FOR_TRACKABLE,
-  UPDATE_ARTIFACT_LINES_MUTATION
+  UPDATE_ARTIFACT_LINES_MUTATION,
+  REMOVE_AFFECTED_ENTITY_FROM_ISSUE_MUTATION
 } from "./queries";
 import path from "path";
 
@@ -217,18 +218,18 @@ async function moveArtifactIconAtCursor(direction: 'up' | 'down'): Promise<void>
     vscode.window.showWarningMessage('No active editor found.');
     return;
   }
-  
+
   const cursorLine = editor.selection.active.line;
   const uriString = editor.document.uri.toString();
-  
+
   // Find artifacts at this line
   const artifactsAtLine = artifactDecoratorManager.getArtifactsAtLine(uriString, cursorLine);
-  
+
   if (artifactsAtLine.length === 0) {
     vscode.window.showInformationMessage('No artifacts found at this line.');
     return;
   }
-  
+
   if (artifactsAtLine.length === 1) {
     // Only one artifact, move it directly
     const artifact = artifactsAtLine[0];
@@ -240,11 +241,11 @@ async function moveArtifactIconAtCursor(direction: 'up' | 'down'): Promise<void>
       description: `Lines ${artifact.from}-${artifact.to}`,
       artifact
     }));
-    
+
     const selected = await vscode.window.showQuickPick(items, {
       placeHolder: 'Select which artifact to move'
     });
-    
+
     if (selected) {
       await artifactDecoratorManager.moveArtifactIcon(selected.artifact, direction);
     }
@@ -2491,6 +2492,50 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
         } catch (error) {
           vscode.window.showErrorMessage(`Failed to create label: ${error instanceof Error ? error.message : String(error)}`);
         }
+      } else if (message.command === 'removeAffectedElementFromIssue') {
+        console.log("Start removeAffectedElementFromIssue");
+        ////
+        // Todo
+        ////
+        try {
+          await globalApiClient.authenticate();
+          const result = await globalApiClient.executeQuery(REMOVE_AFFECTED_ENTITY_FROM_ISSUE_MUTATION, {
+              issue: message.input.issue,
+              affectedEntity: message.input.affectedEntity
+             // { issue: string, affectedEntity: string }
+          });
+          console.log("issue: " + message.input.issue);
+          console.log("entity: " + message.input.affectedEntity);
+          console.log("message input: " + JSON.stringify(message.input));
+          console.log("Result: " + JSON.stringify(result));
+          if (!result.data.removeAffectedEntityFromIssue?.removedAffectedEntityEvent?.removedAffectedEntity) {
+            console.log("Inside ERROR 1234!");
+            throw new Error(
+              result.errors && result.errors.length > 0
+                ? result.errors[0].message
+                : "Affected entity removal failed."
+            );
+          }
+          this._view?.webview.postMessage({
+            command: 'affectedEntityRemovedFromIssue',
+            removedAffectedEntity: result.data.removeAffectedEntityFromIssue.removedAffectedEntityEvent.removedAffectedEntity,
+          });
+          // Optionally, trigger a refresh of the issue details view:
+          vscode.commands.executeCommand('extension.refreshCurrentIssue');
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          vscode.window.showErrorMessage(`Failed to remove affected entity: ${errorMsg}`);
+          this._view?.webview.postMessage({
+            command: 'removeAffectedEntityFromIssueError',
+            error: errorMsg,
+          });
+        }
+
+
+
+      } else if (message.command === 'createNewAffection') {
+        console.log("Start createNewAffection");
+        // Todo
       } else if (message.command === 'getAvailableArtifacts') {
         try {
           const trackableIds = message.trackableIds;
@@ -2877,7 +2922,7 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
   private async fetchIssueGraphData(): Promise<any> {
     try {
       await this.apiClient.authenticate();
-      const response = await this.apiClient.executeQuery(FETCH_TEMP_ISSUE_GRAPH, { id: this.lastIssueId }); 
+      const response = await this.apiClient.executeQuery(FETCH_TEMP_ISSUE_GRAPH, { id: this.lastIssueId });
       return response.data;
     } catch (error) {
       throw new Error(
@@ -3860,7 +3905,7 @@ class ArtifactDecoratorManager {
  * Force a complete decoration refresh by disposing and recreating all decorations
  */
   private forceCompleteDecorationsRefresh(affectedUris: string[]): void {
- 
+
     // Save current active editor and visible editors
     const activeEditor = vscode.window.activeTextEditor;
     const visibleEditors = vscode.window.visibleTextEditors;
@@ -4484,41 +4529,41 @@ class ArtifactDecoratorManager {
   /**
  * Gets all artifacts at a specific line
  */
-public getArtifactsAtLine(uriString: string, line: number): Array<{ id: string, file: string, from: number, to: number }> {
-  const result: Array<{ id: string, file: string, from: number, to: number }> = [];
-  
-  if (!this.artifactRanges.has(uriString)) {
-    return result;
-  }
-  
-  const fileData = this.artifactRanges.get(uriString)!;
-  
-  // Find all artifacts that have ranges containing this line
-  for (const rangeData of fileData.ranges) {
-    const range = rangeData.range;
-    
-    // Check if this line is the start or end of the range
-    if (range.start.line === line || range.end.line === line) {
-      const artifactId = rangeData.artifactId;
-      
-      // Get the 1-based line numbers
-      const from = range.start.line + 1;
-      const to = range.end.line + 1;
-      
-      // Add to result if not already included
-      if (!result.some(a => a.id === artifactId)) {
-        result.push({
-          id: artifactId,
-          file: uriString,
-          from,
-          to
-        });
+  public getArtifactsAtLine(uriString: string, line: number): Array<{ id: string, file: string, from: number, to: number }> {
+    const result: Array<{ id: string, file: string, from: number, to: number }> = [];
+
+    if (!this.artifactRanges.has(uriString)) {
+      return result;
+    }
+
+    const fileData = this.artifactRanges.get(uriString)!;
+
+    // Find all artifacts that have ranges containing this line
+    for (const rangeData of fileData.ranges) {
+      const range = rangeData.range;
+
+      // Check if this line is the start or end of the range
+      if (range.start.line === line || range.end.line === line) {
+        const artifactId = rangeData.artifactId;
+
+        // Get the 1-based line numbers
+        const from = range.start.line + 1;
+        const to = range.end.line + 1;
+
+        // Add to result if not already included
+        if (!result.some(a => a.id === artifactId)) {
+          result.push({
+            id: artifactId,
+            file: uriString,
+            from,
+            to
+          });
+        }
       }
     }
+
+    return result;
   }
-  
-  return result;
-}
 
   /**
    * Dispose all decoration types

@@ -1822,3 +1822,34 @@ mutation RemoveArtefactFromIssue($input: RemoveArtefactFromIssueInput!) {
   }
 }
 `;
+
+export const DELETE_ISSUE_COMMENT_MUTATION = `
+mutation DeleteIssueComment($input: DeleteNodeInput!) {
+  deleteIssueComment(input: $input) {
+    issueComment {
+      id
+      isDeleted
+      body
+      createdAt
+      lastModifiedAt
+      createdBy {
+        displayName
+        username
+      }
+    }
+  }
+}
+`;
+
+export const REMOVE_AFFECTED_ENTITY_FROM_ISSUE_MUTATION = `
+mutation RemoveAffectedEntityFromIssue($issue: ID!, $affectedEntity: ID!) {
+  removeAffectedEntityFromIssue(
+    input: {issue: $issue, affectedEntity: $affectedEntity}
+  ) {
+    removedAffectedEntityEvent {
+      removedAffectedEntity {
+        id
+      }
+    }
+  }
+}`;

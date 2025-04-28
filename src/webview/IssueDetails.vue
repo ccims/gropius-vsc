@@ -229,14 +229,44 @@
             <span class="toggle-icon">{{ expandedSections.affectedEntities ? '▼' : '▶' }}</span>
           </div>
           <div class="section-content" v-if="expandedSections.affectedEntities">
-            <!-- Group items by type with inline layout -->
-            <div v-for="(group, groupType) in groupedAffectedEntities" :key="groupType" class="affected-group">
-              <div class="affected-group-inline">
-                <div class="affected-group-header">{{ groupType }}:</div>
-                <div class="affected-items-inline">
-                  <div v-for="(entity, index) in group" :key="index" class="badge entity-badge"
-                    :class="getEntityClass(entity)">
-                    {{ getEntityName(entity) }}
+            <div v-if="expandedSections.affectedEntities">
+            <!-- Buttons for label editing and adding -->
+              <div style="display: flex; gap: 4px;">
+                <!-- Toggle label edit mode -->
+                <button class="edit-button" @click="toggleEditAffections" title="Edit Affections">
+                  <span class="edit-icon">✎</span>
+                </button>
+                <!-- + button toggles the new label dropdown -->
+                <button class="remove-relation-button" @click.stop="toggleNewAffectionDropdown" title="Add Affection">
+                  <span class="edit-icon">+</span>
+                </button>
+              </div>              
+            </div>
+            <div v-if="editAffections">
+              <!-- Group items by type with inline layout -->
+              <div v-for="(group, groupType) in groupedAffectedEntities" :key="groupType" class="affected-group">
+                <div class="affected-group-inline">
+                  <div class="affected-group-header">{{ groupType }}:</div>
+                  <div class="affected-items-inline">
+                    <div v-for="(entity, index) in group" :key="index" class="badge entity-badge"
+                      :class="getEntityClass(entity)">
+                      {{ getEntityName(entity) }}
+                      <button class="remove-relation-button" @click.stop="removeAffection(entity)" title="Remove Label">X</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div v-else>
+              <!-- Group items by type with inline layout -->
+              <div v-for="(group, groupType) in groupedAffectedEntities" :key="groupType" class="affected-group">
+                <div class="affected-group-inline">
+                  <div class="affected-group-header">{{ groupType }}:</div>
+                  <div class="affected-items-inline">
+                    <div v-for="(entity, index) in group" :key="index" class="badge entity-badge"
+                      :class="getEntityClass(entity)">
+                      {{ getEntityName(entity) }}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -749,6 +779,7 @@ export default {
       allLabels: [],
       labelsLoading: false,
       editingLabels: false,
+      editAffections: false,
       labelSearchQuery: "",
       showNewLabelModal: false,
       newLabelName: '',
@@ -1172,6 +1203,28 @@ export default {
       if (vscode) {
         vscode.postMessage({ command: 'refreshCurrentIssue' });
       }
+    },
+    // Toggle whether affections are in editing mode
+    toggleEditAffections() {
+      this.editAffections = !this.editAffections;
+    },
+    // Called to deleted affection
+    removeAffection(affectedElement) {
+      if (!affectedElement || !affectedElement.id) {
+        console.error("Cannot remove affected element – affected element or its id is missing.");
+        return;
+      }
+      if (vscode) {
+        vscode.postMessage({
+          command: 'removeAffectedElementFromIssue',
+          input: {
+            issue: this.issue.id,  // The ID of the issue in view
+            affectedEntity: affectedElement.id        // The ID of the affected entity (must not be null)
+          }
+        });
+      }
+      // Optionally, update the client UI immediately:
+      this.issue.affects.nodes = this.issue.affects.nodes.filter(l => l && l.id !== affectedElement.id);
     },
     // Toggle the candidate issues dropdown
     toggleNewRelationDropdown() {
@@ -2351,6 +2404,14 @@ export default {
         }
       } else if (message.command === "removeLabelFromIssueError") {
         console.error("Error removing label:", message.error);
+        vscode.postMessage({ command: 'showErrorNotification', message: "Error: " + message.error });
+      } else if (message.command === "affectedEntityRemovedFromIssue") {
+        const removed = message.removedAffectedEntity;
+        if (this.issue && this.issue.affects && this.issue.affects.nodes) {
+          this.issue.affects.nodes = this.issue.affects.nodes.filter(entity => entity.id !== removed.id);
+        }
+      } else if (message.command === "removeAffectedEntityFromIssueError") {
+        console.error("Error removing affected entity:", message.error);
         vscode.postMessage({ command: 'showErrorNotification', message: "Error: " + message.error });
       } else if (message && message.command === 'availableArtifactsLoaded') {
         this.artifactsLoading = false;
