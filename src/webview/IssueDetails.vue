@@ -152,7 +152,7 @@
             <!-- Show delete button for each label if editing is enabled -->
             <template v-if="editingLabels">
               <div v-for="(label, index) in issue.labels.nodes" :key="index" class="badge label-badge"
-                :style="{ backgroundColor: label.color || 'rgba(0, 0, 0, 0.2)', color: '#ffffff' }"
+                :style="{ backgroundColor: toRgba(label.color || '#000000', 0.2), color: label.color || '#ffffff' }"
                 :title="label.description">
                 {{ label.name }}
                 <button class="remove-relation-button" @click.stop="removeLabel(label)" title="Remove Label">X</button>
@@ -161,7 +161,7 @@
             <!-- Otherwise simply show the labels -->
             <template v-else>
               <div v-for="(label, index) in issue.labels.nodes" :key="index" class="badge label-badge"
-                :style="{ backgroundColor: label.color || 'rgba(0, 0, 0, 0.2)', color: '#ffffff' }"
+                :style="{ backgroundColor: toRgba(label.color || '#000000', 0.2), color: label.color || '#ffffff' }"
                 :title="label.description">
                 {{ label.name }}
               </div>
@@ -209,7 +209,7 @@
                 <div v-for="label in filteredLabels" :key="label.id" class="dropdown-option"
                   @click.stop="selectNewLabel(label)" style="display: flex; align-items: center; gap: 4px;">
                   <div class="badge label-badge"
-                    :style="{ backgroundColor: label.color || 'rgba(0,0,0,0.2)', color: '#ffffff' }">
+                    :style="{ backgroundColor: toRgba(label.color || '#000000', 0.2), color: label.color || '#ffffff' }">
                     {{ label.name }}
                   </div>
                   <span class="label-description" style="color: #ffffff;">
@@ -961,9 +961,27 @@ export default {
     }
   },
   methods: {
+    toRgba (str, alpha = 1) {
+      // if it's already rgb()/rgba(), just swap in the new alpha
+      if (/^rgb/i.test(str)) {
+        return str
+          .replace(/rgba?/, 'rgba')
+          .replace(/\)$/, `, ${alpha})`)
+      }
+      // otherwise assume hex (#rgb or #rrggbb)
+      let hex = str.replace(/^#/, '')
+      if (hex.length === 3) {
+        hex = hex.split('').map(c => c + c).join('')
+      }
+      const n = parseInt(hex, 16)
+      const r = (n >> 16) & 255
+      const g = (n >>  8) & 255
+      const b =  n        & 255
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`
+    },
     /**
- * Toggles the Add Artifact dropdown and loads available artifacts
- */
+     * Toggles the Add Artifact dropdown and loads available artifacts
+     */
     toggleAddArtifactDropdown(event) {
       if (event) event.stopPropagation();
 
@@ -2755,6 +2773,7 @@ ul {
   background-color: rgba(0, 0, 0, 0.2);
   color: white;
   white-space: nowrap;
+  margin: 4px;
 }
 
 /* =================== Entity Badges =================== */
