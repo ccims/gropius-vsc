@@ -357,9 +357,9 @@
                   <div v-else class="dropdown-options">
                     <div v-for="issue in newRelationIssues" :key="issue.id" class="dropdown-option"
                       @click.stop="selectNewRelationIssue(issue)" style="display: flex; align-items: center; gap: 6px;">
-                      <div class="icon-stack">
-                        <img class="base-icon" :src="getTypeIconPathFor(issue)" alt="Type icon" />
-                        <img class="overlay-icon" :src="getRelationalIconPathFor(issue)" alt="Relation icon" />
+                      <div class="icon-stack-rel">
+                        <img class="base-icon-rel" :src="getTypeIconPathFor(issue)" alt="Type icon" />
+                        <img class="overlay-icon-rel" :src="getRelationalIconPathFor(issue)" alt="Relation icon" />
                       </div>
                       <span>{{ issue.title }} ({{ issue.state.isOpen ? 'Open' : 'Closed' }})</span>
                     </div>
@@ -370,9 +370,9 @@
                 <div v-if="newOutgoingRelation" class="new-outgoing-relation-container"
                   style="margin-top: 8px; display: flex; align-items: center; gap: 6px;">
                   <div class="new-outgoing-issue-info" style="display: flex; align-items: center; gap: 6px;">
-                    <div class="icon-stack">
-                      <img class="base-icon" :src="getTypeIconPathFor(newOutgoingRelation)" alt="Type icon" />
-                      <img class="overlay-icon" :src="getRelationalIconPathFor(newOutgoingRelation)"
+                    <div class="icon-stack-rel">
+                      <img class="base-icon-rel" :src="getTypeIconPathFor(newOutgoingRelation)" alt="Type icon" />
+                      <img class="overlay-icon-rel" :src="getRelationalIconPathFor(newOutgoingRelation)"
                         alt="Relation icon" />
                     </div>
                     <span>{{ newOutgoingRelation.title }} ({{ newOutgoingRelation.state.isOpen ? 'Open' : 'Closed'
@@ -401,9 +401,9 @@
                   <div class="relations-list">
                     <div v-for="relation in relations" :key="relation.id" class="relation-item">
                       <div class="relation-content" @click="openRelatedIssue(relation.relatedIssue.id)">
-                        <div class="icon-stack">
-                          <img class="base-icon" :src="getTypeIconPathFor(relation.relatedIssue)" alt="" />
-                          <img class="overlay-icon" :src="getRelationalIconPathFor(relation.relatedIssue)" alt="" />
+                        <div class="icon-stack-rel">
+                          <img class="base-icon-rel" :src="getTypeIconPathFor(relation.relatedIssue)" alt="" />
+                          <img class="overlay-icon-rel" :src="getRelationalIconPathFor(relation.relatedIssue)" alt="" />
                         </div>
                         <span>{{ relation.relatedIssue.title }}</span>
                       </div>
@@ -420,9 +420,9 @@
                   <div v-for="item in flatOutgoingRelations" :key="item.relation.id" class="relation-item">
                     <div class="relation-content" @click="openRelatedIssue(item.relation.relatedIssue.id)"
                       style="display: flex; align-items: center;">
-                      <div class="icon-stack">
-                        <img class="base-icon" :src="getTypeIconPathFor(item.relation.relatedIssue)" alt="" />
-                        <img class="overlay-icon" :src="getRelationalIconPathFor(item.relation.relatedIssue)" alt="" />
+                      <div class="icon-stack-rel">
+                        <img class="base-icon-rel" :src="getTypeIconPathFor(item.relation.relatedIssue)" alt="" />
+                        <img class="overlay-icon-rel" :src="getRelationalIconPathFor(item.relation.relatedIssue)" alt="" />
                       </div>
                       <div style="display: flex; flex-direction: column; margin-left: 8px;">
                         <span>{{ item.relation.relatedIssue.title }}</span>
@@ -469,9 +469,9 @@
                 <div class="relations-list">
                   <div v-for="issueData in issues" :key="issueData.id" class="relation-item"
                     @click="openRelatedIssue(issueData.id)" style="display: flex; align-items: center; gap: 8px;">
-                    <div class="icon-stack">
-                      <img class="base-icon" :src="getTypeIconPathFor(issueData)" alt="" />
-                      <img class="overlay-icon" :src="getRelationalIconPathFor(issueData)" alt="" />
+                    <div class="icon-stack-rel">
+                      <img class="base-icon-rel" :src="getTypeIconPathFor(issueData)" alt="" />
+                      <img class="overlay-icon-rel" :src="getRelationalIconPathFor(issueData)" alt="" />
                     </div>
                     <!-- This span simply displays the title aligned left -->
                     <span>{{ issueData.title }}</span>
@@ -2608,7 +2608,7 @@ ul {
 .issue-container {
   display: flex;
   flex-direction: column;
-  padding: 5px 5px 5px 0px;
+  padding: 4px 16px 4px 4px;
   gap: 5px;
   box-sizing: border-box;
   width: 100%;
@@ -2668,6 +2668,7 @@ ul {
 
 .section-header {
   font-weight: 600;
+  color: white;
   font-size: 0.95em;
   color: var(--vscode-foreground);
   margin-bottom: 8px;
@@ -2680,7 +2681,7 @@ ul {
 .section-content {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  /* gap: 8px; */
   margin-left: 10px;
   padding-right: 10px;
 }
@@ -2748,7 +2749,7 @@ ul {
 .label-badge {
   display: inline-flex;
   align-items: center;
-  padding: 4px 12px;
+  padding: 1px 12px;
   border-radius: 12px;
   font-size: 0.9em;
   background-color: rgba(0, 0, 0, 0.2);
@@ -2844,12 +2845,19 @@ ul {
   font-size: 0.9em;
   font-weight: 500;
   margin-bottom: 8px;
+  margin-left: 16px;
+}
+
+.relation-type-header {
+  font-size: 0.9em;
+  margin-left: 32px;
 }
 
 .relations-list {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  margin-left: 48px;
 }
 
 .relation-item {
@@ -2858,7 +2866,7 @@ ul {
   justify-content: space-between;
   /* space-between pushes them apart */
   gap: 8px;
-  padding: 4px 0;
+  padding: 2px 0;
   /* optional spacing */
 }
 
@@ -2895,10 +2903,9 @@ ul {
   /* Your desired color for the X */
   cursor: pointer;
   font-size: 1em;
-  margin: 0;
+  margin: 0 -8px 0 4px;
   padding: 0;
   transition: background-color 0.2s ease;
-  margin-left: -4px;
   /* adjust this value as needed */
 }
 
@@ -2934,11 +2941,6 @@ ul {
   align-items: center;
   gap: 5px;
   padding-right: 10px;
-}
-
-.section-header {
-  font-weight: bold;
-  color: white;
 }
 
 .inline-content {
@@ -3252,7 +3254,9 @@ ul {
 }
 
 /* =================== IssueDetails.vue Icon Stack Styling =================== */
-/* Used to overlay the relation icons on top of the type icon */
+
+/* Used for the icon of the issue for which the view is loaded. */
+
 .icon-stack {
   position: relative;
   width: 24px;
@@ -3269,6 +3273,29 @@ ul {
 }
 
 .overlay-icon {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+/* Used for the icons of the outgoing and incoming relations. */
+
+.icon-stack-rel {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.base-icon-rel,
+.overlay-icon-rel {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.overlay-icon-rel {
   position: absolute;
   top: 0;
   left: 0;
@@ -3992,5 +4019,10 @@ ul {
   padding: 12px;
   background-color: rgba(30, 30, 30, 0.2);
   border-radius: 4px;
+}
+
+/* Overrides the VS Code–injected defaultStyles */
+body {
+  padding: 0 !important;
 }
 </style>
