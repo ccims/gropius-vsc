@@ -297,6 +297,24 @@
                   </div>
                   <div class="comment-actions">
                     <span class="comment-date">{{ formatDate(comment.createdAt) }}</span>
+                    <!-- Add dropdown menu for comment actions -->
+                    <div class="comment-menu">
+                      <button class="comment-menu-button" @click.stop="toggleCommentMenu(comment.id)">
+                        <span class="dot"></span>
+                        <span class="dot"></span>
+                        <span class="dot"></span>
+                      </button>
+                      <div v-if="activeCommentMenu === comment.id" class="comment-dropdown-menu">
+                        <div class="comment-dropdown-item" @click.stop="editComment(comment)">
+                          <span class="comment-dropdown-icon">✎</span>
+                          <span>Edit</span>
+                        </div>
+                        <div class="comment-dropdown-item" @click.stop="deleteComment(comment)">
+                          <span class="comment-dropdown-icon">🗑</span>
+                          <span>Delete</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
                 <div class="comment-body">
@@ -756,6 +774,7 @@ export default {
       newLabelColor: '#0c94d8',
       expandedComments: {},
       commentMaxLength: 70,
+      activeCommentMenu: null,
     };
   },
   computed: {
@@ -1291,6 +1310,64 @@ export default {
       const endIndex = breakPoint > 0 ? breakPoint + 1 : this.commentMaxLength;
 
       return text.substring(0, endIndex) + '...';
+    },
+    /**
+   * Toggles the comment dropdown menu
+   * @param {string} commentId - The ID of the comment
+   */
+    toggleCommentMenu(commentId) {
+      if (this.activeCommentMenu === commentId) {
+        this.activeCommentMenu = null;
+      } else {
+        this.activeCommentMenu = commentId;
+
+        // Add click-outside listener to close the menu when clicking elsewhere
+        this.$nextTick(() => {
+          document.addEventListener('click', this.closeCommentMenus);
+        });
+      }
+    },
+
+    /**
+     * Closes all comment menus
+     */
+    closeCommentMenus() {
+      this.activeCommentMenu = null;
+      document.removeEventListener('click', this.closeCommentMenus);
+    },
+
+    /**
+     * Placeholder for edit comment functionality
+     * @param {Object} comment - The comment to edit
+     */
+    editComment(comment) {
+      // This will be implemented later with actual functionality
+      console.log('Edit comment:', comment.id);
+      this.activeCommentMenu = null;
+
+      if (vscode) {
+        vscode.postMessage({
+          command: 'showMessage',
+          message: 'Edit comment functionality will be implemented soon.'
+        });
+      }
+    },
+
+    /**
+     * Placeholder for delete comment functionality
+     * @param {Object} comment - The comment to delete
+     */
+    deleteComment(comment) {
+      // This will be implemented later with actual functionality
+      console.log('Delete comment:', comment.id);
+      this.activeCommentMenu = null;
+
+      if (vscode) {
+        vscode.postMessage({
+          command: 'showMessage',
+          message: 'Delete comment functionality will be implemented soon.'
+        });
+      }
     },
 
     /**
@@ -2430,6 +2507,9 @@ export default {
   },
   beforeDestroy() {
     // Remove event listener when component is destroyed
+    document.removeEventListener('click', this.closeTypeDropdown);
+    document.removeEventListener('click', this.handleClickOutsideAddForm);
+    document.removeEventListener('click', this.closeCommentMenus);
     document.removeEventListener('click', this.closeTypeDropdown);
     document.removeEventListener('click', this.handleClickOutsideAddForm);
   }
@@ -4040,8 +4120,76 @@ ul {
   border-radius: 4px;
 }
 
+<<<<<<< Updated upstream
 /* Overrides the VS Code–injected defaultStyles */
 body {
   padding: 0 !important;
+=======
+/* Comment dropdown menu styling */
+.comment-menu {
+  position: relative;
+  display: inline-block;
+  margin-left: 8px;
+}
+
+.comment-menu-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0.7;
+  transition: background-color 0.2s, opacity 0.2s;
+}
+
+.comment-menu-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  opacity: 1;
+}
+
+.dot {
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  background-color: var(--vscode-foreground, #cccccc);
+  border-radius: 50%;
+  margin: 0 1px;
+}
+
+.comment-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 120px;
+  background-color: var(--vscode-dropdown-background, #252526);
+  border: 1px solid var(--vscode-dropdown-border, #454545);
+  border-radius: 3px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+}
+
+.comment-dropdown-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.comment-dropdown-item:hover {
+  background-color: var(--vscode-list-hoverBackground, #2a2d2e);
+}
+
+.comment-dropdown-icon {
+  margin-right: 8px;
+  width: 16px;
+  display: inline-flex;
+  justify-content: center;
+>>>>>>> Stashed changes
 }
 </style>
