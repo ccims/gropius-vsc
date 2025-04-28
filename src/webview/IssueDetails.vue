@@ -4120,11 +4120,11 @@ ul {
   border-radius: 4px;
 }
 
-<<<<<<< Updated upstream
 /* Overrides the VS Code–injected defaultStyles */
 body {
   padding: 0 !important;
-=======
+}
+
 /* Comment dropdown menu styling */
 .comment-menu {
   position: relative;
@@ -4190,6 +4190,5 @@ body {
   width: 16px;
   display: inline-flex;
   justify-content: center;
->>>>>>> Stashed changes
 }
 </style>
