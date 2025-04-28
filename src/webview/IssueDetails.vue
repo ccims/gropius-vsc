@@ -230,7 +230,7 @@
           </div>
           <div class="section-content" v-if="expandedSections.affectedEntities">
             <div v-if="expandedSections.affectedEntities">
-            <!-- Buttons for label editing and adding -->
+              <!-- Buttons for label editing and adding -->
               <div style="display: flex; gap: 4px;">
                 <!-- Toggle label edit mode -->
                 <button class="edit-button" @click="toggleEditAffections" title="Edit Affections">
@@ -240,7 +240,7 @@
                 <button class="remove-relation-button" @click.stop="toggleNewAffectionDropdown" title="Add Affection">
                   <span class="edit-icon">+</span>
                 </button>
-              </div>              
+              </div>
             </div>
             <div v-if="editAffections">
               <!-- Group items by type with inline layout -->
@@ -251,7 +251,8 @@
                     <div v-for="(entity, index) in group" :key="index" class="badge entity-badge"
                       :class="getEntityClass(entity)">
                       {{ getEntityName(entity) }}
-                      <button class="remove-relation-button" @click.stop="removeAffection(entity)" title="Remove Label">X</button>
+                      <button class="remove-relation-button" @click.stop="removeAffection(entity)"
+                        title="Remove Label">X</button>
                     </div>
                   </div>
                 </div>
@@ -1505,18 +1506,84 @@ export default {
     },
 
     /**
-     * Placeholder for edit comment functionality
-     * @param {Object} comment - The comment to edit
-     */
+ * Opens the comment in the VSCode editor for editing
+ * @param {Object} comment - The comment to edit
+ */
     editComment(comment) {
-      // This will be implemented later with actual functionality
-      console.log('Edit comment:', comment.id);
+      if (!comment || !comment.id) {
+        console.error("No comment to edit");
+        return;
+      }
+
+      // Ensure the comment body is present
+      if (comment.isDeleted) {
+        console.error("Cannot edit deleted comment");
+        if (vscode) {
+          vscode.postMessage({
+            command: 'showMessage',
+            message: 'Cannot edit a deleted comment.'
+          });
+        }
+        return;
+      }
+
+      // Close the dropdown menu
       this.activeCommentMenu = null;
+
+      // Send data to the extension to open the editor
+      if (vscode) {
+        vscode.postMessage({
+          command: 'editComment',
+          data: {
+            commentId: comment.id,
+            body: comment.body || '',
+            issueId: this.issue.id,
+            issueTitle: this.issue.title || ''
+          }
+        });
+      }
+    },/**
+ * Updates a comment with new content
+ */
+    updateComment(data) {
+      if (!data || !data.id || !data.body) {
+        console.error("Missing required data for updating comment");
+        return;
+      }
 
       if (vscode) {
         vscode.postMessage({
+          command: 'updateComment',
+          data: {
+            id: data.id,
+            body: data.body
+          }
+        });
+      }
+    },/**
+ * Updates the UI after a successful comment update
+ * @param {string} commentId - ID of the updated comment
+ * @param {string} newBody - New content of the comment
+ * @param {string} lastModifiedAt - Timestamp of the modification
+ */
+    handleCommentUpdated(commentId, newBody, lastModifiedAt) {
+      // Update local comment list to reflect the changes
+      if (this.issue && this.issue.issueComments && this.issue.issueComments.nodes) {
+        const comment = this.issue.issueComments.nodes.find(c => c.id === commentId);
+        if (comment) {
+          comment.body = newBody;
+          comment.lastModifiedAt = lastModifiedAt || new Date().toISOString();
+
+          // Force the UI to refresh
+          this.$forceUpdate();
+        }
+      }
+
+      // Show a success message
+      if (vscode) {
+        vscode.postMessage({
           command: 'showMessage',
-          message: 'Edit comment functionality will be implemented soon.'
+          message: 'Comment updated successfully.'
         });
       }
     },
@@ -1641,19 +1708,6 @@ export default {
         vscode.postMessage({
           command: 'showMessage',
           message: 'Add comment functionality will be implemented soon.'
-        });
-      }
-    },
-
-    /**
-     * Placeholder for editing a comment
-     */
-    editComment(comment) {
-      // This will be implemented later
-      if (vscode) {
-        vscode.postMessage({
-          command: 'showMessage',
-          message: 'Edit comment functionality will be implemented soon.'
         });
       }
     },
@@ -2626,6 +2680,20 @@ export default {
         }
       } else if (message && message.command === 'userSearchResults') {
         this.userSearchResults = message.users || [];
+      } else if (message && message.command === 'commentUpdated') {
+        // A comment was successfully updated
+        this.handleCommentUpdated(message.commentId, message.body, message.lastModifiedAt);
+      }
+      else if (message && message.command === 'commentUpdateError') {
+        // Handle error in comment update
+        console.error('Error updating comment:', message.error);
+        // Show error message to user
+        if (vscode) {
+          vscode.postMessage({
+            command: 'showMessage',
+            message: `Error updating comment: ${message.error}`
+          });
+        }
       } else if (message && message.command === 'assignmentCreated') {
         vscode.window.showInformationMessage('Assignment created successfully.');
         // The issue will be refreshed with the new assignment

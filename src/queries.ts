@@ -1854,3 +1854,20 @@ mutation RemoveAffectedEntityFromIssue($issue: ID!, $affectedEntity: ID!) {
     }
   }
 }`;
+
+export const UPDATE_ISSUE_COMMENT_MUTATION = `
+mutation UpdateIssueComment($input: UpdateIssueCommentInput!) {
+  updateIssueComment(input: $input) {
+    issueComment {
+      id
+      body
+      lastModifiedAt
+      createdAt
+      createdBy {
+        displayName
+        username
+      }
+    }
+  }
+}
+`;

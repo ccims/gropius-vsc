@@ -48,7 +48,8 @@ import {
   GET_ARTIFACTS_FOR_TRACKABLE,
   UPDATE_ARTIFACT_LINES_MUTATION,
   DELETE_ISSUE_COMMENT_MUTATION,
-  REMOVE_AFFECTED_ENTITY_FROM_ISSUE_MUTATION
+  REMOVE_AFFECTED_ENTITY_FROM_ISSUE_MUTATION,
+  UPDATE_ISSUE_COMMENT_MUTATION
 } from "./queries";
 import path from "path";
 
@@ -2004,6 +2005,7 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
   private tempFileUri: vscode.Uri | null = null;
   private descriptionEditData: { bodyId: string, issueId: string } | null = null;
   private isAuthenticated: boolean = false;
+  private editCommentData: { commentId: string, issueId: string } | null = null;
 
   public refreshCurrentIssue(): void {
     if (this._view && this.lastIssueId) {
@@ -2254,6 +2256,12 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
             error: error instanceof Error ? error.message : String(error)
           });
         }
+      } else if (message.command === 'editComment') {
+        this.openCommentEditor(message.data);
+      }
+      else if (message.command === 'updateComment') {
+        // Save comment changes
+        this.saveCommentChanges(message.data);
       } else if (message.command === 'changeAssignmentType') {
         try {
           const result = await this.changeAssignmentType({
@@ -2532,9 +2540,9 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
         try {
           await globalApiClient.authenticate();
           const result = await globalApiClient.executeQuery(REMOVE_AFFECTED_ENTITY_FROM_ISSUE_MUTATION, {
-              issue: message.input.issue,
-              affectedEntity: message.input.affectedEntity
-             // { issue: string, affectedEntity: string }
+            issue: message.input.issue,
+            affectedEntity: message.input.affectedEntity
+            // { issue: string, affectedEntity: string }
           });
           console.log("issue: " + message.input.issue);
           console.log("entity: " + message.input.affectedEntity);
@@ -2741,6 +2749,145 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
       return allArtifacts;
     } catch (error) {
       console.error('[IssueDetailsProvider] Error in fetchAvailableArtifacts:', error);
+      throw error;
+    }
+  }
+
+  /**
+ * Opens a new editor with the comment for editing
+ */
+  private async openCommentEditor(data: { commentId: string, body: string, issueId: string, issueTitle?: string }) {
+    try {
+      // Create a temporary file in the system's temp directory
+      const tempDir = vscode.Uri.file(require('os').tmpdir());
+
+      // Create a safe file name from the issue title
+      let safeTitlePart = '';
+      if (data.issueTitle) {
+        // Replace any characters that aren't safe for filenames
+        safeTitlePart = data.issueTitle
+          .replace(/[^a-zA-Z0-9\-_]/g, '_')
+          .substring(0, 30); // Limit length to avoid overly long filenames
+
+        safeTitlePart = `-${safeTitlePart}`;
+      }
+
+      const tempFileName = `Comment${safeTitlePart}.md`;
+      const tempFileUri = vscode.Uri.joinPath(tempDir, tempFileName);
+
+      // Store the temp file URI and comment data for later use
+      this.tempFileUri = tempFileUri;
+      this.editCommentData = {
+        commentId: data.commentId,
+        issueId: data.issueId
+      };
+
+      // Write the current comment text to the temp file
+      const encoder = new TextEncoder();
+      const encodedText = encoder.encode(data.body);
+      await vscode.workspace.fs.writeFile(tempFileUri, encodedText);
+
+      // Open the temp file in the editor
+      const document = await vscode.workspace.openTextDocument(tempFileUri);
+      const editor = await vscode.window.showTextDocument(document);
+
+      // Set up a file system watcher to detect when the file is saved
+      const watcher = vscode.workspace.createFileSystemWatcher(tempFileUri.fsPath);
+
+      // When the file is saved, update the comment in the backend
+      const saveDisposable = vscode.workspace.onDidSaveTextDocument((doc) => {
+        if (doc.uri.toString() === tempFileUri.toString()) {
+          this.handleCommentSave(doc.getText());
+        }
+      });
+
+      // Clean up when the editor is closed
+      const closeDisposable = vscode.window.onDidChangeVisibleTextEditors((editors) => {
+        const isOpen = editors.some(e => e.document.uri.toString() === tempFileUri.toString());
+        if (!isOpen) {
+          saveDisposable.dispose();
+          watcher.dispose();
+          closeDisposable.dispose();
+        }
+      });
+
+    } catch (error) {
+      console.error('[IssueDetailsProvider] Error opening comment editor:', error);
+      vscode.window.showErrorMessage(`Failed to open comment editor: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * Handles saving the comment when the temporary file is saved
+   */
+  private async handleCommentSave(newContent: string) {
+    if (!this.editCommentData || !this.tempFileUri) {
+      console.error('[IssueDetailsProvider] Missing comment edit data');
+      return;
+    }
+
+    try {
+      // Save the changes to the backend
+      await this.saveCommentChanges({
+        id: this.editCommentData.commentId,
+        body: newContent
+      });
+
+      vscode.window.showInformationMessage('Comment updated successfully.');
+    } catch (error) {
+      console.error('[IssueDetailsProvider] Error saving comment:', error);
+      vscode.window.showErrorMessage(`Failed to save comment: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * Saves comment changes to the backend using the updateIssueComment mutation
+   */
+  private async saveCommentChanges(data: { id: string, body: string }) {
+    try {
+      // Authenticate
+      await globalApiClient.authenticate();
+
+      // Execute the updateIssueComment mutation
+      const result = await globalApiClient.executeQuery(UPDATE_ISSUE_COMMENT_MUTATION, {
+        input: {
+          id: data.id,
+          body: data.body
+        }
+      });
+
+      if (result.errors) {
+        throw new Error(result.errors[0].message);
+      }
+
+      if (!result.data?.updateIssueComment?.issueComment) {
+        throw new Error('Failed to update comment: No data returned');
+      }
+
+      // Notify the webview that the comment has been updated
+      if (this._view) {
+        this._view.webview.postMessage({
+          command: 'commentUpdated',
+          commentId: data.id,
+          body: result.data.updateIssueComment.issueComment.body,
+          lastModifiedAt: result.data.updateIssueComment.issueComment.lastModifiedAt
+        });
+      }
+
+      // Refresh the component issues to reflect any changes
+      vscode.commands.executeCommand('extension.refreshComponentIssues');
+
+    } catch (error) {
+      console.error('[IssueDetailsProvider] Error in saveCommentChanges:', error);
+
+      // Notify the webview of the error
+      if (this._view) {
+        this._view.webview.postMessage({
+          command: 'commentUpdateError',
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+
       throw error;
     }
   }
