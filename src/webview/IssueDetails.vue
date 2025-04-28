@@ -142,9 +142,9 @@
               <button class="edit-button" @click="toggleEditLabels" title="Edit Labels">
                 <span class="edit-icon">✎</span>
               </button>
-              <!-- + button toggles the new label dropdown -->
-              <button class="remove-relation-button" @click.stop="toggleNewLabelDropdown" title="Add Label">
-                <span class="edit-icon">+</span>
+              <!-- Replace + button with Create button -->
+              <button class="artifact-button create-button" @click.stop="toggleNewLabelDropdown" title="Add Label">
+                Add or Create
               </button>
             </div>
           </div>
@@ -152,7 +152,7 @@
             <!-- Show delete button for each label if editing is enabled -->
             <template v-if="editingLabels">
               <div v-for="(label, index) in issue.labels.nodes" :key="index" class="badge label-badge"
-                :style="{ backgroundColor: label.color || 'rgba(0, 0, 0, 0.2)', color: '#ffffff' }"
+                :style="{ backgroundColor: toRgba(label.color || '#000000', 0.2), color: label.color || '#ffffff' }"
                 :title="label.description">
                 {{ label.name }}
                 <button class="remove-relation-button" @click.stop="removeLabel(label)" title="Remove Label">X</button>
@@ -161,7 +161,7 @@
             <!-- Otherwise simply show the labels -->
             <template v-else>
               <div v-for="(label, index) in issue.labels.nodes" :key="index" class="badge label-badge"
-                :style="{ backgroundColor: label.color || 'rgba(0, 0, 0, 0.2)', color: '#ffffff' }"
+                :style="{ backgroundColor: toRgba(label.color || '#000000', 0.2), color: label.color || '#ffffff' }"
                 :title="label.description">
                 {{ label.name }}
               </div>
@@ -209,7 +209,7 @@
                 <div v-for="label in filteredLabels" :key="label.id" class="dropdown-option"
                   @click.stop="selectNewLabel(label)" style="display: flex; align-items: center; gap: 4px;">
                   <div class="badge label-badge"
-                    :style="{ backgroundColor: label.color || 'rgba(0,0,0,0.2)', color: '#ffffff' }">
+                    :style="{ backgroundColor: toRgba(label.color || '#000000', 0.2), color: label.color || '#ffffff' }">
                     {{ label.name }}
                   </div>
                   <span class="label-description" style="color: #ffffff;">
@@ -305,8 +305,9 @@
             style="cursor: pointer; display: flex; justify-content: space-between;">
             <span>Comments ({{ commentsCount }})</span>
             <div>
-              <button v-if="expandedSections.comments" class="edit-button" @click.stop="addComment" title="Add comment">
-                <span class="edit-icon">+</span>
+              <button v-if="expandedSections.comments" class="artifact-button create-button" @click.stop="addComment"
+                title="Add comment">
+                Create
               </button>
               <span class="toggle-icon">{{ expandedSections.comments ? '▼' : '▶' }}</span>
             </div>
@@ -327,21 +328,47 @@
                   </div>
                   <div class="comment-actions">
                     <span class="comment-date">{{ formatDate(comment.createdAt) }}</span>
+                    <!-- Only show dropdown menu for non-deleted comments -->
+                    <div v-if="!comment.isDeleted" class="comment-menu">
+                      <button class="comment-menu-button" @click.stop="toggleCommentMenu(comment.id)">
+                        <span class="dot"></span>
+                        <span class="dot"></span>
+                        <span class="dot"></span>
+                      </button>
+                      <div v-if="activeCommentMenu === comment.id" class="comment-dropdown-menu">
+                        <div class="comment-dropdown-item" @click.stop="editComment(comment)">
+                          <span class="comment-dropdown-icon">✎</span>
+                          <span>Edit</span>
+                        </div>
+                        <div class="comment-dropdown-item" @click.stop="deleteComment(comment)">
+                          <span class="comment-dropdown-icon">🗑</span>
+                          <span>Delete</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
                 <div class="comment-body">
-                  <!-- Conditionally render truncated or full comment -->
-                  <div class="comment-text markdown-content" v-html="markdownToHtml(
-                    (this.isCommentTruncated(comment) && !this.expandedComments[String(comment.id)])
-                      ? this.truncateComment(comment.body)
-                      : comment.body
-                  )"></div>
+                  <!-- Display for deleted comments -->
+                  <div v-if="comment.isDeleted" class="comment-deleted">
+                    <em>This comment has been deleted.</em>
+                  </div>
 
-                  <!-- Show more/less button only for truncatable comments -->
-                  <div v-if="isCommentTruncated(comment)" class="show-more-container">
-                    <button class="show-more-button" @click.stop="toggleCommentExpansion(comment.id)">
-                      {{ expandedComments[String(comment.id)] ? 'Show less' : 'Show more' }}
-                    </button>
+                  <!-- Display for regular comments -->
+                  <div v-else>
+                    <!-- Conditionally render truncated or full comment -->
+                    <div class="comment-text markdown-content" v-html="markdownToHtml(
+                      (this.isCommentTruncated(comment) && !this.expandedComments[String(comment.id)])
+                        ? this.truncateComment(comment.body)
+                        : comment.body
+                    )"></div>
+
+                    <!-- Show more/less button only for truncatable comments -->
+                    <div v-if="isCommentTruncated(comment)" class="show-more-container">
+                      <button class="show-more-button" @click.stop="toggleCommentExpansion(comment.id)">
+                        {{ expandedComments[String(comment.id)] ? 'Show less' : 'Show more' }}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -372,14 +399,13 @@
                       :title="editingOutgoingRelations ? 'Done editing relations' : 'Edit outgoing relations'">
                       <span class="edit-icon">✎</span>
                     </button>
-                    <!-- New "Add Outgoing Relation" button -->
-                    <button class="remove-relation-button" @click.stop="toggleNewRelationDropdown"
+                    <!-- Replace + button with Create button -->
+                    <button class="artifact-button create-button" @click.stop="toggleNewRelationDropdown"
                       title="Add Outgoing Relation" style="margin-left: 4px;">
-                      <span class="edit-icon">+</span>
+                      Create
                     </button>
                   </div>
                 </div>
-
                 <!-- Candidate Issues Dropdown: Shown when no new relation is selected -->
                 <div v-if="newRelationDropdownVisible && !newOutgoingRelation" class="field-dropdown"
                   style="position: absolute; top: 100%; right: 0; z-index: 1000; background: var(--vscode-dropdown-background);">
@@ -387,9 +413,9 @@
                   <div v-else class="dropdown-options">
                     <div v-for="issue in newRelationIssues" :key="issue.id" class="dropdown-option"
                       @click.stop="selectNewRelationIssue(issue)" style="display: flex; align-items: center; gap: 6px;">
-                      <div class="icon-stack">
-                        <img class="base-icon" :src="getTypeIconPathFor(issue)" alt="Type icon" />
-                        <img class="overlay-icon" :src="getRelationalIconPathFor(issue)" alt="Relation icon" />
+                      <div class="icon-stack-rel">
+                        <img class="base-icon-rel" :src="getTypeIconPathFor(issue)" alt="Type icon" />
+                        <img class="overlay-icon-rel" :src="getRelationalIconPathFor(issue)" alt="Relation icon" />
                       </div>
                       <span>{{ issue.title }} ({{ issue.state.isOpen ? 'Open' : 'Closed' }})</span>
                     </div>
@@ -400,9 +426,9 @@
                 <div v-if="newOutgoingRelation" class="new-outgoing-relation-container"
                   style="margin-top: 8px; display: flex; align-items: center; gap: 6px;">
                   <div class="new-outgoing-issue-info" style="display: flex; align-items: center; gap: 6px;">
-                    <div class="icon-stack">
-                      <img class="base-icon" :src="getTypeIconPathFor(newOutgoingRelation)" alt="Type icon" />
-                      <img class="overlay-icon" :src="getRelationalIconPathFor(newOutgoingRelation)"
+                    <div class="icon-stack-rel">
+                      <img class="base-icon-rel" :src="getTypeIconPathFor(newOutgoingRelation)" alt="Type icon" />
+                      <img class="overlay-icon-rel" :src="getRelationalIconPathFor(newOutgoingRelation)"
                         alt="Relation icon" />
                     </div>
                     <span>{{ newOutgoingRelation.title }} ({{ newOutgoingRelation.state.isOpen ? 'Open' : 'Closed'
@@ -431,9 +457,9 @@
                   <div class="relations-list">
                     <div v-for="relation in relations" :key="relation.id" class="relation-item">
                       <div class="relation-content" @click="openRelatedIssue(relation.relatedIssue.id)">
-                        <div class="icon-stack">
-                          <img class="base-icon" :src="getTypeIconPathFor(relation.relatedIssue)" alt="" />
-                          <img class="overlay-icon" :src="getRelationalIconPathFor(relation.relatedIssue)" alt="" />
+                        <div class="icon-stack-rel">
+                          <img class="base-icon-rel" :src="getTypeIconPathFor(relation.relatedIssue)" alt="" />
+                          <img class="overlay-icon-rel" :src="getRelationalIconPathFor(relation.relatedIssue)" alt="" />
                         </div>
                         <span>{{ relation.relatedIssue.title }}</span>
                       </div>
@@ -450,9 +476,10 @@
                   <div v-for="item in flatOutgoingRelations" :key="item.relation.id" class="relation-item">
                     <div class="relation-content" @click="openRelatedIssue(item.relation.relatedIssue.id)"
                       style="display: flex; align-items: center;">
-                      <div class="icon-stack">
-                        <img class="base-icon" :src="getTypeIconPathFor(item.relation.relatedIssue)" alt="" />
-                        <img class="overlay-icon" :src="getRelationalIconPathFor(item.relation.relatedIssue)" alt="" />
+                      <div class="icon-stack-rel">
+                        <img class="base-icon-rel" :src="getTypeIconPathFor(item.relation.relatedIssue)" alt="" />
+                        <img class="overlay-icon-rel" :src="getRelationalIconPathFor(item.relation.relatedIssue)"
+                          alt="" />
                       </div>
                       <div style="display: flex; flex-direction: column; margin-left: 8px;">
                         <span>{{ item.relation.relatedIssue.title }}</span>
@@ -499,9 +526,9 @@
                 <div class="relations-list">
                   <div v-for="issueData in issues" :key="issueData.id" class="relation-item"
                     @click="openRelatedIssue(issueData.id)" style="display: flex; align-items: center; gap: 8px;">
-                    <div class="icon-stack">
-                      <img class="base-icon" :src="getTypeIconPathFor(issueData)" alt="" />
-                      <img class="overlay-icon" :src="getRelationalIconPathFor(issueData)" alt="" />
+                    <div class="icon-stack-rel">
+                      <img class="base-icon-rel" :src="getTypeIconPathFor(issueData)" alt="" />
+                      <img class="overlay-icon-rel" :src="getRelationalIconPathFor(issueData)" alt="" />
                     </div>
                     <!-- This span simply displays the title aligned left -->
                     <span>{{ issueData.title }}</span>
@@ -518,9 +545,9 @@
             style="cursor: pointer; display: flex; justify-content: space-between;">
             <span>Assignments</span>
             <div>
-              <button v-if="expandedSections.assignments" class="remove-button" @click.stop="showAddAssignment"
-                title="Add assignment">
-                <span>+</span>
+              <button v-if="expandedSections.assignments" class="artifact-button create-button"
+                @click.stop="showAddAssignment" title="Add assignment">
+                Create
               </button>
               <span class="toggle-icon">{{ expandedSections.assignments ? '▼' : '▶' }}</span>
             </div>
@@ -709,6 +736,25 @@
     <div v-else class="empty-state">
       <p>No issue selected. Please select an issue to view its details.</p>
     </div>
+
+    <!-- Delete Comment Confirmation Modal -->
+    <div v-if="showDeleteCommentModal" class="modal-backdrop">
+      <div class="modal-container">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>Delete Comment</h3>
+          </div>
+          <div class="modal-body">
+            <p>Are you sure you want to delete this comment?</p>
+            <p class="modal-info-text">This action cannot be undone.</p>
+          </div>
+          <div class="modal-footer">
+            <button class="modal-button secondary-button" @click="cancelDeleteComment">Cancel</button>
+            <button class="modal-button delete-button" @click="confirmDeleteComment">Delete</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -787,6 +833,10 @@ export default {
       newLabelColor: '#0c94d8',
       expandedComments: {},
       commentMaxLength: 70,
+      activeCommentMenu: null,
+      showDeleteCommentModal: false,
+      commentToDelete: null,
+      deletingComment: false,
     };
   },
   computed: {
@@ -950,10 +1000,10 @@ export default {
         return [];
       }
 
-      // Filter out deleted comments
+      // Sort comments by date (newest first)
+      // Now we don't filter out deleted comments, but display them differently
       return this.issue.issueComments.nodes
-        .filter(comment => !comment.isDeleted)
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)); // Sort by date (newest first)
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     },
 
     /**
@@ -992,9 +1042,27 @@ export default {
     }
   },
   methods: {
+    toRgba(str, alpha = 1) {
+      // if it's already rgb()/rgba(), just swap in the new alpha
+      if (/^rgb/i.test(str)) {
+        return str
+          .replace(/rgba?/, 'rgba')
+          .replace(/\)$/, `, ${alpha})`)
+      }
+      // otherwise assume hex (#rgb or #rrggbb)
+      let hex = str.replace(/^#/, '')
+      if (hex.length === 3) {
+        hex = hex.split('').map(c => c + c).join('')
+      }
+      const n = parseInt(hex, 16)
+      const r = (n >> 16) & 255
+      const g = (n >> 8) & 255
+      const b = n & 255
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`
+    },
     /**
- * Toggles the Add Artifact dropdown and loads available artifacts
- */
+     * Toggles the Add Artifact dropdown and loads available artifacts
+     */
     toggleAddArtifactDropdown(event) {
       if (event) event.stopPropagation();
 
@@ -1186,6 +1254,90 @@ export default {
           });
         }
       }
+    },/**
+ * Toggle the label dropdown and add/remove click-outside handler
+ */
+    toggleNewLabelDropdown() {
+      if (this.newLabelDropdownVisible) {
+        // If already visible, close it.
+        this.newLabelDropdownVisible = false;
+        // Remove the click-outside listener
+        document.removeEventListener('click', this.handleClickOutsideLabelDropdown);
+      } else {
+        this.labelsLoading = true;
+        this.newLabelDropdownVisible = true;
+        // Request all labels from your extension including originComponentId.
+        if (vscode) {
+          vscode.postMessage({
+            command: 'getAllLabels',
+            originComponentId: this.originComponentId, // Pass the originComponentId here
+            first: 20,
+            query: "*",
+            skip: 0
+          });
+        }
+
+        // Add click-outside listener
+        this.$nextTick(() => {
+          document.addEventListener('click', this.handleClickOutsideLabelDropdown);
+        });
+      }
+    },
+
+    /**
+     * Handle clicks outside the label dropdown to close it
+     */
+    handleClickOutsideLabelDropdown(event) {
+      const dropdown = this.$el.querySelector('.field-dropdown');
+      const button = this.$el.querySelector('[title="Add Label"]');
+
+      if (dropdown && button &&
+        !dropdown.contains(event.target) &&
+        !button.contains(event.target)) {
+        this.newLabelDropdownVisible = false;
+        // Reset label form state
+        this.showNewLabelModal = false;
+        // Remove the event listener
+        document.removeEventListener('click', this.handleClickOutsideLabelDropdown);
+      }
+    },
+
+    /**
+     * Add click-outside handler for relation dropdown
+     */
+    toggleNewRelationDropdown() {
+      this.newOutgoingRelation = null;
+      this.newRelationTypeDropdownVisible = false;
+
+      if (this.newRelationDropdownVisible) {
+        this.newRelationDropdownVisible = false;
+        document.removeEventListener('click', this.handleClickOutsideRelationDropdown);
+      } else {
+        this.newRelationDropdownVisible = true;
+        if (vscode) {
+          vscode.postMessage({ command: 'createOutgoingRelation' });
+        }
+
+        // Add click-outside listener
+        this.$nextTick(() => {
+          document.addEventListener('click', this.handleClickOutsideRelationDropdown);
+        });
+      }
+    },
+
+    /**
+     * Handle clicks outside the relation dropdown
+     */
+    handleClickOutsideRelationDropdown(event) {
+      const dropdown = this.$el.querySelector('.field-dropdown');
+      const button = this.$el.querySelector('[title="Add Outgoing Relation"]');
+
+      if (dropdown && button &&
+        !dropdown.contains(event.target) &&
+        !button.contains(event.target)) {
+        this.newRelationDropdownVisible = false;
+        document.removeEventListener('click', this.handleClickOutsideRelationDropdown);
+      }
     },
     // Called when a label is selected from the dropdown
     selectNewLabel(label) {
@@ -1326,6 +1478,120 @@ export default {
       const endIndex = breakPoint > 0 ? breakPoint + 1 : this.commentMaxLength;
 
       return text.substring(0, endIndex) + '...';
+    },
+    /**
+   * Toggles the comment dropdown menu
+   * @param {string} commentId - The ID of the comment
+   */
+    toggleCommentMenu(commentId) {
+      if (this.activeCommentMenu === commentId) {
+        this.activeCommentMenu = null;
+      } else {
+        this.activeCommentMenu = commentId;
+
+        // Add click-outside listener to close the menu when clicking elsewhere
+        this.$nextTick(() => {
+          document.addEventListener('click', this.closeCommentMenus);
+        });
+      }
+    },
+
+    /**
+     * Closes all comment menus
+     */
+    closeCommentMenus() {
+      this.activeCommentMenu = null;
+      document.removeEventListener('click', this.closeCommentMenus);
+    },
+
+    /**
+     * Placeholder for edit comment functionality
+     * @param {Object} comment - The comment to edit
+     */
+    editComment(comment) {
+      // This will be implemented later with actual functionality
+      console.log('Edit comment:', comment.id);
+      this.activeCommentMenu = null;
+
+      if (vscode) {
+        vscode.postMessage({
+          command: 'showMessage',
+          message: 'Edit comment functionality will be implemented soon.'
+        });
+      }
+    },
+
+    /**
+     * Placeholder for delete comment functionality
+     * @param {Object} comment - The comment to delete
+     */
+    deleteComment(comment) {
+      this.commentToDelete = comment;
+      this.showDeleteCommentModal = true;
+      this.activeCommentMenu = null; // Close the dropdown menu
+    },
+    cancelDeleteComment() {
+      this.showDeleteCommentModal = false;
+      this.commentToDelete = null;
+    },
+    /**
+  * Confirms and processes comment deletion
+  */
+    async confirmDeleteComment() {
+      if (!this.commentToDelete || !this.commentToDelete.id) {
+        console.error('No comment selected for deletion');
+        this.showDeleteCommentModal = false;
+        return;
+      }
+
+      this.deletingComment = true;
+
+      try {
+        if (vscode) {
+          vscode.postMessage({
+            command: 'deleteIssueComment',
+            input: {
+              id: this.commentToDelete.id
+            }
+          });
+        }
+
+        // We'll handle the response in the message handler
+        // This is just UI cleanup in case of success
+        this.showDeleteCommentModal = false;
+        this.commentToDelete = null;
+      } catch (error) {
+        console.error('Error initiating comment deletion:', error);
+        // Keep the modal open to show the error
+      } finally {
+        this.deletingComment = false;
+      }
+    }, /**
+   * Updates the UI after a successful comment deletion
+   * @param {string} commentId - ID of the deleted comment
+   */
+    handleCommentDeleted(commentId) {
+      // Update local comment list to reflect the deletion
+      if (this.issue && this.issue.issueComments && this.issue.issueComments.nodes) {
+        // Mark the comment as deleted in the UI
+        // We don't actually remove it from the array to preserve the count and ordering
+        const comment = this.issue.issueComments.nodes.find(c => c.id === commentId);
+        if (comment) {
+          comment.isDeleted = true;
+          comment.body = ''; // Clear the body as per the API behavior
+        }
+
+        // Force the UI to refresh
+        this.$forceUpdate();
+      }
+
+      // Show a success message
+      if (vscode) {
+        vscode.postMessage({
+          command: 'showMessage',
+          message: 'Comment deleted successfully.'
+        });
+      }
     },
 
     /**
@@ -2416,6 +2682,23 @@ export default {
       } else if (message && message.command === 'availableArtifactsLoaded') {
         this.artifactsLoading = false;
         this.availableArtifacts = message.artifacts || [];
+      } else if (message && message.command === 'commentDeleted') {
+        // The comment was successfully deleted
+        this.handleCommentDeleted(message.commentId);
+      }
+      else if (message && message.command === 'commentDeleteError') {
+        // Handle error in comment deletion
+        console.error('Error deleting comment:', message.error);
+        // Show error message to user
+        if (vscode) {
+          vscode.postMessage({
+            command: 'showMessage',
+            message: `Error deleting comment: ${message.error}`
+          });
+        }
+        // Close the modal
+        this.showDeleteCommentModal = false;
+        this.commentToDelete = null;
       }
       else if (message && message.command === 'artifactAddedToIssue') {
         vscode.window.showInformationMessage('Artifact added to issue successfully.');
@@ -2475,6 +2758,11 @@ export default {
     // Remove event listener when component is destroyed
     document.removeEventListener('click', this.closeTypeDropdown);
     document.removeEventListener('click', this.handleClickOutsideAddForm);
+    document.removeEventListener('click', this.closeCommentMenus);
+    document.removeEventListener('click', this.closeTypeDropdown);
+    document.removeEventListener('click', this.handleClickOutsideAddForm);
+    document.removeEventListener('click', this.handleClickOutsideLabelDropdown);
+    document.removeEventListener('click', this.handleClickOutsideRelationDropdown);
   }
 };
 </script>
@@ -2669,7 +2957,7 @@ ul {
 .issue-container {
   display: flex;
   flex-direction: column;
-  padding: 5px 5px 5px 0px;
+  padding: 4px 16px 4px 4px;
   gap: 5px;
   box-sizing: border-box;
   width: 100%;
@@ -2729,6 +3017,7 @@ ul {
 
 .section-header {
   font-weight: 600;
+  color: white;
   font-size: 0.95em;
   color: var(--vscode-foreground);
   margin-bottom: 8px;
@@ -2741,7 +3030,7 @@ ul {
 .section-content {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  /* gap: 8px; */
   margin-left: 10px;
   padding-right: 10px;
 }
@@ -2809,12 +3098,13 @@ ul {
 .label-badge {
   display: inline-flex;
   align-items: center;
-  padding: 4px 12px;
+  padding: 1px 12px;
   border-radius: 12px;
   font-size: 0.9em;
   background-color: rgba(0, 0, 0, 0.2);
   color: white;
   white-space: nowrap;
+  margin: 4px;
 }
 
 /* =================== Entity Badges =================== */
@@ -2905,12 +3195,19 @@ ul {
   font-size: 0.9em;
   font-weight: 500;
   margin-bottom: 8px;
+  margin-left: 16px;
+}
+
+.relation-type-header {
+  font-size: 0.9em;
+  margin-left: 32px;
 }
 
 .relations-list {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  margin-left: 48px;
 }
 
 .relation-item {
@@ -2919,7 +3216,7 @@ ul {
   justify-content: space-between;
   /* space-between pushes them apart */
   gap: 8px;
-  padding: 4px 0;
+  padding: 2px 0;
   /* optional spacing */
 }
 
@@ -2942,30 +3239,23 @@ ul {
 
 .remove-relation-button {
   display: inline-flex;
-  /* So we can center the X */
   align-items: center;
   justify-content: center;
   width: 24px;
-  /* Circle dimensions */
   height: 24px;
   border-radius: 50%;
-  /* Makes the shape round */
   background: none;
   border: none;
   color: #d6bee4 !important;
-  /* Your desired color for the X */
   cursor: pointer;
   font-size: 1em;
-  margin: 0;
+  margin: 0 -8px 0 4px;
   padding: 0;
   transition: background-color 0.2s ease;
-  margin-left: -4px;
-  /* adjust this value as needed */
 }
 
 .remove-relation-button:hover {
   background-color: rgba(255, 255, 255, 0.1);
-  /* Slightly gray/white background */
 }
 
 /* =================== Empty and Error States =================== */
@@ -2995,11 +3285,6 @@ ul {
   align-items: center;
   gap: 5px;
   padding-right: 10px;
-}
-
-.section-header {
-  font-weight: bold;
-  color: white;
 }
 
 .inline-content {
@@ -3313,7 +3598,9 @@ ul {
 }
 
 /* =================== IssueDetails.vue Icon Stack Styling =================== */
-/* Used to overlay the relation icons on top of the type icon */
+
+/* Used for the icon of the issue for which the view is loaded. */
+
 .icon-stack {
   position: relative;
   width: 24px;
@@ -3330,6 +3617,29 @@ ul {
 }
 
 .overlay-icon {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+/* Used for the icons of the outgoing and incoming relations. */
+
+.icon-stack-rel {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.base-icon-rel,
+.overlay-icon-rel {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.overlay-icon-rel {
   position: absolute;
   top: 0;
   left: 0;
@@ -3853,7 +4163,30 @@ ul {
 .artifact-button.create-button {
   background-color: var(--vscode-button-background, #0e639c);
   color: var(--vscode-button-foreground, white);
+  border: none;
+  border-radius: 3px;
+  padding: 3px 8px;
+  font-size: 0.85em;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-width: 60px;
 }
+
+.section-header button.artifact-button.create-button,
+.section-header-row button.artifact-button.create-button,
+.relations-subheader button.artifact-button.create-button {
+  margin-right: 8px;
+}
+
+.relations-subheader .artifact-button.create-button {
+  margin-left: 4px !important;
+}
+
+
 
 .artifact-button.create-button:hover {
   background-color: var(--vscode-button-hoverBackground, #1177bb);
@@ -4053,5 +4386,171 @@ ul {
   padding: 12px;
   background-color: rgba(30, 30, 30, 0.2);
   border-radius: 4px;
+}
+
+/* Overrides the VS Code–injected defaultStyles */
+body {
+  padding: 0 !important;
+}
+
+/* Comment dropdown menu styling */
+.comment-menu {
+  position: relative;
+  display: inline-block;
+  margin-left: 8px;
+}
+
+.comment-menu-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0.7;
+  transition: background-color 0.2s, opacity 0.2s;
+}
+
+.comment-menu-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  opacity: 1;
+}
+
+.dot {
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  background-color: var(--vscode-foreground, #cccccc);
+  border-radius: 50%;
+  margin: 0 1px;
+}
+
+.comment-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 120px;
+  background-color: var(--vscode-dropdown-background, #252526);
+  border: 1px solid var(--vscode-dropdown-border, #454545);
+  border-radius: 3px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+}
+
+.comment-dropdown-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.comment-dropdown-item:hover {
+  background-color: var(--vscode-list-hoverBackground, #2a2d2e);
+}
+
+.comment-dropdown-icon {
+  margin-right: 8px;
+  width: 16px;
+  display: inline-flex;
+  justify-content: center;
+}
+
+/* Modal styling for delete confirmation */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.modal-container {
+  background-color: var(--vscode-editor-background, #1e1e1e);
+  border: 1px solid var(--vscode-panel-border, #3c3c3c);
+  border-radius: 4px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  width: 340px;
+  max-width: 90%;
+  max-height: 90%;
+  overflow: auto;
+}
+
+.modal-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--vscode-panel-border, #3c3c3c);
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.1em;
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.modal-body {
+  padding: 16px;
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.modal-info-text {
+  font-size: 0.9em;
+  color: var(--vscode-descriptionForeground, #8a8a8a);
+  margin-top: 8px;
+}
+
+.modal-footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--vscode-panel-border, #3c3c3c);
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.modal-button {
+  border: none;
+  border-radius: 3px;
+  padding: 6px 12px;
+  font-size: 0.9em;
+  cursor: pointer;
+  min-width: 70px;
+  text-align: center;
+}
+
+.modal-button.secondary-button {
+  background-color: var(--vscode-button-secondaryBackground, #3a3d41);
+  color: var(--vscode-button-secondaryForeground, #ffffff);
+}
+
+.modal-button.secondary-button:hover {
+  background-color: var(--vscode-button-secondaryHoverBackground, #45494e);
+}
+
+.modal-button.delete-button {
+  background-color: var(--vscode-errorForeground, #f48771);
+  color: var(--vscode-button-foreground, #ffffff);
+}
+
+.modal-button.delete-button:hover {
+  background-color: #e05e5e;
+}
+
+.comment-deleted {
+  font-style: italic;
+  color: var(--vscode-descriptionForeground, #8a8a8a);
+  padding: 4px 0;
 }
 </style>

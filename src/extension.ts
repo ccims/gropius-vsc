@@ -47,6 +47,7 @@ import {
   GET_AVAILABLE_PROJECTS,
   GET_ARTIFACTS_FOR_TRACKABLE,
   UPDATE_ARTIFACT_LINES_MUTATION,
+  DELETE_ISSUE_COMMENT_MUTATION,
   REMOVE_AFFECTED_ENTITY_FROM_ISSUE_MUTATION
 } from "./queries";
 import path from "path";
@@ -2220,6 +2221,37 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
           this._view?.webview.postMessage({
             command: 'assignmentTypesError',
             error: 'Missing template ID'
+          });
+        }
+      } else if (message.command === 'deleteIssueComment') {
+        try {
+          await globalApiClient.authenticate();
+          const result = await globalApiClient.executeQuery(
+            DELETE_ISSUE_COMMENT_MUTATION,
+            { input: message.input }
+          );
+
+          if (result.errors) {
+            throw new Error(result.errors[0].message);
+          }
+
+          if (!result.data?.deleteIssueComment?.issueComment) {
+            throw new Error('Failed to delete comment: No data returned');
+          }
+
+          // Send success response back to the webview
+          this._view?.webview.postMessage({
+            command: 'commentDeleted',
+            commentId: message.input.id
+          });
+
+          // Optionally refresh the issue details
+          this.refreshCurrentIssue();
+        } catch (error) {
+          console.error('[IssueDetailsProvider] Error deleting comment:', error);
+          this._view?.webview.postMessage({
+            command: 'commentDeleteError',
+            error: error instanceof Error ? error.message : String(error)
           });
         }
       } else if (message.command === 'changeAssignmentType') {

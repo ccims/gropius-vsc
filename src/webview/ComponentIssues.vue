@@ -2086,8 +2086,8 @@ export default {
 
 .icon-stack {
   position: relative !important;
-  width: 24px !important;
-  height: 24px !important;
+  width: 20px !important;
+  height: 20px !important;
 }
 
 .issue-icon {
