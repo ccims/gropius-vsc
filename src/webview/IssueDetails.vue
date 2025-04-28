@@ -226,22 +226,19 @@
           <div class="section-header" @click="toggleSection('affectedEntities')"
             style="cursor: pointer; display: flex; justify-content: space-between;">
             <span>Affected Entities</span>
-            <span class="toggle-icon">{{ expandedSections.affectedEntities ? '▼' : '▶' }}</span>
+            <div>
+              <button v-if="expandedSections.affectedEntities" class="edit-button" @click.stop="toggleEditAffections"
+                title="Edit Affections">
+                <span class="edit-icon">✎</span>
+              </button>
+              <button v-if="expandedSections.affectedEntities" class="artifact-button add-button"
+                @click.stop="toggleNewAffectionDropdown" title="Add Affection">
+                Add
+              </button>
+              <span class="toggle-icon">{{ expandedSections.affectedEntities ? '▼' : '▶' }}</span>
+            </div>
           </div>
           <div class="section-content" v-if="expandedSections.affectedEntities">
-            <div v-if="expandedSections.affectedEntities">
-              <!-- Buttons for label editing and adding -->
-              <div style="display: flex; gap: 4px;">
-                <!-- Toggle label edit mode -->
-                <button class="edit-button" @click="toggleEditAffections" title="Edit Affections">
-                  <span class="edit-icon">✎</span>
-                </button>
-                <!-- + button toggles the new label dropdown -->
-                <button class="remove-relation-button" @click.stop="toggleNewAffectionDropdown" title="Add Affection">
-                  <span class="edit-icon">+</span>
-                </button>
-              </div>
-            </div>
             <div v-if="editAffections">
               <!-- Group items by type with inline layout -->
               <div v-for="(group, groupType) in groupedAffectedEntities" :key="groupType" class="affected-group">
