@@ -1822,3 +1822,21 @@ mutation RemoveArtefactFromIssue($input: RemoveArtefactFromIssueInput!) {
   }
 }
 `;
+
+export const DELETE_ISSUE_COMMENT_MUTATION = `
+mutation DeleteIssueComment($input: DeleteNodeInput!) {
+  deleteIssueComment(input: $input) {
+    issueComment {
+      id
+      isDeleted
+      body
+      createdAt
+      lastModifiedAt
+      createdBy {
+        displayName
+        username
+      }
+    }
+  }
+}
+`;

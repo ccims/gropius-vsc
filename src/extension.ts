@@ -46,7 +46,8 @@ import {
   GET_AVAILABLE_COMPONENTS,
   GET_AVAILABLE_PROJECTS,
   GET_ARTIFACTS_FOR_TRACKABLE,
-  UPDATE_ARTIFACT_LINES_MUTATION
+  UPDATE_ARTIFACT_LINES_MUTATION,
+  DELETE_ISSUE_COMMENT_MUTATION
 } from "./queries";
 import path from "path";
 
@@ -217,18 +218,18 @@ async function moveArtifactIconAtCursor(direction: 'up' | 'down'): Promise<void>
     vscode.window.showWarningMessage('No active editor found.');
     return;
   }
-  
+
   const cursorLine = editor.selection.active.line;
   const uriString = editor.document.uri.toString();
-  
+
   // Find artifacts at this line
   const artifactsAtLine = artifactDecoratorManager.getArtifactsAtLine(uriString, cursorLine);
-  
+
   if (artifactsAtLine.length === 0) {
     vscode.window.showInformationMessage('No artifacts found at this line.');
     return;
   }
-  
+
   if (artifactsAtLine.length === 1) {
     // Only one artifact, move it directly
     const artifact = artifactsAtLine[0];
@@ -240,11 +241,11 @@ async function moveArtifactIconAtCursor(direction: 'up' | 'down'): Promise<void>
       description: `Lines ${artifact.from}-${artifact.to}`,
       artifact
     }));
-    
+
     const selected = await vscode.window.showQuickPick(items, {
       placeHolder: 'Select which artifact to move'
     });
-    
+
     if (selected) {
       await artifactDecoratorManager.moveArtifactIcon(selected.artifact, direction);
     }
@@ -2221,6 +2222,37 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
             error: 'Missing template ID'
           });
         }
+      } else if (message.command === 'deleteIssueComment') {
+        try {
+          await globalApiClient.authenticate();
+          const result = await globalApiClient.executeQuery(
+            DELETE_ISSUE_COMMENT_MUTATION,
+            { input: message.input }
+          );
+
+          if (result.errors) {
+            throw new Error(result.errors[0].message);
+          }
+
+          if (!result.data?.deleteIssueComment?.issueComment) {
+            throw new Error('Failed to delete comment: No data returned');
+          }
+
+          // Send success response back to the webview
+          this._view?.webview.postMessage({
+            command: 'commentDeleted',
+            commentId: message.input.id
+          });
+
+          // Optionally refresh the issue details
+          this.refreshCurrentIssue();
+        } catch (error) {
+          console.error('[IssueDetailsProvider] Error deleting comment:', error);
+          this._view?.webview.postMessage({
+            command: 'commentDeleteError',
+            error: error instanceof Error ? error.message : String(error)
+          });
+        }
       } else if (message.command === 'changeAssignmentType') {
         try {
           const result = await this.changeAssignmentType({
@@ -2877,7 +2909,7 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
   private async fetchIssueGraphData(): Promise<any> {
     try {
       await this.apiClient.authenticate();
-      const response = await this.apiClient.executeQuery(FETCH_TEMP_ISSUE_GRAPH, { id: this.lastIssueId }); 
+      const response = await this.apiClient.executeQuery(FETCH_TEMP_ISSUE_GRAPH, { id: this.lastIssueId });
       return response.data;
     } catch (error) {
       throw new Error(
@@ -3860,7 +3892,7 @@ class ArtifactDecoratorManager {
  * Force a complete decoration refresh by disposing and recreating all decorations
  */
   private forceCompleteDecorationsRefresh(affectedUris: string[]): void {
- 
+
     // Save current active editor and visible editors
     const activeEditor = vscode.window.activeTextEditor;
     const visibleEditors = vscode.window.visibleTextEditors;
@@ -4484,41 +4516,41 @@ class ArtifactDecoratorManager {
   /**
  * Gets all artifacts at a specific line
  */
-public getArtifactsAtLine(uriString: string, line: number): Array<{ id: string, file: string, from: number, to: number }> {
-  const result: Array<{ id: string, file: string, from: number, to: number }> = [];
-  
-  if (!this.artifactRanges.has(uriString)) {
-    return result;
-  }
-  
-  const fileData = this.artifactRanges.get(uriString)!;
-  
-  // Find all artifacts that have ranges containing this line
-  for (const rangeData of fileData.ranges) {
-    const range = rangeData.range;
-    
-    // Check if this line is the start or end of the range
-    if (range.start.line === line || range.end.line === line) {
-      const artifactId = rangeData.artifactId;
-      
-      // Get the 1-based line numbers
-      const from = range.start.line + 1;
-      const to = range.end.line + 1;
-      
-      // Add to result if not already included
-      if (!result.some(a => a.id === artifactId)) {
-        result.push({
-          id: artifactId,
-          file: uriString,
-          from,
-          to
-        });
+  public getArtifactsAtLine(uriString: string, line: number): Array<{ id: string, file: string, from: number, to: number }> {
+    const result: Array<{ id: string, file: string, from: number, to: number }> = [];
+
+    if (!this.artifactRanges.has(uriString)) {
+      return result;
+    }
+
+    const fileData = this.artifactRanges.get(uriString)!;
+
+    // Find all artifacts that have ranges containing this line
+    for (const rangeData of fileData.ranges) {
+      const range = rangeData.range;
+
+      // Check if this line is the start or end of the range
+      if (range.start.line === line || range.end.line === line) {
+        const artifactId = rangeData.artifactId;
+
+        // Get the 1-based line numbers
+        const from = range.start.line + 1;
+        const to = range.end.line + 1;
+
+        // Add to result if not already included
+        if (!result.some(a => a.id === artifactId)) {
+          result.push({
+            id: artifactId,
+            file: uriString,
+            from,
+            to
+          });
+        }
       }
     }
+
+    return result;
   }
-  
-  return result;
-}
 
   /**
    * Dispose all decoration types

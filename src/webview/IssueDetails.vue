@@ -298,7 +298,8 @@
                   </div>
                   <div class="comment-actions">
                     <span class="comment-date">{{ formatDate(comment.createdAt) }}</span>
-                    <div class="comment-menu">
+                    <!-- Only show dropdown menu for non-deleted comments -->
+                    <div v-if="!comment.isDeleted" class="comment-menu">
                       <button class="comment-menu-button" @click.stop="toggleCommentMenu(comment.id)">
                         <span class="dot"></span>
                         <span class="dot"></span>
@@ -318,18 +319,26 @@
                   </div>
                 </div>
                 <div class="comment-body">
-                  <!-- Conditionally render truncated or full comment -->
-                  <div class="comment-text markdown-content" v-html="markdownToHtml(
-                    (this.isCommentTruncated(comment) && !this.expandedComments[String(comment.id)])
-                      ? this.truncateComment(comment.body)
-                      : comment.body
-                  )"></div>
+                  <!-- Display for deleted comments -->
+                  <div v-if="comment.isDeleted" class="comment-deleted">
+                    <em>This comment has been deleted.</em>
+                  </div>
 
-                  <!-- Show more/less button only for truncatable comments -->
-                  <div v-if="isCommentTruncated(comment)" class="show-more-container">
-                    <button class="show-more-button" @click.stop="toggleCommentExpansion(comment.id)">
-                      {{ expandedComments[String(comment.id)] ? 'Show less' : 'Show more' }}
-                    </button>
+                  <!-- Display for regular comments -->
+                  <div v-else>
+                    <!-- Conditionally render truncated or full comment -->
+                    <div class="comment-text markdown-content" v-html="markdownToHtml(
+                      (this.isCommentTruncated(comment) && !this.expandedComments[String(comment.id)])
+                        ? this.truncateComment(comment.body)
+                        : comment.body
+                    )"></div>
+
+                    <!-- Show more/less button only for truncatable comments -->
+                    <div v-if="isCommentTruncated(comment)" class="show-more-container">
+                      <button class="show-more-button" @click.stop="toggleCommentExpansion(comment.id)">
+                        {{ expandedComments[String(comment.id)] ? 'Show less' : 'Show more' }}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -697,6 +706,25 @@
     <div v-else class="empty-state">
       <p>No issue selected. Please select an issue to view its details.</p>
     </div>
+
+    <!-- Delete Comment Confirmation Modal -->
+    <div v-if="showDeleteCommentModal" class="modal-backdrop">
+      <div class="modal-container">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>Delete Comment</h3>
+          </div>
+          <div class="modal-body">
+            <p>Are you sure you want to delete this comment?</p>
+            <p class="modal-info-text">This action cannot be undone.</p>
+          </div>
+          <div class="modal-footer">
+            <button class="modal-button secondary-button" @click="cancelDeleteComment">Cancel</button>
+            <button class="modal-button delete-button" @click="confirmDeleteComment">Delete</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -775,6 +803,9 @@ export default {
       expandedComments: {},
       commentMaxLength: 70,
       activeCommentMenu: null,
+      showDeleteCommentModal: false,
+      commentToDelete: null,
+      deletingComment: false,
     };
   },
   computed: {
@@ -938,10 +969,10 @@ export default {
         return [];
       }
 
-      // Filter out deleted comments
+      // Sort comments by date (newest first)
+      // Now we don't filter out deleted comments, but display them differently
       return this.issue.issueComments.nodes
-        .filter(comment => !comment.isDeleted)
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)); // Sort by date (newest first)
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     },
 
     /**
@@ -1442,14 +1473,70 @@ export default {
      * @param {Object} comment - The comment to delete
      */
     deleteComment(comment) {
-      // This will be implemented later with actual functionality
-      console.log('Delete comment:', comment.id);
-      this.activeCommentMenu = null;
+      this.commentToDelete = comment;
+      this.showDeleteCommentModal = true;
+      this.activeCommentMenu = null; // Close the dropdown menu
+    },
+    cancelDeleteComment() {
+      this.showDeleteCommentModal = false;
+      this.commentToDelete = null;
+    },
+    /**
+  * Confirms and processes comment deletion
+  */
+    async confirmDeleteComment() {
+      if (!this.commentToDelete || !this.commentToDelete.id) {
+        console.error('No comment selected for deletion');
+        this.showDeleteCommentModal = false;
+        return;
+      }
 
+      this.deletingComment = true;
+
+      try {
+        if (vscode) {
+          vscode.postMessage({
+            command: 'deleteIssueComment',
+            input: {
+              id: this.commentToDelete.id
+            }
+          });
+        }
+
+        // We'll handle the response in the message handler
+        // This is just UI cleanup in case of success
+        this.showDeleteCommentModal = false;
+        this.commentToDelete = null;
+      } catch (error) {
+        console.error('Error initiating comment deletion:', error);
+        // Keep the modal open to show the error
+      } finally {
+        this.deletingComment = false;
+      }
+    }, /**
+   * Updates the UI after a successful comment deletion
+   * @param {string} commentId - ID of the deleted comment
+   */
+    handleCommentDeleted(commentId) {
+      // Update local comment list to reflect the deletion
+      if (this.issue && this.issue.issueComments && this.issue.issueComments.nodes) {
+        // Mark the comment as deleted in the UI
+        // We don't actually remove it from the array to preserve the count and ordering
+        const comment = this.issue.issueComments.nodes.find(c => c.id === commentId);
+        if (comment) {
+          comment.isDeleted = true;
+          comment.body = ''; // Clear the body as per the API behavior
+        }
+
+        // Force the UI to refresh
+        this.$forceUpdate();
+      }
+
+      // Show a success message
       if (vscode) {
         vscode.postMessage({
           command: 'showMessage',
-          message: 'Delete comment functionality will be implemented soon.'
+          message: 'Comment deleted successfully.'
         });
       }
     },
@@ -2534,6 +2621,23 @@ export default {
       } else if (message && message.command === 'availableArtifactsLoaded') {
         this.artifactsLoading = false;
         this.availableArtifacts = message.artifacts || [];
+      } else if (message && message.command === 'commentDeleted') {
+        // The comment was successfully deleted
+        this.handleCommentDeleted(message.commentId);
+      }
+      else if (message && message.command === 'commentDeleteError') {
+        // Handle error in comment deletion
+        console.error('Error deleting comment:', message.error);
+        // Show error message to user
+        if (vscode) {
+          vscode.postMessage({
+            command: 'showMessage',
+            message: `Error deleting comment: ${message.error}`
+          });
+        }
+        // Close the modal
+        this.showDeleteCommentModal = false;
+        this.commentToDelete = null;
       }
       else if (message && message.command === 'artifactAddedToIssue') {
         vscode.window.showInformationMessage('Artifact added to issue successfully.');
@@ -4293,5 +4397,99 @@ body {
   width: 16px;
   display: inline-flex;
   justify-content: center;
+}
+
+/* Modal styling for delete confirmation */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.modal-container {
+  background-color: var(--vscode-editor-background, #1e1e1e);
+  border: 1px solid var(--vscode-panel-border, #3c3c3c);
+  border-radius: 4px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  width: 340px;
+  max-width: 90%;
+  max-height: 90%;
+  overflow: auto;
+}
+
+.modal-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--vscode-panel-border, #3c3c3c);
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.1em;
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.modal-body {
+  padding: 16px;
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.modal-info-text {
+  font-size: 0.9em;
+  color: var(--vscode-descriptionForeground, #8a8a8a);
+  margin-top: 8px;
+}
+
+.modal-footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--vscode-panel-border, #3c3c3c);
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.modal-button {
+  border: none;
+  border-radius: 3px;
+  padding: 6px 12px;
+  font-size: 0.9em;
+  cursor: pointer;
+  min-width: 70px;
+  text-align: center;
+}
+
+.modal-button.secondary-button {
+  background-color: var(--vscode-button-secondaryBackground, #3a3d41);
+  color: var(--vscode-button-secondaryForeground, #ffffff);
+}
+
+.modal-button.secondary-button:hover {
+  background-color: var(--vscode-button-secondaryHoverBackground, #45494e);
+}
+
+.modal-button.delete-button {
+  background-color: var(--vscode-errorForeground, #f48771);
+  color: var(--vscode-button-foreground, #ffffff);
+}
+
+.modal-button.delete-button:hover {
+  background-color: #e05e5e;
+}
+
+.comment-deleted {
+  font-style: italic;
+  color: var(--vscode-descriptionForeground, #8a8a8a);
+  padding: 4px 0;
 }
 </style>
