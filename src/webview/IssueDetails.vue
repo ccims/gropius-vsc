@@ -142,9 +142,9 @@
               <button class="edit-button" @click="toggleEditLabels" title="Edit Labels">
                 <span class="edit-icon">✎</span>
               </button>
-              <!-- + button toggles the new label dropdown -->
-              <button class="remove-relation-button" @click.stop="toggleNewLabelDropdown" title="Add Label">
-                <span class="edit-icon">+</span>
+              <!-- Replace + button with Create button -->
+              <button class="artifact-button create-button" @click.stop="toggleNewLabelDropdown" title="Add Label">
+                Add or Create
               </button>
             </div>
           </div>
@@ -275,8 +275,9 @@
             style="cursor: pointer; display: flex; justify-content: space-between;">
             <span>Comments ({{ commentsCount }})</span>
             <div>
-              <button v-if="expandedSections.comments" class="edit-button" @click.stop="addComment" title="Add comment">
-                <span class="edit-icon">+</span>
+              <button v-if="expandedSections.comments" class="artifact-button create-button" @click.stop="addComment"
+                title="Add comment">
+                Create
               </button>
               <span class="toggle-icon">{{ expandedSections.comments ? '▼' : '▶' }}</span>
             </div>
@@ -297,7 +298,6 @@
                   </div>
                   <div class="comment-actions">
                     <span class="comment-date">{{ formatDate(comment.createdAt) }}</span>
-                    <!-- Add dropdown menu for comment actions -->
                     <div class="comment-menu">
                       <button class="comment-menu-button" @click.stop="toggleCommentMenu(comment.id)">
                         <span class="dot"></span>
@@ -360,14 +360,13 @@
                       :title="editingOutgoingRelations ? 'Done editing relations' : 'Edit outgoing relations'">
                       <span class="edit-icon">✎</span>
                     </button>
-                    <!-- New "Add Outgoing Relation" button -->
-                    <button class="remove-relation-button" @click.stop="toggleNewRelationDropdown"
+                    <!-- Replace + button with Create button -->
+                    <button class="artifact-button create-button" @click.stop="toggleNewRelationDropdown"
                       title="Add Outgoing Relation" style="margin-left: 4px;">
-                      <span class="edit-icon">+</span>
+                      Create
                     </button>
                   </div>
                 </div>
-
                 <!-- Candidate Issues Dropdown: Shown when no new relation is selected -->
                 <div v-if="newRelationDropdownVisible && !newOutgoingRelation" class="field-dropdown"
                   style="position: absolute; top: 100%; right: 0; z-index: 1000; background: var(--vscode-dropdown-background);">
@@ -440,7 +439,8 @@
                       style="display: flex; align-items: center;">
                       <div class="icon-stack-rel">
                         <img class="base-icon-rel" :src="getTypeIconPathFor(item.relation.relatedIssue)" alt="" />
-                        <img class="overlay-icon-rel" :src="getRelationalIconPathFor(item.relation.relatedIssue)" alt="" />
+                        <img class="overlay-icon-rel" :src="getRelationalIconPathFor(item.relation.relatedIssue)"
+                          alt="" />
                       </div>
                       <div style="display: flex; flex-direction: column; margin-left: 8px;">
                         <span>{{ item.relation.relatedIssue.title }}</span>
@@ -506,9 +506,9 @@
             style="cursor: pointer; display: flex; justify-content: space-between;">
             <span>Assignments</span>
             <div>
-              <button v-if="expandedSections.assignments" class="remove-button" @click.stop="showAddAssignment"
-                title="Add assignment">
-                <span>+</span>
+              <button v-if="expandedSections.assignments" class="artifact-button create-button"
+                @click.stop="showAddAssignment" title="Add assignment">
+                Create
               </button>
               <span class="toggle-icon">{{ expandedSections.assignments ? '▼' : '▶' }}</span>
             </div>
@@ -980,7 +980,7 @@ export default {
     }
   },
   methods: {
-    toRgba (str, alpha = 1) {
+    toRgba(str, alpha = 1) {
       // if it's already rgb()/rgba(), just swap in the new alpha
       if (/^rgb/i.test(str)) {
         return str
@@ -994,8 +994,8 @@ export default {
       }
       const n = parseInt(hex, 16)
       const r = (n >> 16) & 255
-      const g = (n >>  8) & 255
-      const b =  n        & 255
+      const g = (n >> 8) & 255
+      const b = n & 255
       return `rgba(${r}, ${g}, ${b}, ${alpha})`
     },
     /**
@@ -1191,6 +1191,90 @@ export default {
             skip: 0
           });
         }
+      }
+    },/**
+ * Toggle the label dropdown and add/remove click-outside handler
+ */
+    toggleNewLabelDropdown() {
+      if (this.newLabelDropdownVisible) {
+        // If already visible, close it.
+        this.newLabelDropdownVisible = false;
+        // Remove the click-outside listener
+        document.removeEventListener('click', this.handleClickOutsideLabelDropdown);
+      } else {
+        this.labelsLoading = true;
+        this.newLabelDropdownVisible = true;
+        // Request all labels from your extension including originComponentId.
+        if (vscode) {
+          vscode.postMessage({
+            command: 'getAllLabels',
+            originComponentId: this.originComponentId, // Pass the originComponentId here
+            first: 20,
+            query: "*",
+            skip: 0
+          });
+        }
+
+        // Add click-outside listener
+        this.$nextTick(() => {
+          document.addEventListener('click', this.handleClickOutsideLabelDropdown);
+        });
+      }
+    },
+
+    /**
+     * Handle clicks outside the label dropdown to close it
+     */
+    handleClickOutsideLabelDropdown(event) {
+      const dropdown = this.$el.querySelector('.field-dropdown');
+      const button = this.$el.querySelector('[title="Add Label"]');
+
+      if (dropdown && button &&
+        !dropdown.contains(event.target) &&
+        !button.contains(event.target)) {
+        this.newLabelDropdownVisible = false;
+        // Reset label form state
+        this.showNewLabelModal = false;
+        // Remove the event listener
+        document.removeEventListener('click', this.handleClickOutsideLabelDropdown);
+      }
+    },
+
+    /**
+     * Add click-outside handler for relation dropdown
+     */
+    toggleNewRelationDropdown() {
+      this.newOutgoingRelation = null;
+      this.newRelationTypeDropdownVisible = false;
+
+      if (this.newRelationDropdownVisible) {
+        this.newRelationDropdownVisible = false;
+        document.removeEventListener('click', this.handleClickOutsideRelationDropdown);
+      } else {
+        this.newRelationDropdownVisible = true;
+        if (vscode) {
+          vscode.postMessage({ command: 'createOutgoingRelation' });
+        }
+
+        // Add click-outside listener
+        this.$nextTick(() => {
+          document.addEventListener('click', this.handleClickOutsideRelationDropdown);
+        });
+      }
+    },
+
+    /**
+     * Handle clicks outside the relation dropdown
+     */
+    handleClickOutsideRelationDropdown(event) {
+      const dropdown = this.$el.querySelector('.field-dropdown');
+      const button = this.$el.querySelector('[title="Add Outgoing Relation"]');
+
+      if (dropdown && button &&
+        !dropdown.contains(event.target) &&
+        !button.contains(event.target)) {
+        this.newRelationDropdownVisible = false;
+        document.removeEventListener('click', this.handleClickOutsideRelationDropdown);
       }
     },
     // Called when a label is selected from the dropdown
@@ -2512,6 +2596,8 @@ export default {
     document.removeEventListener('click', this.closeCommentMenus);
     document.removeEventListener('click', this.closeTypeDropdown);
     document.removeEventListener('click', this.handleClickOutsideAddForm);
+    document.removeEventListener('click', this.handleClickOutsideLabelDropdown);
+    document.removeEventListener('click', this.handleClickOutsideRelationDropdown);
   }
 };
 </script>
@@ -2988,29 +3074,23 @@ ul {
 
 .remove-relation-button {
   display: inline-flex;
-  /* So we can center the X */
   align-items: center;
   justify-content: center;
   width: 24px;
-  /* Circle dimensions */
   height: 24px;
   border-radius: 50%;
-  /* Makes the shape round */
   background: none;
   border: none;
   color: #d6bee4 !important;
-  /* Your desired color for the X */
   cursor: pointer;
   font-size: 1em;
   margin: 0 -8px 0 4px;
   padding: 0;
   transition: background-color 0.2s ease;
-  /* adjust this value as needed */
 }
 
 .remove-relation-button:hover {
   background-color: rgba(255, 255, 255, 0.1);
-  /* Slightly gray/white background */
 }
 
 /* =================== Empty and Error States =================== */
@@ -3918,7 +3998,30 @@ ul {
 .artifact-button.create-button {
   background-color: var(--vscode-button-background, #0e639c);
   color: var(--vscode-button-foreground, white);
+  border: none;
+  border-radius: 3px;
+  padding: 3px 8px;
+  font-size: 0.85em;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-width: 60px;
 }
+
+.section-header button.artifact-button.create-button,
+.section-header-row button.artifact-button.create-button,
+.relations-subheader button.artifact-button.create-button {
+  margin-right: 8px;
+}
+
+.relations-subheader .artifact-button.create-button {
+  margin-left: 4px !important;
+}
+
+
 
 .artifact-button.create-button:hover {
   background-color: var(--vscode-button-hoverBackground, #1177bb);
