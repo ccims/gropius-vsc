@@ -293,7 +293,7 @@
                 </svg>
               </button>
               <!-- Open in Editor Button - always on the right -->
-              <button class="edit-button" @click="editDescription"
+              <button class="toolbar-button" @click="editDescription"
                 title="Edit description">
                 <span class="edit-icon">✎</span>
               </button>
