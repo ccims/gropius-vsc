@@ -223,46 +223,86 @@
 
         <!-- Affected Entities Section -->
         <div class="info-section" v-if="issue.affects && issue.affects.nodes.length > 0">
-          <div class="section-header" @click="toggleSection('affectedEntities')"
-            style="cursor: pointer; display: flex; justify-content: space-between;">
+          <div class="section-header" @click="toggleSection('affectedEntities')" style="cursor: pointer; display: flex; justify-content: space-between;">
             <span>Affected Entities</span>
             <div>
-              <button v-if="expandedSections.affectedEntities" class="edit-button" @click.stop="toggleEditAffections"
-                title="Edit Affections">
+              <button
+                v-if="expandedSections.affectedEntities"
+                class="edit-button"
+                @click.stop="toggleEditAffections"
+                title="Edit Affections"
+              >
                 <span class="edit-icon">✎</span>
               </button>
-              <button v-if="expandedSections.affectedEntities" class="artifact-button add-button"
-                @click.stop="toggleNewAffectionDropdown" title="Add Affection">
-                Add
-              </button>
-              <span class="toggle-icon">{{ expandedSections.affectedEntities ? '▼' : '▶' }}</span>
+
+              <div class="add-affection-wrapper" style="position: relative; display: inline-block;">
+                <button
+                  v-if="expandedSections.affectedEntities"
+                  class="artifact-button add-button"
+                  @click.stop="toggleNewAffectionDropdown"
+                  title="Add Affection"
+                >
+                  Add
+                </button>
+
+                <div v-if="newAffectionDropdownVisible" class="new-affection-dropdown">
+                  <ul>
+                    <li v-for="entity in allAffectedEntities" :key="entity.type + entity.id">
+                      <button class="dropdown-item" @click="addAffection(entity)">
+                        <span
+                          class="badge"
+                          :class="{
+                            'project-badge': entity.type === 'Project',
+                            'component-badge': entity.type === 'Component',
+                            'component-version-badge': entity.type === 'Component Version'
+                          }"
+                        >
+                          {{ entity.label }}
+                        </span>
+                      </button>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              <span class="toggle-icon">
+                {{ expandedSections.affectedEntities ? '▼' : '▶' }}
+              </span>
             </div>
           </div>
+
           <div class="section-content" v-if="expandedSections.affectedEntities">
             <div v-if="editAffections">
-              <!-- Group items by type with inline layout -->
+              <!-- editable badges as before -->
               <div v-for="(group, groupType) in groupedAffectedEntities" :key="groupType" class="affected-group">
                 <div class="affected-group-inline">
                   <div class="affected-group-header">{{ groupType }}:</div>
                   <div class="affected-items-inline">
-                    <div v-for="(entity, index) in group" :key="index" class="badge entity-badge"
-                      :class="getEntityClass(entity)">
+                    <div
+                      v-for="(entity, index) in group"
+                      :key="index"
+                      class="badge entity-badge"
+                      :class="getEntityClass(entity)"
+                    >
                       {{ getEntityName(entity) }}
-                      <button class="remove-relation-button" @click.stop="removeAffection(entity)"
-                        title="Remove Label">X</button>
+                      <button class="remove-relation-button" @click.stop="removeAffection(entity)" title="Remove Label">X</button>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
             <div v-else>
-              <!-- Group items by type with inline layout -->
+              <!-- read-only badges as before -->
               <div v-for="(group, groupType) in groupedAffectedEntities" :key="groupType" class="affected-group">
                 <div class="affected-group-inline">
                   <div class="affected-group-header">{{ groupType }}:</div>
                   <div class="affected-items-inline">
-                    <div v-for="(entity, index) in group" :key="index" class="badge entity-badge"
-                      :class="getEntityClass(entity)">
+                    <div
+                      v-for="(entity, index) in group"
+                      :key="index"
+                      class="badge entity-badge"
+                      :class="getEntityClass(entity)"
+                    >
                       {{ getEntityName(entity) }}
                     </div>
                   </div>
@@ -835,6 +875,8 @@ export default {
       showDeleteCommentModal: false,
       commentToDelete: null,
       deletingComment: false,
+      newAffectionDropdownVisible: false,
+      allAffectedEntities: []
     };
   },
   computed: {
@@ -1040,6 +1082,40 @@ export default {
     }
   },
   methods: {
+    toggleNewAffectionDropdown() {
+      this.newAffectionDropdownVisible = !this.newAffectionDropdownVisible;
+      if (this.newAffectionDropdownVisible) {
+        vscode.postMessage({ command: 'getAffectedEntities' });
+      }
+    },
+    handleAffectedEntitiesLoaded(data) {
+      this.allAffectedEntities = [
+        ...data.projects.map(p => ({
+          id: p.id,
+          type: 'Project',
+          label: p.name
+        })),
+        ...data.components.map(c => ({
+          id: c.id,
+          type: 'Component',
+          label: c.name
+        })),
+        ...data.components.flatMap(c =>
+          c.versions.nodes.map(v => ({
+            id: v.id,
+            type: 'Component Version',
+            label: `${c.name} (v${v.version})`
+          }))
+        )
+      ];
+    },
+    addAffection(entity) {
+      this.issue.affects.nodes.push({
+        id: entity.id,
+        __typename: entity.type.replace(/ /g, '')
+      });
+      this.newAffectionDropdownVisible = false;
+    },
     toRgba(str, alpha = 1) {
       // if it's already rgb()/rgba(), just swap in the new alpha
       if (/^rgb/i.test(str)) {
@@ -2644,6 +2720,14 @@ export default {
           console.warn("[IssueDetails.vue] Received error:", this.error);
         } else {
           console.warn("[IssueDetails.vue] Received null issue with no error");
+        }
+      } else if (message && message.command === 'affectedEntitiesLoaded') {
+        // payload might be under .entities or under .data
+        const payload = message.entities || message.data;
+        if (payload) {
+          this.handleAffectedEntitiesLoaded(payload);
+        } else {
+          console.error('No affected-entities payload!', message);
         }
       } else if (message && message.command === "descriptionUpdated") {
         // Handle description update from the extension
@@ -4703,5 +4787,49 @@ body {
   font-style: italic;
   color: var(--vscode-descriptionForeground, #8a8a8a);
   padding: 4px 0;
+}
+
+.new-affection-dropdown {
+  position: absolute;
+  top: 127%;
+  left: -181px;              /* align to left edge of wrapper */
+  right: auto;          /* remove right:0 */
+  background-color: var(--vscode-menu-background);
+  color: var(--vscode-menu-foreground);
+  border-radius: 4px;
+  box-shadow: var(--vscode-editor-widget-shadow);
+  width: 240px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 100;
+}
+
+.new-affection-dropdown ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.new-affection-dropdown li {
+  margin: 0;
+}
+
+.dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+
+  white-space: nowrap;       /* don’t wrap text */
+  overflow: hidden;          /* clip overflowing text */
+  text-overflow: ellipsis;   /* show “…” */
+  color: inherit;
+}
+
+.dropdown-item:hover {
+  background-color: var(--vscode-menu-selectionBackground);
 }
 </style>

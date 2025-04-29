@@ -1855,6 +1855,29 @@ mutation RemoveAffectedEntityFromIssue($issue: ID!, $affectedEntity: ID!) {
   }
 }`;
 
+export const GET_AFFECTED_ENTITIES = `
+query GetAffectedEntities {
+  projects {
+    nodes {
+      id
+      name
+    }
+  }
+  components {
+    nodes {
+      id
+      name
+      versions {
+        nodes {
+          id
+          version
+        }
+      }
+    }
+  }
+}
+`;
+
 export const UPDATE_ISSUE_COMMENT_MUTATION = `
 mutation UpdateIssueComment($input: UpdateIssueCommentInput!) {
   updateIssueComment(input: $input) {

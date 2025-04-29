@@ -49,6 +49,7 @@ import {
   UPDATE_ARTIFACT_LINES_MUTATION,
   DELETE_ISSUE_COMMENT_MUTATION,
   REMOVE_AFFECTED_ENTITY_FROM_ISSUE_MUTATION,
+  GET_AFFECTED_ENTITIES,
   UPDATE_ISSUE_COMMENT_MUTATION,
   CREATE_ISSUE_COMMENT_MUTATION
 } from "./queries";
@@ -2752,10 +2753,41 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
             error: error instanceof Error ? error.message : String(error)
           });
         }
+      } else if (message.command === 'getAffectedEntities') {
+        try {
+          await globalApiClient.authenticate();
+          const result = await globalApiClient.executeQuery(GET_AFFECTED_ENTITIES);
+          const projects = result.data?.projects?.nodes || [];
+          const components = result.data?.components?.nodes || [];
+
+          this._view?.webview.postMessage({
+            command: 'affectedEntitiesLoaded',
+            data: { projects, components }
+          });
+        } catch (error) {
+          this._view?.webview.postMessage({
+            command: 'affectedEntitiesError',
+            error: error instanceof Error ? error.message : String(error)
+          });
+        }
       }
     });
   }
 
+  private async fetchAffectedEntities(): Promise<{
+    projects: { nodes: { id: string; name: string }[] };
+    components: { nodes: { id: string; name: string; versions: { nodes: { id: string; version: string }[] }[] } };
+  }> {
+    await globalApiClient.authenticate();
+    const result = await globalApiClient.executeQuery(GET_AFFECTED_ENTITIES);
+    if (result.errors) {
+      throw new Error(result.errors[0].message);
+    }
+    return {
+      projects: result.data!.projects,
+      components: result.data!.components
+    };
+  }
 
   /**
    * Fetches available artifacts for the given trackables that are not already linked to the issue
