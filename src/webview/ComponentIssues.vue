@@ -816,8 +816,23 @@ export default {
         // Inline code
         .replace(/`([^`]+)`/g, '<code>$1</code>')
         // Lists
-        .replace(/^\s*- (.*$)/gim, '<ul><li>$1</li></ul>')
-        .replace(/^\s*\d+\. (.*$)/gim, '<ol><li>$1</li></ol>')
+        //.replace(/^\s*- (.*$)/gim, '<ul><li>$1</li></ul>')
+        //.replace(/^\s*\d+\. (.*$)/gim, '<ol><li>$1</li></ol>')
+        // Unordered list: gruppiere mehrere Zeilen mit - am Zeilenanfang
+        .replace(/(^(\s*-\s.*\n?)+)/gim, match => {
+          const items = match.trim().split('\n').map(line =>
+            `<li>${line.replace(/^\s*-\s/, '')}</li>`
+          ).join('');
+          return `<ul>${items}</ul>`;
+        })
+        // Ordered list: gruppiere mehrere Zeilen mit 1., 2., ... am Anfang
+        .replace(/(^(\s*\d+\.\s.*\n?)+)/gim, match => {
+          const items = match.trim().split('\n').map(line =>
+            `<li>${line.replace(/^\s*\d+\.\s/, '')}</li>`
+          ).join('');
+          return `<ol>${items}</ol>`;
+        })
+
         // Task lists
         .replace(/- \[ \] (.*$)/gim, '<div class="task-list-item"><input type="checkbox" disabled> $1</div>')
         .replace(/- \[x\] (.*$)/gim, '<div class="task-list-item"><input type="checkbox" checked disabled> $1</div>')
