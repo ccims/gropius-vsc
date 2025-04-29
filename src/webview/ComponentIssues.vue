@@ -810,7 +810,7 @@ export default {
         // Bold
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         // Italic
-        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/(\*|_)(.*?)\1/g, '<em>$2</em>')
         // Code blocks
         .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
         // Inline code
