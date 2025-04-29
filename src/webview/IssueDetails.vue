@@ -1869,12 +1869,60 @@ export default {
     markdownToHtml(markdown) {
       if (!markdown) return 'No description provided.';
       try {
-        return marked.parse(markdown, {
-          gfm: true,  // GitHub Flavored Markdown
-          breaks: true,
-          headerIds: false,
-          mangle: false
-        });
+        let html = markdown
+          // Headers
+          .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+          .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+          .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+          // Bold
+          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+          // Italic
+          .replace(/(\*|_)(.*?)\1/g, '<em>$2</em>')
+          // Code blocks
+          .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
+          // Inline code
+          .replace(/`([^`]+)`/g, '<code>$1</code>')
+          .replace(/(^(\s*-\s\[\s?(x|\s)?\s?\]\s.*\n?)+)/gim, match => {
+            const items = match
+              .trim()
+              .split('\n')
+              .map(line => {
+                const checked = /\[\s*[xX]\s*\]/.test(line);
+                // Nur ein Tab oder max. 2-4 Leerzeichen am Anfang zulassen (optional)
+                const content = line.replace(/^\s*-\s*\[\s*[xX]?\s*\]\s*/, '');
+                return `<li class="task-list-item"><input type="checkbox" ${checked ? 'checked' : ''}> ${content}</li>`;
+              })
+              .join('');
+            return `<ul class="task-list">\n  ${items}\n</ul>`;
+          })
+
+
+          // Lists:
+          // 1. Unordered list
+          .replace(/(^(\s*-\s.*\n?)+)/gim, match => {
+            const items = match.trim().split('\n').map(line =>
+              `<li>${line.replace(/^\s*-\s/, '')}</li>`
+            ).join('');
+            return `<ul>${items}</ul>`;
+          })
+          // 2. Ordered list
+          .replace(/(^(\s*\d+\.\s.*\n?)+)/gim, match => {
+            const items = match.trim().split('\n').map(line =>
+              `<li>${line.replace(/^\s*\d+\.\s/, '')}</li>`
+            ).join('');
+            return `<ol>${items}</ol>`;
+          })
+          // Links
+          .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2">$1</a>')
+          // Quotes
+          .replace(/^\> (.*$)/gim, '<blockquote>$1</blockquote>')
+          // Line breaks
+          .replace(/\n/g, '<br>');
+
+        // Fix nested list rendering by removing extra ul/ol tags
+        html = html.replace(/<\/ul><ul>/g, '').replace(/<\/ol><ol>/g, '');
+
+        return html;
       } catch (error) {
         console.error("Error rendering markdown:", error);
         return markdown || 'No description provided.';
@@ -3428,10 +3476,11 @@ ul {
   line-height: 1.5;
 }
 
+
 .markdown-content ul,
 .markdown-content ol {
-  padding-left: 0.5em;
-  margin: 0.5em 0;
+  padding-left: 2em !important;
+  margin-bottom: 16px !important;
 }
 
 .markdown-content ul li {
@@ -3494,6 +3543,19 @@ ul {
   border-left: 3px solid var(--vscode-editor-lineHighlightBorder);
   color: var(--vscode-descriptionForeground);
 }
+.markdown-content .task-list {
+  list-style: none;
+  padding-left: 0.25em !important;
+  margin: 0;
+}
+.markdown-content .task-list-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  padding-left: 0 !important;
+}
+
 
 .description-text {
   white-space: normal;

@@ -823,6 +823,7 @@ export default {
         .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
         // Inline code
         .replace(/`([^`]+)`/g, '<code>$1</code>')
+        // Lists:
         // Task lists
         .replace(/(^(\s*-\s\[\s?(x|\s)?\s?\]\s.*\n?)+)/gim, match => {
           const items = match.trim().split('\n').map(line => {
@@ -832,8 +833,6 @@ export default {
           }).join('');
           return `<ul class="task-list">${items}</ul>`;
         })
-
-        // Lists:
         // 1. Unordered list
         .replace(/(^(\s*-\s.*\n?)+)/gim, match => {
           const items = match.trim().split('\n').map(line =>
@@ -2058,12 +2057,17 @@ export default {
   background-color: transparent;
   padding: 0;
 }
-
+.markdown-content .task-list {
+  list-style: none;
+  padding-left: 0.25em;
+  margin: 0;
+}
 .markdown-content .task-list-item {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-bottom: 4px;
+  padding-left: 0;
 }
 
 .markdown-content a {
