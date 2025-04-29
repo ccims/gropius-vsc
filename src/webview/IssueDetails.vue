@@ -1696,15 +1696,17 @@ export default {
 
       return text.substring(0, endIndex) + '...';
     },
-    /**
-     * Placeholder for adding a comment
-     */
     addComment() {
-      // This will be implemented later
+      if (!this.issue || !this.issue.id) {
+        console.error("No issue selected");
+        return;
+      }
+
       if (vscode) {
         vscode.postMessage({
-          command: 'showMessage',
-          message: 'Add comment functionality will be implemented soon.'
+          command: 'addComment',
+          issueId: this.issue.id,
+          issueTitle: this.issue.title
         });
       }
     },
@@ -2689,6 +2691,28 @@ export default {
           vscode.postMessage({
             command: 'showMessage',
             message: `Error updating comment: ${message.error}`
+          });
+        }
+      } else if (message && message.command === 'commentCreated') {
+        // Add the new comment to the comments list
+        if (this.issue && this.issue.issueComments && this.issue.issueComments.nodes) {
+          // Add the new comment to the beginning of the list
+          this.issue.issueComments.nodes.unshift(message.comment);
+
+          // Update the total count
+          if (this.issue.issueComments.totalCount !== undefined) {
+            this.issue.issueComments.totalCount += 1;
+          }
+
+          // Force update the UI
+          this.$forceUpdate();
+        }
+
+        // Show success message
+        if (vscode) {
+          vscode.postMessage({
+            command: 'showMessage',
+            message: 'Comment added successfully.'
           });
         }
       } else if (message && message.command === 'assignmentCreated') {

@@ -49,7 +49,8 @@ import {
   UPDATE_ARTIFACT_LINES_MUTATION,
   DELETE_ISSUE_COMMENT_MUTATION,
   REMOVE_AFFECTED_ENTITY_FROM_ISSUE_MUTATION,
-  UPDATE_ISSUE_COMMENT_MUTATION
+  UPDATE_ISSUE_COMMENT_MUTATION,
+  CREATE_ISSUE_COMMENT_MUTATION
 } from "./queries";
 import path from "path";
 
@@ -2006,6 +2007,7 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
   private descriptionEditData: { bodyId: string, issueId: string } | null = null;
   private isAuthenticated: boolean = false;
   private editCommentData: { commentId: string, issueId: string } | null = null;
+  private newCommentData: { issueId: string, commentId: string | null } | null = null;
 
   public refreshCurrentIssue(): void {
     if (this._view && this.lastIssueId) {
@@ -2256,6 +2258,11 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
             error: error instanceof Error ? error.message : String(error)
           });
         }
+      } else if (message.command === 'addComment') {
+        this.openCommentCreator({
+          issueId: message.issueId || this.lastIssueId,
+          issueTitle: message.issueTitle
+        });
       } else if (message.command === 'editComment') {
         this.openCommentEditor(message.data);
       }
@@ -3324,6 +3331,176 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
     return treeItems;
   }
 
+  /**
+ * Opens a new editor for creating a comment
+ */
+  private async openCommentCreator(data: { issueId: string, issueTitle?: string }) {
+    try {
+      // Create a temporary file in the system's temp directory
+      const tempDir = vscode.Uri.file(require('os').tmpdir());
+
+      // Create a safe file name from the issue title
+      let safeTitlePart = '';
+      if (data.issueTitle) {
+        // Replace any characters that aren't safe for filenames
+        safeTitlePart = data.issueTitle
+          .replace(/[^a-zA-Z0-9\-_]/g, '_')
+          .substring(0, 30); // Limit length to avoid overly long filenames
+
+        safeTitlePart = `-${safeTitlePart}`;
+      }
+
+      const tempFileName = `NewComment${safeTitlePart}.md`;
+      const tempFileUri = vscode.Uri.joinPath(tempDir, tempFileName);
+
+      // Store the temp file URI and issue data for later use
+      this.tempFileUri = tempFileUri;
+      this.newCommentData = {
+        issueId: data.issueId,
+        commentId: null // Will be set after first save
+      };
+
+      // Write an empty file or template with instructions
+      const encoder = new TextEncoder();
+      const templateText = `
+  <!-- 
+  Write your comment here. 
+  Save (Ctrl+S) to create the comment. 
+  Close without saving to cancel.
+  If left empty, no comment will be created. 
+  -->
+  
+  `;
+      const encodedText = encoder.encode(templateText);
+      await vscode.workspace.fs.writeFile(tempFileUri, encodedText);
+
+      // Open the temp file in the editor
+      const document = await vscode.workspace.openTextDocument(tempFileUri);
+      const editor = await vscode.window.showTextDocument(document);
+
+      // Set up a file system watcher to detect when the file is saved
+      const watcher = vscode.workspace.createFileSystemWatcher(tempFileUri.fsPath);
+
+      // When the file is saved, create or update the comment
+      const saveDisposable = vscode.workspace.onDidSaveTextDocument((doc) => {
+        if (doc.uri.toString() === tempFileUri.toString()) {
+          this.handleNewCommentSave(doc.getText());
+        }
+      });
+
+      // Clean up when the editor is closed
+      const closeDisposable = vscode.window.onDidChangeVisibleTextEditors((editors) => {
+        const isOpen = editors.some(e => e.document.uri.toString() === tempFileUri.toString());
+        if (!isOpen) {
+          saveDisposable.dispose();
+          watcher.dispose();
+          closeDisposable.dispose();
+
+          // Reset the comment data when the editor is closed
+          this.newCommentData = null;
+          this.tempFileUri = null;
+        }
+      });
+
+    } catch (error) {
+      console.error('[IssueDetailsProvider] Error opening comment creator:', error);
+      vscode.window.showErrorMessage(`Failed to open comment creator: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * Handles saving a new comment when the temporary file is saved
+   */
+  private async handleNewCommentSave(content: string) {
+    if (!this.newCommentData || !this.tempFileUri) {
+      console.error('[IssueDetailsProvider] Missing new comment data');
+      return;
+    }
+
+    try {
+      // Remove the template comment if it's still there
+      const cleanContent = content.replace(/<!--\s*Write your comment here[\s\S]*?-->\s*/g, '').trim();
+
+      // Check if there's actual content to save
+      if (!cleanContent) {
+        vscode.window.showInformationMessage('Comment is empty. No comment will be created.');
+        return;
+      }
+
+      // If we already have a comment ID, this is an edit to an existing comment
+      if (this.newCommentData.commentId) {
+        await this.saveCommentChanges({
+          id: this.newCommentData.commentId,
+          body: cleanContent
+        });
+        vscode.window.showInformationMessage('Comment updated successfully.');
+      } else {
+        // Otherwise, this is a new comment
+        const newComment = await this.createNewComment(cleanContent);
+
+        // Save the comment ID for future edits
+        if (newComment && newComment.id) {
+          this.newCommentData.commentId = newComment.id;
+        }
+
+        vscode.window.showInformationMessage('Comment created successfully.');
+      }
+    } catch (error) {
+      console.error('[IssueDetailsProvider] Error saving comment:', error);
+      vscode.window.showErrorMessage(`Failed to save comment: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+
+  /**
+   * Creates a new comment using the createIssueComment mutation
+   */
+  private async createNewComment(body: string): Promise<any> {
+    if (!this.newCommentData) {
+      throw new Error('Missing comment data');
+    }
+
+    try {
+      // Authenticate
+      await globalApiClient.authenticate();
+
+      // Execute the createIssueComment mutation
+      const result = await globalApiClient.executeQuery(CREATE_ISSUE_COMMENT_MUTATION, {
+        input: {
+          issue: this.newCommentData.issueId,
+          body: body
+        }
+      });
+
+      if (result.errors) {
+        throw new Error(result.errors[0].message);
+      }
+
+      if (!result.data?.createIssueComment?.issueComment) {
+        throw new Error('Failed to create comment: No data returned');
+      }
+
+      const newComment = result.data.createIssueComment.issueComment;
+
+      // Notify the webview that the comment has been created
+      if (this._view) {
+        this._view.webview.postMessage({
+          command: 'commentCreated',
+          comment: newComment
+        });
+      }
+
+      // Refresh the issue details to show the new comment
+      this.refreshCurrentIssue();
+
+      // Return the new comment so we can store its ID
+      return newComment;
+
+    } catch (error) {
+      console.error('[IssueDetailsProvider] Error in createNewComment:', error);
+      throw error;
+    }
+  }
 
   private getHtmlForWebview(webview: vscode.Webview): string {
     const scriptUri = webview.asWebviewUri(

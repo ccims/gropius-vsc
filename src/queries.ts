@@ -1871,3 +1871,21 @@ mutation UpdateIssueComment($input: UpdateIssueCommentInput!) {
   }
 }
 `;
+
+export const CREATE_ISSUE_COMMENT_MUTATION = `
+  mutation CreateIssueComment($input: CreateIssueCommentInput!) {
+    createIssueComment(input: $input) {
+      issueComment {
+        id
+        body
+        createdAt
+        createdBy {
+          id
+          displayName
+          username
+        }
+        lastModifiedAt
+      }
+    }
+  }
+`;
