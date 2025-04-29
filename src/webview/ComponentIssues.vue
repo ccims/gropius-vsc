@@ -292,6 +292,11 @@
                   </path>
                 </svg>
               </button>
+              <!-- Open in Editor Button - always on the right -->
+              <button class="edit-button" @click="editDescription"
+                title="Edit description">
+                <span class="edit-icon">✎</span>
+              </button>
             </div>
 
             <!-- Write mode: Textarea -->
@@ -636,6 +641,9 @@ export default {
         console.error("Error creating issue:", message.error);
         // Show error to the user
         alert(`Error creating issue: ${message.error}`);
+      } 
+      else if (message.command === 'updateNewIssueDescription') {
+        this.newIssue.description = message.markdown;
       }
       return;
     });
@@ -1230,6 +1238,28 @@ export default {
       }
       return new URL("../../resources/icons/none.png", import.meta.url).href;
     },
+
+    /**
+     * Opens the main editor for the issue description
+     */
+    
+    editDescription() {
+      console.log("Start edit Description!!!");
+      // Create a temporary file with the markdown content
+      const markdown = this.newIssue.description || '';
+      const issueTitle = this.newIssue.title || '';
+
+      if (vscode) {
+        vscode.postMessage({
+          command: 'editNewIssueDescription',
+          data: {
+            markdown,
+            issueTitle
+          }
+        });
+      }
+    },
+
   }
 
 };
@@ -2423,5 +2453,8 @@ export default {
 
 .error-message {
   max-width: 300px;
+}
+.edit-icon {
+  font-size: 14px;
 }
 </style>

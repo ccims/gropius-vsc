@@ -1611,7 +1611,10 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
           });
       } else if (message.command === "showMessage") {
         vscode.window.showInformationMessage(message.message);
-      }
+      } else if (message.command === 'editNewIssueDescription') {
+        console.log("Message start new issue description editor");
+        this.openNewIssueDescriptionEditor(message.data);
+      } 
       return;
     });
   }
@@ -1990,6 +1993,60 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
       vscode.commands.executeCommand('workbench.view.explorer');
     }
   }
+
+  /**
+   * Opens a new editor with the issue description for editing
+   */
+  private async openNewIssueDescriptionEditor(data: DescriptionEditorData) {
+    console.log("Start openNewIssueDescriptionEditor!!!");
+    try {
+      const tempDir = vscode.Uri.file(require('os').tmpdir());
+
+      let safeTitlePart = '';
+      if (data.issueTitle) {
+        safeTitlePart = data.issueTitle.replace(/[^a-zA-Z0-9\-_]/g, '_').substring(0, 30);
+        safeTitlePart = `-${safeTitlePart}`;
+      }
+
+      const tempFileName = `Description of${safeTitlePart}.md`;
+      const tempFileUri = vscode.Uri.joinPath(tempDir, tempFileName);
+
+      // Write content to file
+      const encodedText = new TextEncoder().encode(data.markdown);
+      await vscode.workspace.fs.writeFile(tempFileUri, encodedText);
+
+      // Open editor
+      const document = await vscode.workspace.openTextDocument(tempFileUri);
+      await vscode.window.showTextDocument(document);
+
+      // Watch for saves
+      const saveDisposable = vscode.workspace.onDidSaveTextDocument((doc) => {
+        if (doc.uri.toString() === tempFileUri.toString()) {
+          // Send updated text back to webview
+          const updatedText = doc.getText();
+          this._view?.webview.postMessage({
+            command: 'updateNewIssueDescription',
+            markdown: updatedText
+          });
+        }
+      });
+
+      // Clean up when editor closes
+      const closeDisposable = vscode.window.onDidChangeVisibleTextEditors((editors) => {
+        const isStillOpen = editors.some(e => e.document.uri.toString() === tempFileUri.toString());
+        if (!isStillOpen) {
+          saveDisposable.dispose();
+          closeDisposable.dispose();
+        }
+      });
+
+    } catch (error) {
+      console.error('[IssueDetailsProvider] Error opening description editor:', error);
+      vscode.window.showErrorMessage(`Failed to open description editor: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+
 }
 
 /**
@@ -3584,7 +3641,6 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
       vscode.window.showErrorMessage(`Failed to open description editor: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
-
   /**
  * Changes the issue title
  */
