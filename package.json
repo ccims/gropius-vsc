@@ -39,16 +39,6 @@
           "when": "editorHasSelection",
           "command": "extension.createStandaloneArtifact",
           "group": "gropius"
-        },
-        {
-          "command": "extension.moveArtifactIconUp",
-          "group": "navigation",
-          "when": "editorHasSelection && editorTextFocus"
-        },
-        {
-          "command": "extension.moveArtifactIconDown",
-          "group": "navigation",
-          "when": "editorHasSelection && editorTextFocus"
         }
       ]
     },
