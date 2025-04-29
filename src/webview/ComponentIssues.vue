@@ -815,27 +815,31 @@ export default {
         .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
         // Inline code
         .replace(/`([^`]+)`/g, '<code>$1</code>')
-        // Lists
-        //.replace(/^\s*- (.*$)/gim, '<ul><li>$1</li></ul>')
-        //.replace(/^\s*\d+\. (.*$)/gim, '<ol><li>$1</li></ol>')
-        // Unordered list: gruppiere mehrere Zeilen mit - am Zeilenanfang
+        // Task lists
+        .replace(/(^(\s*-\s\[\s?(x|\s)?\s?\]\s.*\n?)+)/gim, match => {
+          const items = match.trim().split('\n').map(line => {
+            const checked = /\[\s*[xX]\s*\]/.test(line);
+            const content = line.replace(/^\s*-\s*\[\s*[xX]?\s*\]\s*/, '');
+            return `<li class="task-list-item"><input type="checkbox" ${checked ? 'checked' : ''}> ${content}</li>`;
+          }).join('');
+          return `<ul class="task-list">${items}</ul>`;
+        })
+
+        // Lists:
+        // 1. Unordered list
         .replace(/(^(\s*-\s.*\n?)+)/gim, match => {
           const items = match.trim().split('\n').map(line =>
             `<li>${line.replace(/^\s*-\s/, '')}</li>`
           ).join('');
           return `<ul>${items}</ul>`;
         })
-        // Ordered list: gruppiere mehrere Zeilen mit 1., 2., ... am Anfang
+        // 2. Ordered list
         .replace(/(^(\s*\d+\.\s.*\n?)+)/gim, match => {
           const items = match.trim().split('\n').map(line =>
             `<li>${line.replace(/^\s*\d+\.\s/, '')}</li>`
           ).join('');
           return `<ol>${items}</ol>`;
         })
-
-        // Task lists
-        .replace(/- \[ \] (.*$)/gim, '<div class="task-list-item"><input type="checkbox" disabled> $1</div>')
-        .replace(/- \[x\] (.*$)/gim, '<div class="task-list-item"><input type="checkbox" checked disabled> $1</div>')
         // Links
         .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2">$1</a>')
         // Quotes
