@@ -51,7 +51,8 @@ import {
   REMOVE_AFFECTED_ENTITY_FROM_ISSUE_MUTATION,
   GET_AFFECTED_ENTITIES,
   UPDATE_ISSUE_COMMENT_MUTATION,
-  CREATE_ISSUE_COMMENT_MUTATION
+  CREATE_ISSUE_COMMENT_MUTATION,
+  ADD_AFFECTED_ENTITY_TO_ISSUE
 } from "./queries";
 import path from "path";
 
@@ -2768,6 +2769,31 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
           this._view?.webview.postMessage({
             command: 'affectedEntitiesError',
             error: error instanceof Error ? error.message : String(error)
+          });
+        }
+      } else if (message.command === 'addAffectedEntityToIssue') {
+        try {
+          await globalApiClient.authenticate();
+          const result = await globalApiClient.executeQuery(
+            ADD_AFFECTED_ENTITY_TO_ISSUE,
+            { input: { issue: message.issueId, affectedEntity: message.entityId } }
+          );
+          const added = result.data?.addAffectedEntityToIssue?.addedAffectedEntityEvent?.addedAffectedEntity;
+          if (!added) {
+            throw new Error('No entity was added.');
+          }
+          // Send the newly‐added entity back to the WebView
+          this._view?.webview.postMessage({
+            command: 'affectedEntityAddedToIssue',
+            entity: added
+          });
+          // Optionally refresh full issue details to update any other UI
+          vscode.commands.executeCommand('extension.refreshCurrentIssue');
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          this._view?.webview.postMessage({
+            command: 'addAffectedEntityError',
+            error: msg
           });
         }
       }

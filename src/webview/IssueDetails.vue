@@ -1110,11 +1110,12 @@ export default {
       ];
     },
     addAffection(entity) {
-      this.issue.affects.nodes.push({
-        id: entity.id,
-        __typename: entity.type.replace(/ /g, '')
+      // fire the mutation
+      vscode.postMessage({
+        command: 'addAffectedEntityToIssue',
+        issueId: this.issue.id,
+        entityId: entity.id
       });
-      this.newAffectionDropdownVisible = false;
     },
     toRgba(str, alpha = 1) {
       // if it's already rgb()/rgba(), just swap in the new alpha
@@ -2729,6 +2730,13 @@ export default {
         } else {
           console.error('No affected-entities payload!', message);
         }
+      } else if (message.command === 'affectedEntityAddedToIssue') {
+        // 1) insert the new node into the issue.affects list
+        this.issue.affects.nodes.push(message.entity);
+        // 2) close the dropdown
+        this.newAffectionDropdownVisible = false;
+      } else if (message.command === 'addAffectedEntityError') {
+        console.error('Failed to add affected entity:', message.error);
       } else if (message && message.command === "descriptionUpdated") {
         // Handle description update from the extension
         if (this.issue && this.issue.body) {
