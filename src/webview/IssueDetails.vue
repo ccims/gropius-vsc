@@ -1069,12 +1069,8 @@ export default {
       let text = this.issue.body.body;
 
       if (!(this.issue.body.body.length > this.descriptionMaxLength)&&!this.showFullDescription) {
-        console.log("Inside just row length");
-        console.log("Is description trunc" + this.isDescriptionTruncated);
         return text.split('\n').slice(0, this.maxLines).join('\n') + '\n...';
       }
-
-      console.log("Just sign length");
       // Find a good breaking point (end of sentence or paragraph)
       const breakPoint = text.substring(0, this.descriptionMaxLength).lastIndexOf('.');
 
@@ -1671,9 +1667,15 @@ export default {
       // Close the dropdown after selection
       this.currentlyEditingRelation = null;
     },
+
+    commentLineCount(text){
+      if (!text || !text.body) return 0;
+      result = text.body.split('\n');
+      return text.length;
+    },
     /**
- * Checks if a comment's text is long enough to be truncated
- */
+     * Checks if a comment's text is long enough to be truncated
+     */
     isCommentTruncated(comment) {
       if (!comment || !comment.body) return false;
 
@@ -1684,7 +1686,10 @@ export default {
       const isTooTall = this.commentHeightTruncation &&
         this.commentHeightTruncation[comment.id] === true;
 
-      return isTooLong || isTooTall;
+      // check by counted lines
+      const countLines = this.commentLineCount(comment.body) > this.maxLines;
+
+      return isTooLong || isTooTall || countLines;
     },
     /**
     * Truncates a comment's text to show approximately 3 lines
@@ -1692,6 +1697,11 @@ export default {
     truncateComment(text) {
       if (!text) return '';
 
+      if (!(text.length > this.commentMaxLength)) {
+        console.log("Inside just row length");
+        console.log("Is description trunc" + this.isDescriptionTruncated);
+        return text.split('\n').slice(0, this.maxLines).join('\n') + '\n...';
+      }
       // First try to find a paragraph break
       let breakPoint = text.substring(0, this.commentMaxLength).lastIndexOf('\n\n');
 
