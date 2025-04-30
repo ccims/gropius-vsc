@@ -1878,6 +1878,22 @@ query GetAffectedEntities {
 }
 `;
 
+export const ADD_AFFECTED_ENTITY_TO_ISSUE = `
+mutation AddAffectedEntityToIssue($input: AddAffectedEntityToIssueInput!) {
+  addAffectedEntityToIssue(input: $input) {
+    addedAffectedEntityEvent {
+      addedAffectedEntity {
+        __typename
+        ... on Component { id name }
+        ... on ComponentVersion { id version component { id name } }
+        ... on Project   { id name }
+      }
+    }
+  }
+}
+`;
+
+
 export const UPDATE_ISSUE_COMMENT_MUTATION = `
 mutation UpdateIssueComment($input: UpdateIssueCommentInput!) {
   updateIssueComment(input: $input) {
