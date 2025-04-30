@@ -223,25 +223,18 @@
 
         <!-- Affected Entities Section -->
         <div class="info-section" v-if="issue.affects && issue.affects.nodes.length > 0">
-          <div class="section-header" @click="toggleSection('affectedEntities')" style="cursor: pointer; display: flex; justify-content: space-between;">
+          <div class="section-header" @click="toggleSection('affectedEntities')"
+            style="cursor: pointer; display: flex; justify-content: space-between;">
             <span>Affected Entities</span>
             <div>
-              <button
-                v-if="expandedSections.affectedEntities"
-                class="edit-button"
-                @click.stop="toggleEditAffections"
-                title="Edit Affections"
-              >
+              <button v-if="expandedSections.affectedEntities" class="edit-button" @click.stop="toggleEditAffections"
+                title="Edit Affections">
                 <span class="edit-icon">✎</span>
               </button>
 
               <div class="add-affection-wrapper" style="position: relative; display: inline-block;">
-                <button
-                  v-if="expandedSections.affectedEntities"
-                  class="artifact-button add-button"
-                  @click.stop="toggleNewAffectionDropdown"
-                  title="Add Affection"
-                >
+                <button v-if="expandedSections.affectedEntities" class="artifact-button add-button"
+                  @click.stop="toggleNewAffectionDropdown" title="Add Affection">
                   Add
                 </button>
 
@@ -249,14 +242,11 @@
                   <ul>
                     <li v-for="entity in allAffectedEntities" :key="entity.type + entity.id">
                       <button class="dropdown-item" @click="addAffection(entity)">
-                        <span
-                          class="badge"
-                          :class="{
-                            'project-badge': entity.type === 'Project',
-                            'component-badge': entity.type === 'Component',
-                            'component-version-badge': entity.type === 'Component Version'
-                          }"
-                        >
+                        <span class="badge" :class="{
+                          'project-badge': entity.type === 'Project',
+                          'component-badge': entity.type === 'Component',
+                          'component-version-badge': entity.type === 'Component Version'
+                        }">
                           {{ entity.label }}
                         </span>
                       </button>
@@ -278,14 +268,11 @@
                 <div class="affected-group-inline">
                   <div class="affected-group-header">{{ groupType }}:</div>
                   <div class="affected-items-inline">
-                    <div
-                      v-for="(entity, index) in group"
-                      :key="index"
-                      class="badge entity-badge"
-                      :class="getEntityClass(entity)"
-                    >
+                    <div v-for="(entity, index) in group" :key="index" class="badge entity-badge"
+                      :class="getEntityClass(entity)">
                       {{ getEntityName(entity) }}
-                      <button class="remove-relation-button" @click.stop="removeAffection(entity)" title="Remove Label">X</button>
+                      <button class="remove-relation-button" @click.stop="removeAffection(entity)"
+                        title="Remove Label">X</button>
                     </div>
                   </div>
                 </div>
@@ -297,12 +284,8 @@
                 <div class="affected-group-inline">
                   <div class="affected-group-header">{{ groupType }}:</div>
                   <div class="affected-items-inline">
-                    <div
-                      v-for="(entity, index) in group"
-                      :key="index"
-                      class="badge entity-badge"
-                      :class="getEntityClass(entity)"
-                    >
+                    <div v-for="(entity, index) in group" :key="index" class="badge entity-badge"
+                      :class="getEntityClass(entity)">
                       {{ getEntityName(entity) }}
                     </div>
                   </div>
@@ -328,7 +311,8 @@
           <div class="section-content description-content" v-if="expandedSections.description">
             <div v-if="!isDescriptionTruncated || showFullDescription" class="description-text markdown-content"
               v-html="markdownToHtml(issue.body.body)"></div>
-            <div v-else class="description-text markdown-content" v-html="markdownToHtml(truncatedDescription)"></div>
+            <div v-else class="description-text markdown-content truncated"
+              v-html="markdownToHtml(truncatedDescription)"></div>
             <div v-if="isDescriptionTruncated" class="show-more-container">
               <button class="show-more-button" @click="toggleFullDescription">
                 {{ showFullDescription ? 'Show less' : 'Show more' }}
@@ -394,10 +378,14 @@
 
                   <!-- Display for regular comments -->
                   <div v-else>
-                    <!-- Conditionally render truncated or full comment -->
-                    <div class="comment-text markdown-content" v-html="markdownToHtml(
-                      (this.isCommentTruncated(comment) && !this.expandedComments[String(comment.id)])
-                        ? this.truncateComment(comment.body)
+                    <!-- Conditionally render truncated or full comment with proper classes -->
+                    <div :class="[
+                      'comment-text',
+                      'markdown-content',
+                      (isCommentTruncated(comment) && !expandedComments[String(comment.id)]) ? 'truncated' : ''
+                    ]" v-html="markdownToHtml(
+                      (isCommentTruncated(comment) && !expandedComments[String(comment.id)])
+                        ? truncateComment(comment.body)
                         : comment.body
                     )"></div>
 
@@ -811,6 +799,10 @@ export default {
   data() {
     return {
       showAddArtifactDropdown: false,
+      isDescriptionTruncatedByHeight: false,
+      commentHeightTruncation: {},
+      resizeObserver: null,
+      ctDropdown: false,
       availableArtifacts: [],
       artifactsLoading: false,
       issue: null,
@@ -825,7 +817,7 @@ export default {
         comments: false,
       },
       showFullDescription: false,
-      descriptionMaxLength: 120, // Characters to show before truncating
+      descriptionMaxLength: 110, // Characters to show before truncating
       showTypeDropdown: false,
       showStateDropdown: false,
       showPriorityDropdown: false,
@@ -870,7 +862,7 @@ export default {
       newLabelDescription: '',
       newLabelColor: '#0c94d8',
       expandedComments: {},
-      commentMaxLength: 70,
+      commentMaxLength: 60,
       activeCommentMenu: null,
       showDeleteCommentModal: false,
       commentToDelete: null,
@@ -1054,10 +1046,10 @@ export default {
     },
     // Computed properties for description truncation
     isDescriptionTruncated() {
-      return this.issue &&
+      return (this.issue &&
         this.issue.body &&
         this.issue.body.body &&
-        this.issue.body.body.length > this.descriptionMaxLength;
+        (this.issue.body.body.length > this.descriptionMaxLength || this.isDescriptionTruncatedByHeight));
     },
     truncatedDescription() {
       if (!this.issue || !this.issue.body || !this.issue.body.body) {
@@ -1082,6 +1074,145 @@ export default {
     }
   },
   methods: {
+    /**
+     * Check if text should be truncated based on both length and height
+     */
+    shouldTruncateContent(text, maxLength, maxHeight, container) {
+      // First check - character count
+      const isTooLong = text && text.length > maxLength;
+
+      // Second check - height measurement (if we have a container to measure)
+      let isTooTall = false;
+      if (container) {
+        // Get current scroll height of container
+        const currentHeight = container.scrollHeight;
+        isTooTall = currentHeight > maxHeight;
+      }
+
+      // Text should be truncated if it's either too long OR too tall
+      return isTooLong || isTooTall;
+    },/**
+   * Set up ResizeObserver to detect container size changes
+   */
+    setupResizeObserver() {
+      // Create a new ResizeObserver
+      if (typeof ResizeObserver !== 'undefined') {
+        // Dispose of any existing observer
+        if (this.resizeObserver) {
+          this.resizeObserver.disconnect();
+        }
+
+        this.resizeObserver = new ResizeObserver(entries => {
+          // When container size changes, re-measure content heights
+          // but only if the sections are expanded
+          if (this.expandedSections.description) {
+            this.measureDescriptionHeight();
+          }
+
+          if (this.expandedSections.comments) {
+            this.measureCommentsHeight();
+          }
+        });
+
+        // Observe the main container
+        const container = this.$el.querySelector('.issue-container');
+        if (container) {
+          this.resizeObserver.observe(container);
+        }
+      }
+    },
+    /**
+   * Measures the height of the description container and updates truncation state
+   */
+    measureDescriptionHeight() {
+      // Get the description container element
+      const descriptionContainer = this.$el.querySelector('.description-content .description-text');
+      if (!descriptionContainer || !this.issue || !this.issue.body) return;
+
+      // Define maximum height for descriptions
+      const maxHeight = 150; // pixels
+
+      // Check if description should be truncated based on height
+      // We need to create a clone to measure the full height without truncation
+      const cloneContainer = descriptionContainer.cloneNode(true);
+      cloneContainer.style.maxHeight = 'none';
+      cloneContainer.style.position = 'absolute';
+      cloneContainer.style.visibility = 'hidden';
+      cloneContainer.classList.remove('truncated'); // Remove truncated class if present
+      document.body.appendChild(cloneContainer);
+
+      // Get the full height
+      const fullHeight = cloneContainer.scrollHeight;
+
+      // Remove the clone
+      document.body.removeChild(cloneContainer);
+
+      // Set truncation state based on height
+      this.isDescriptionTruncatedByHeight = fullHeight > maxHeight;
+
+      // Apply or remove truncated class based on state
+      if (this.isDescriptionTruncatedByHeight && !this.showFullDescription) {
+        descriptionContainer.classList.add('truncated');
+      } else {
+        descriptionContainer.classList.remove('truncated');
+      }
+    },
+
+    /**
+     * Measures the height of comment containers and updates their truncation state
+     */
+    measureCommentsHeight() {
+      if (!this.allComments || this.allComments.length === 0) return;
+
+      // Get all comment text containers
+      const commentContainers = this.$el.querySelectorAll('.comment-text.markdown-content');
+      if (!commentContainers || commentContainers.length === 0) return;
+
+      // Define maximum height for comments
+      const maxHeight = 100; // pixels
+
+      // Check each comment
+      commentContainers.forEach((container, index) => {
+        if (index >= this.allComments.length) return;
+
+        const comment = this.allComments[index];
+        if (!comment || !comment.body || !comment.id) return;
+
+        // We need to create a clone to measure the full height without truncation
+        const cloneContainer = container.cloneNode(true);
+        cloneContainer.style.maxHeight = 'none';
+        cloneContainer.style.position = 'absolute';
+        cloneContainer.style.visibility = 'hidden';
+        cloneContainer.classList.remove('truncated'); // Remove truncated class if present
+        document.body.appendChild(cloneContainer);
+
+        // Get the full height
+        const fullHeight = cloneContainer.scrollHeight;
+
+        // Remove the clone
+        document.body.removeChild(cloneContainer);
+
+        // Check if this comment should be truncated based on height
+        const shouldTruncate = fullHeight > maxHeight;
+
+        // Store result in a new property to track height-based truncation
+        if (!this.commentHeightTruncation) {
+          this.commentHeightTruncation = {};
+        }
+
+        this.commentHeightTruncation[comment.id] = shouldTruncate;
+
+        // Apply or remove truncated class based on state and expansion
+        const commentId = String(comment.id);
+        const isExpanded = this.expandedComments[commentId];
+
+        if (shouldTruncate && !isExpanded) {
+          container.classList.add('truncated');
+        } else {
+          container.classList.remove('truncated');
+        }
+      });
+    },
     toggleNewAffectionDropdown() {
       this.newAffectionDropdownVisible = !this.newAffectionDropdownVisible;
       if (this.newAffectionDropdownVisible) {
@@ -1526,9 +1657,16 @@ export default {
  * Checks if a comment's text is long enough to be truncated
  */
     isCommentTruncated(comment) {
-      return comment &&
-        comment.body &&
-        comment.body.length > this.commentMaxLength;
+      if (!comment || !comment.body) return false;
+
+      // Check by character length
+      const isTooLong = comment.body.length > this.commentMaxLength;
+
+      // Check by height (if available)
+      const isTooTall = this.commentHeightTruncation &&
+        this.commentHeightTruncation[comment.id] === true;
+
+      return isTooLong || isTooTall;
     },
     /**
     * Truncates a comment's text to show approximately 3 lines
@@ -1746,6 +1884,34 @@ export default {
         ...this.expandedComments,
         [id]: !this.expandedComments[id]
       };
+
+      // Update CSS classes after state change
+      this.$nextTick(() => {
+        const commentContainers = this.$el.querySelectorAll('.comment-text.markdown-content');
+        if (!commentContainers || commentContainers.length === 0) return;
+
+        // Find the comment container for this specific comment ID
+        const comment = this.allComments.find(c => c.id === commentId);
+        if (!comment) return;
+
+        // Find the index of this comment in the allComments array
+        const commentIndex = this.allComments.indexOf(comment);
+        if (commentIndex === -1 || commentIndex >= commentContainers.length) return;
+
+        // Get the corresponding container
+        const container = commentContainers[commentIndex];
+
+        // Check if this comment should be truncated
+        const shouldTruncate = this.isCommentTruncated(comment);
+        const isExpanded = this.expandedComments[id];
+
+        // Apply or remove the truncated class
+        if (shouldTruncate && !isExpanded) {
+          container.classList.add('truncated');
+        } else {
+          container.classList.remove('truncated');
+        }
+      });
     },
 
     /**
@@ -2006,7 +2172,19 @@ export default {
       }
     },
     toggleSection(sectionName) {
-      this.expandedSections[sectionName] = !this.expandedSections[sectionName];
+      const wasExpanded = this.expandedSections[sectionName];
+      this.expandedSections[sectionName] = !wasExpanded;
+
+      // If section is now expanded, measure content height
+      if (!wasExpanded) {
+        this.$nextTick(() => {
+          if (sectionName === 'description') {
+            this.measureDescriptionHeight();
+          } else if (sectionName === 'comments') {
+            this.measureCommentsHeight();
+          }
+        });
+      }
     },
 
     getAssignmentType(assignment) {
@@ -2407,6 +2585,18 @@ export default {
     },
     toggleFullDescription() {
       this.showFullDescription = !this.showFullDescription;
+
+      // Update CSS classes after state change
+      this.$nextTick(() => {
+        const descriptionContainer = this.$el.querySelector('.description-content .description-text');
+        if (descriptionContainer) {
+          if (this.isDescriptionTruncated && !this.showFullDescription) {
+            descriptionContainer.classList.add('truncated');
+          } else {
+            descriptionContainer.classList.remove('truncated');
+          }
+        }
+      });
     },
 
     editDescription() {
@@ -2982,6 +3172,37 @@ export default {
     if (vscode) {
       vscode.postMessage({ command: "vueAppReady" });
     }
+
+    this.setupResizeObserver();
+
+    // Initial measurements after DOM is ready
+    this.$nextTick(() => {
+      // Only measure if sections are expanded
+      if (this.expandedSections.description) {
+        this.measureDescriptionHeight();
+      }
+      if (this.expandedSections.comments) {
+        this.measureCommentsHeight();
+      }
+    });
+
+    // Listen for section expansions to trigger height measurements
+    this.$watch('expandedSections', (newVal, oldVal) => {
+      if (newVal.description && !oldVal.description) {
+        // Description section was just expanded
+        this.$nextTick(() => {
+          this.measureDescriptionHeight();
+        });
+      }
+
+      if (newVal.comments && !oldVal.comments) {
+        // Comments section was just expanded
+        this.$nextTick(() => {
+          this.measureCommentsHeight();
+        });
+      }
+    }, { deep: true });
+
   },
   beforeDestroy() {
     // Remove event listener when component is destroyed
@@ -2992,6 +3213,10 @@ export default {
     document.removeEventListener('click', this.handleClickOutsideAddForm);
     document.removeEventListener('click', this.handleClickOutsideLabelDropdown);
     document.removeEventListener('click', this.handleClickOutsideRelationDropdown);
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+      this.resizeObserver = null;
+    }
   }
 };
 </script>
@@ -3027,8 +3252,11 @@ export default {
 }
 
 .show-more-container {
-  margin-top: 2px;
-  text-align: right;
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+  position: relative;
+  z-index: 1;
 }
 
 .show-more-button {
@@ -3393,6 +3621,12 @@ ul {
   padding-right: 10px;
 }
 
+.description-content .description-text {
+  max-height: none;
+  transition: max-height 0.3s ease-out;
+  overflow: hidden;
+}
+
 .description-text {
   white-space: pre-wrap;
   padding: 0;
@@ -3406,6 +3640,32 @@ ul {
 
 .description-text>*:last-child {
   margin-bottom: 0;
+}
+
+.description-text.truncated {
+  max-height: 100px;
+  overflow: hidden;
+  position: relative;
+}
+
+.comment-text.truncated {
+  max-height: 50px;
+  overflow: hidden;
+  position: relative;
+}
+
+
+/* Description and comment content truncation fade */
+.description-text.truncated::after,
+.comment-text.truncated::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 40px;
+  background: linear-gradient(to bottom, rgba(30, 30, 30, 0), rgba(30, 30, 30, 0.8));
+  pointer-events: none;
 }
 
 /* =================== Relations =================== */
@@ -3635,11 +3895,13 @@ ul {
   border-left: 3px solid var(--vscode-editor-lineHighlightBorder);
   color: var(--vscode-descriptionForeground);
 }
+
 .markdown-content .task-list {
   list-style: none;
   padding-left: 0.25em !important;
   margin: 0;
 }
+
 .markdown-content .task-list-item {
   display: flex;
   align-items: center;
@@ -4622,6 +4884,12 @@ ul {
   margin: 0;
 }
 
+.comment-text.markdown-content {
+  max-height: none;
+  transition: max-height 0.3s ease-out;
+  overflow: hidden;
+}
+
 .no-comments {
   font-style: italic;
   color: var(--vscode-descriptionForeground);
@@ -4800,8 +5068,10 @@ body {
 .new-affection-dropdown {
   position: absolute;
   top: 127%;
-  left: -181px;              /* align to left edge of wrapper */
-  right: auto;          /* remove right:0 */
+  left: -181px;
+  /* align to left edge of wrapper */
+  right: auto;
+  /* remove right:0 */
   background-color: var(--vscode-menu-background);
   color: var(--vscode-menu-foreground);
   border-radius: 4px;
@@ -4831,9 +5101,12 @@ body {
   text-align: left;
   cursor: pointer;
 
-  white-space: nowrap;       /* don’t wrap text */
-  overflow: hidden;          /* clip overflowing text */
-  text-overflow: ellipsis;   /* show “…” */
+  white-space: nowrap;
+  /* don’t wrap text */
+  overflow: hidden;
+  /* clip overflowing text */
+  text-overflow: ellipsis;
+  /* show “…” */
   color: inherit;
 }
 
