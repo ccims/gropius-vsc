@@ -326,9 +326,10 @@
             </div>
           </div>
           <div class="section-content description-content" v-if="expandedSections.description">
-            <div v-if="!isDescriptionTruncated || showFullDescription" class="description-text markdown-content"
-              v-html="markdownToHtml(issue.body.body)"></div>
-            <div v-else class="description-text markdown-content" v-html="markdownToHtml(truncatedDescription)"></div>
+            <div v-if="showFullDescription" class="markdown-content"
+              :key="'full-' + showFullDescription"
+              v-html="markdownToHtml(issue.body.body)" ></div>
+            <div v-else class="markdown-content" :key="'trunc-' + showFullDescription" v-html="markdownToHtml(truncatedDescription)"></div>
             <div v-if="isDescriptionTruncated" class="show-more-container">
               <button class="show-more-button" @click="toggleFullDescription">
                 {{ showFullDescription ? 'Show less' : 'Show more' }}
@@ -826,6 +827,7 @@ export default {
       },
       showFullDescription: false,
       descriptionMaxLength: 120, // Characters to show before truncating
+      maxLines: 10, // Maximum rows for show-more-button
       showTypeDropdown: false,
       showStateDropdown: false,
       showPriorityDropdown: false,
@@ -1052,19 +1054,36 @@ export default {
     commentsCount() {
       return this.issue?.issueComments?.totalCount || 0;
     },
+    descriptionLineCount() {
+      if (!this.issue || !this.issue.body || !this.issue.body.body) return 0;
+      let text = this.issue.body.body.split('\n');
+      return text.length;
+    },
     // Computed properties for description truncation
     isDescriptionTruncated() {
-      return this.issue &&
+      console.log("Start isDescTrun: " + this.descriptionLineCount);
+      console.log("Max lines: " + this.maxLines);
+      console.log("Bool: "+  (this.descriptionLineCount > this.maxLines));
+      let result = this.issue &&
         this.issue.body &&
         this.issue.body.body &&
-        this.issue.body.body.length > this.descriptionMaxLength;
+        ((this.issue.body.body.length > this.descriptionMaxLength) || (this.descriptionLineCount > this.maxLines));
+      console.log("Result" + result);
+      return result;
     },
     truncatedDescription() {
       if (!this.issue || !this.issue.body || !this.issue.body.body) {
         return '';
       }
-
       let text = this.issue.body.body;
+
+      if (!(this.issue.body.body.length > this.descriptionMaxLength)&&!this.showFullDescription) {
+        console.log("Inside just row length");
+        console.log("Is description trunc" + this.isDescriptionTruncated);
+        return text.split('\n').slice(0, this.maxLines).join('\n') + '\n...';
+      }
+
+      console.log("Just sign length");
       // Find a good breaking point (end of sentence or paragraph)
       const breakPoint = text.substring(0, this.descriptionMaxLength).lastIndexOf('.');
 
@@ -4832,4 +4851,18 @@ body {
 .dropdown-item:hover {
   background-color: var(--vscode-menu-selectionBackground);
 }
+.description-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  -webkit-line-clamp: 8;
+  transition: all 0.3s ease;
+}
+
+.description-text.expanded {
+  -webkit-line-clamp: unset;
+  display: block;
+}
+
 </style>
