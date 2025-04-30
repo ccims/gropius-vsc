@@ -505,6 +505,8 @@ body {
 /* Workspace graph button container */
 .showGraph {
   position: relative;
+  top: 0;
+  right:0;
 }
 
 .graph-button {
@@ -512,13 +514,14 @@ body {
   color: var(--vscode-button-secondaryForeground, #cccccc);
   border: none;
   border-radius: 4px;
-  padding: 4px 8px;
+  padding: 2px 8px;
   font-size: 12px;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 4px;
-  height: 24px;
+  height: 18px;
+  margin-top: 0;
 }
 
 .graph-button:hover {
@@ -528,7 +531,7 @@ body {
 /* Flex wrapper for right-aligning the graph button */
 .version-toolbar {
   display: flex;
-  /* justify-content: flex-end; */
+  justify-content: flex-end;
   margin: 4px 8px;
   align-items: center;
 }
