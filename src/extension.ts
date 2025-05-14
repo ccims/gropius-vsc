@@ -836,13 +836,14 @@ export function activate(context: vscode.ExtensionContext) {
   vscode.commands.registerCommand('extension.showIssueDetails', (data: any) => {
     const issueId = typeof data === 'string' ? data : data.issueId;
     const originComponentId = typeof data === 'string' ? null : data.originComponentId;
+    const originVersionId = typeof data === 'string' ? null : data.originVersionId;
 
     // Set this as the current issue in the decorator manager
     artifactDecoratorManager.setCurrentIssue(issueId);
 
     // Load and register artifacts for this issue, regardless of its state
     loadAndRegisterIssueArtifacts(issueId);
-    issueDetailsProvider.updateIssueDetails(issueId, originComponentId);
+    issueDetailsProvider.updateIssueDetails(issueId, originComponentId, originVersionId);
     issueDetailsProvider.revealView();
   });
 
@@ -1574,7 +1575,8 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
 
         vscode.commands.executeCommand('extension.showIssueDetails', {
           issueId: message.issueId,
-          originComponentId: originId
+          originComponentId: originId,
+          originVersionId: this.lastVersionId
         });
       } else if (message.command === "refreshRequested") {
         this.refreshCurrentIssues();
@@ -1614,9 +1616,8 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
       } else if (message.command === "showMessage") {
         vscode.window.showInformationMessage(message.message);
       } else if (message.command === 'editNewIssueDescription') {
-        console.log("Message start new issue description editor");
         this.openNewIssueDescriptionEditor(message.data);
-      } 
+      }
       return;
     });
   }
@@ -2000,7 +2001,6 @@ export class ComponentIssuesProvider implements vscode.WebviewViewProvider {
    * Opens a new editor with the issue description for editing
    */
   private async openNewIssueDescriptionEditor(data: DescriptionEditorData) {
-    console.log("Start openNewIssueDescriptionEditor!!!");
     try {
       const tempDir = vscode.Uri.file(require('os').tmpdir());
 
@@ -2062,6 +2062,7 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
   private _view?: vscode.WebviewView;
   private lastIssueId: string | null = null;
   private originComponentId: string | null = null; // store origin component ID
+  private originVersionId: string | null = null;
   private tempFileUri: vscode.Uri | null = null;
   private descriptionEditData: { bodyId: string, issueId: string } | null = null;
   private isAuthenticated: boolean = false;
@@ -2599,23 +2600,13 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
           vscode.window.showErrorMessage(`Failed to create label: ${error instanceof Error ? error.message : String(error)}`);
         }
       } else if (message.command === 'removeAffectedElementFromIssue') {
-        console.log("Start removeAffectedElementFromIssue");
-        ////
-        // Todo
-        ////
         try {
           await globalApiClient.authenticate();
           const result = await globalApiClient.executeQuery(REMOVE_AFFECTED_ENTITY_FROM_ISSUE_MUTATION, {
             issue: message.input.issue,
             affectedEntity: message.input.affectedEntity
-            // { issue: string, affectedEntity: string }
           });
-          console.log("issue: " + message.input.issue);
-          console.log("entity: " + message.input.affectedEntity);
-          console.log("message input: " + JSON.stringify(message.input));
-          console.log("Result: " + JSON.stringify(result));
           if (!result.data.removeAffectedEntityFromIssue?.removedAffectedEntityEvent?.removedAffectedEntity) {
-            console.log("Inside ERROR 1234!");
             throw new Error(
               result.errors && result.errors.length > 0
                 ? result.errors[0].message
@@ -2636,9 +2627,6 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
             error: errorMsg,
           });
         }
-
-
-
       } else if (message.command === 'createNewAffection') {
         console.log("Start createNewAffection");
         // Todo
@@ -3198,12 +3186,12 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
             await this.apiClient.authenticate();
             const mappings = await loadConfigurations();
             const workspaceData = await this._buildTreeData(mappings);
-            console.log("Workspace data: ", workspaceData);
             const issueData = await this.fetchIssueGraphData();
             panel.webview.postMessage({
               type: "issueData",
               data: issueData,
-              workspace: workspaceData
+              workspace: workspaceData,
+              version: this.originVersionId
             });
           } catch (error) {
             vscode.window.showErrorMessage(`Data fetch failed: ${error}`);
@@ -3838,10 +3826,16 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  public updateIssueDetails(issueId: string, originComponentId?: string) {
+  public updateIssueDetails(issueId: string, originComponentId?: string, originVersionId?: string) {
     if (typeof originComponentId !== 'undefined') {
       if (originComponentId) {
         this.originComponentId = originComponentId;
+      }
+    }
+
+    if (typeof originVersionId !== 'undefined') {
+      if (originVersionId) {
+        this.originVersionId = originVersionId;
       }
     }
 

@@ -5,7 +5,6 @@
     </svg>
 </template>
 <script setup lang="ts">
-console.log("Start IssueTypeIcon!");
 defineProps({
     path: {
         type: String,

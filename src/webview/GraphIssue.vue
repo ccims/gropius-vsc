@@ -27,6 +27,7 @@ const props = defineProps({
 const editorId = ref(`workspace-graph-editor-${uuidv4()}`);
 const modelSource = shallowRef<CustomModelSource>();
 const issueData = ref<any>(null);
+let selectedComponentVersion: string | null = null; 
 let startId = "0";
 
 
@@ -360,47 +361,61 @@ function createGraphData(data: any = null, workspace: any = null): { graph: Grap
             graph.relations.push(...extractRelations(nextIssue));
         } 
     } else if (query.aggregatedBy.nodes.length > 1) {
+        let check = true;
         query.aggregatedBy.nodes.forEach((componentVersion: any) => {
             const nextIssue = componentVersion.relationPartner;
-            if (temp_saved_componentVersions.has(nextIssue.component.name)){
-                if(isInWorkspace(nextIssue.id, workspace)){
-                    // componentversion of the new element is in workspace
-                    if(isInWorkspace(temp_saved_componentVersions.get(nextIssue.component.name)?.id, workspace)) {
-                        // componentversion of the existing element is in workspace
-                            if (countWorkspaceRelations.get(temp_saved_componentVersions.get(nextIssue.component.name)?.id)?.workspace < countWorkspaceRelations.get(nextIssue.id)?.workspace) {
-                                    temp_saved_componentVersions.set(nextIssue.component.name, extractComponent4NextIssues(nextIssue, extractIssueType4Initial(query, componentVersion.id)));
-                                    if (nextIssue.incomingRelations?.nodes.length > 0) {
-                                        graph.relations.push(...extractRelations(nextIssue));
-                                    }
-                                    // ELSE: no change
-                            }
-                    } else {
-                        temp_saved_componentVersions.set(nextIssue.component.name, extractComponent4NextIssues(nextIssue, extractIssueType4Initial(query, componentVersion.id)));
-                        if (nextIssue.incomingRelations?.nodes.length > 0) {
-                                graph.relations.push(...extractRelations(nextIssue));
-                            }
-                    }
-                } else {
-                    if(!isInWorkspace(temp_saved_componentVersions.get(nextIssue.component.name)?.id, workspace)) {
-                            if (countWorkspaceRelations.get(temp_saved_componentVersions.get(nextIssue.component.name)?.id)?.workspace  < countWorkspaceRelations.get(nextIssue.id)?.workspace) {
-                                temp_saved_componentVersions.set(nextIssue.component.name, extractComponent4NextIssues(nextIssue, extractIssueType4Initial(query, componentVersion.id)));
-                                if (nextIssue.incomingRelations?.nodes.length > 0) {
-                                    graph.relations.push(...extractRelations(nextIssue));
-                                }
-                                // ELSE: no change
-                            }
-                        //}
-                        // ELSE: no change
-                    }
-                    // ELSE: no change
-                }
-            } else {
+            if (selectedComponentVersion == nextIssue.id) {
+                check = false;
                 temp_saved_componentVersions.set(nextIssue.component.name, extractComponent4NextIssues(nextIssue, extractIssueType4Initial(query, componentVersion.id)));
                 if (nextIssue.incomingRelations?.nodes.length > 0) {
                     graph.relations.push(...extractRelations(nextIssue));
                 }
             }
         });
+        if (check) {
+            query.aggregatedBy.nodes.forEach((componentVersion: any) => {
+                const nextIssue = componentVersion.relationPartner;
+                if (temp_saved_componentVersions.has(nextIssue.component.name)){
+                    if(isInWorkspace(nextIssue.id, workspace)){
+                        // componentversion of the new element is in workspace
+                        if(isInWorkspace(temp_saved_componentVersions.get(nextIssue.component.name)?.id, workspace)) {
+                            // componentversion of the existing element is in workspace
+                                if (countWorkspaceRelations.get(temp_saved_componentVersions.get(nextIssue.component.name)?.id)?.workspace < countWorkspaceRelations.get(nextIssue.id)?.workspace) {
+                                        temp_saved_componentVersions.set(nextIssue.component.name, extractComponent4NextIssues(nextIssue, extractIssueType4Initial(query, componentVersion.id)));
+                                        if (nextIssue.incomingRelations?.nodes.length > 0) {
+                                            graph.relations.push(...extractRelations(nextIssue));
+                                        }
+                                        // ELSE: no change
+                                }
+                        } else {
+                            temp_saved_componentVersions.set(nextIssue.component.name, extractComponent4NextIssues(nextIssue, extractIssueType4Initial(query, componentVersion.id)));
+                            if (nextIssue.incomingRelations?.nodes.length > 0) {
+                                    graph.relations.push(...extractRelations(nextIssue));
+                                }
+                        }
+                    } else {
+                        if(!isInWorkspace(temp_saved_componentVersions.get(nextIssue.component.name)?.id, workspace)) {
+                                if (countWorkspaceRelations.get(temp_saved_componentVersions.get(nextIssue.component.name)?.id)?.workspace  < countWorkspaceRelations.get(nextIssue.id)?.workspace) {
+                                    temp_saved_componentVersions.set(nextIssue.component.name, extractComponent4NextIssues(nextIssue, extractIssueType4Initial(query, componentVersion.id)));
+                                    if (nextIssue.incomingRelations?.nodes.length > 0) {
+                                        graph.relations.push(...extractRelations(nextIssue));
+                                    }
+                                    // ELSE: no change
+                                }
+                            //}
+                            // ELSE: no change
+                        }
+                        // ELSE: no change
+                    }
+                } else {
+                    temp_saved_componentVersions.set(nextIssue.component.name, extractComponent4NextIssues(nextIssue, extractIssueType4Initial(query, componentVersion.id)));
+                    if (nextIssue.incomingRelations?.nodes.length > 0) {
+                        graph.relations.push(...extractRelations(nextIssue));
+                    }
+                }
+            });
+
+        }
     }
 
     let countSelectedComponentRelations = countSelectedRelations(query.aggregatedBy.nodes, Array.from(temp_saved_componentVersions.values()));
@@ -644,9 +659,9 @@ function isInElements(component: any, elements:  any[]) {
 
 function handleMessage(event: MessageEvent) {
     const message = event.data;
-
     if (message.type === "issueData") {
         issueData.value = message.data;
+        selectedComponentVersion = message.version;
         updateGraph(message.data, message.workspace);
     }
 }

@@ -1243,7 +1243,6 @@ export default {
      */
     
     editDescription() {
-      console.log("Start edit Description!!!");
       // Create a temporary file with the markdown content
       const markdown = this.newIssue.description || '';
       const issueTitle = this.newIssue.title || '';

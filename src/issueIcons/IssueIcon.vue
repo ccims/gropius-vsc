@@ -6,7 +6,6 @@
 import { computed, PropType } from "vue";
 import IssueTypeIcon from "./IssueTypeIcon.vue";
 
-console.log("Start issueIcon!");
 type DefaultIssueIconInfoFragment = {
     __typename?: "Issue";
     state: { __typename?: "IssueState"; isOpen: boolean };
@@ -32,5 +31,4 @@ const iconFill = computed(() => {
     }
 });
 
-console.log(" Issue Objekt:  " + JSON.stringify(props.issue));
 </script>
