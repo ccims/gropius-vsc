@@ -1389,6 +1389,24 @@ export const FETCH_TEMP_ISSUE_GRAPH = `query MyQuery($id: ID!) {
                   id
                 }
               }
+              outgoingRelations {
+                nodes {
+                  start {
+                    id
+                  }
+                  end {
+                    id
+                  }
+                  template {
+                    stroke {
+                      color
+                      dash
+                    }
+                    markerType
+                  }
+                  id
+                }
+              }
               interfaceDefinitions {
                 nodes {
                   visibleInterface {

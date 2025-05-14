@@ -3198,6 +3198,7 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
             await this.apiClient.authenticate();
             const mappings = await loadConfigurations();
             const workspaceData = await this._buildTreeData(mappings);
+            console.log("Workspace data: ", workspaceData);
             const issueData = await this.fetchIssueGraphData();
             panel.webview.postMessage({
               type: "issueData",

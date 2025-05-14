@@ -243,6 +243,89 @@ function extractIssueType4Initial(query: any, aggregatedByID: any) : any {
 
 }
 
+function countRelations(query: any, workspace: any) : any {
+    let result = new Map<number, { workspace: any}>();
+    query.forEach((componentversion : any) => {
+        let issue = componentversion.relationPartner;
+        // Count for incoming issue relations
+        componentversion.relationPartner.incomingRelations?.nodes.forEach((issueRelation: any) => {
+            if (componentversion.relationPartner.incomingRelations?.nodes.length == 1) {
+                let countWorkspace = result.get(issue.id)?.workspace || 0;
+                if (isInWorkspace(String(issue.id), workspace)) {
+                    countWorkspace = 1;
+                }
+                result.set(issue.id, {workspace: countWorkspace});
+            } else if (componentversion.relationPartner.incomingRelations?.nodes.length > 1) {
+                let countWorkspace = result.get(issue.id)?.workspace || 0;
+                if (isInWorkspace(String(issue.id), workspace)) {
+                    countWorkspace++;
+                }
+                result.set(issue.id, {workspace: countWorkspace});
+                }
+            });
+        
+        // Count for outgoing issue relations
+        componentversion.relationPartner.outgoingRelations.nodes.forEach((issueRelation: any) => {
+            if (componentversion.relationPartner.outgoingRelations?.nodes.length == 1) {
+                let countWorkspace = result.get(issue.id)?.workspace || 0;
+                if (isInWorkspace(String(issue.id), workspace)) {
+                    result.set(issue.id, {workspace: countWorkspace});
+                } else {
+                    result.set(issue.id, {workspace: countWorkspace});
+                }
+
+            } else if (componentversion.relationPartner.outgoingRelations?.nodes.length > 1) {
+                let countWorkspace = result.get(issue.id)?.workspace || 0;
+                if (isInWorkspace(String(issue.id), workspace)) {
+                    countWorkspace++;
+                }
+                result.set(issue.id, {workspace: countWorkspace});
+            }
+        });
+    });
+    return result;
+}
+function countSelectedRelations(query: any, elements: any) : any {
+    let result = new Map<number, { count: any}>();
+    query.forEach((componentversion : any) => {
+        let issue = componentversion.relationPartner;
+        // Count for incoming issue relations
+        componentversion.relationPartner.incomingRelations?.nodes.forEach((issueRelation: any) => {
+            if (componentversion.relationPartner.incomingRelations?.nodes.length == 1) {
+                let countResult = result.get(issue.id)?.count || 0;
+                if (isInElements(String(issue.id), elements)) {
+                    countResult = 1;
+                }
+                result.set(issue.id, {count: countResult});
+            } else if (componentversion.relationPartner.incomingRelations?.nodes.length > 1) {
+                let countResult = result.get(issue.id)?.count || 0;
+                if (isInElements(String(issue.id), elements)) {
+                    countResult++;
+                }
+                result.set(issue.id, {count: countResult});
+                }
+            });
+        
+        // Count for outgoing issue relations
+        componentversion.relationPartner.outgoingRelations.nodes.forEach((issueRelation: any) => {
+            if (componentversion.relationPartner.outgoingRelations?.nodes.length == 1) {
+                let countResult = result.get(issue.id)?.count || 0;
+                if (isInElements(String(issue.id), elements)) {
+                    result.set(issue.id, {count: countResult});
+                } else {
+                    result.set(issue.id, {count: countResult});
+                }
+            } else if (componentversion.relationPartner.outgoingRelations?.nodes.length > 1) {
+                let countResult = result.get(issue.id)?.count || 0;
+                if (isInElements(String(issue.id), elements)) {
+                    countResult++;
+                }
+                result.set(issue.id, {count: countResult});
+            }
+        });
+    });
+    return result;
+}
 /**
  * Create the graph data.
  * @param data : Workspace data to create the necessary graph data.
@@ -258,7 +341,6 @@ function createGraphData(data: any = null, workspace: any = null): { graph: Grap
     const layout: GraphLayout = {};
 
     if (!query) {
-        console.log("Something went wrong with issue data in GraphIssue.vue");
         return { graph, layout };
     }
     interface IssueRelation {
@@ -268,14 +350,15 @@ function createGraphData(data: any = null, workspace: any = null): { graph: Grap
     }
     let temp_saved_componentVersions = new Map <string, { id: any; name: any; version: any; style: any; interfaces: any, issueTypes: [], contextMenu: any}>();
     let issueRelationsArray = new Map <string, IssueRelation>();
+    let countWorkspaceRelations = new Map <number, { workspace: any }>();
+    countWorkspaceRelations = countRelations(query.aggregatedBy.nodes, workspace);
     // selected issue
     if (query.aggregatedBy.nodes.length == 1) {
         const nextIssue = query.aggregatedBy.nodes[0].relationPartner;
         temp_saved_componentVersions.set( nextIssue.component.name, extractComponent4NextIssues(nextIssue, extractIssueType4Initial(query, query.aggregatedBy.nodes[0].id)));
         if (nextIssue.incomingRelations?.nodes.length > 0) {
             graph.relations.push(...extractRelations(nextIssue));
-        }
-
+        } 
     } else if (query.aggregatedBy.nodes.length > 1) {
         query.aggregatedBy.nodes.forEach((componentVersion: any) => {
             const nextIssue = componentVersion.relationPartner;
@@ -284,25 +367,27 @@ function createGraphData(data: any = null, workspace: any = null): { graph: Grap
                     // componentversion of the new element is in workspace
                     if(isInWorkspace(temp_saved_componentVersions.get(nextIssue.component.name)?.id, workspace)) {
                         // componentversion of the existing element is in workspace
-                            temp_saved_componentVersions.set(nextIssue.component.name, extractComponent4NextIssues(nextIssue, extractIssueType4Initial(query, componentVersion.id)));
-                            if (nextIssue.incomingRelations?.nodes.length > 0) {
-                                graph.relations.push(...extractRelations(nextIssue));
+                            if (countWorkspaceRelations.get(temp_saved_componentVersions.get(nextIssue.component.name)?.id)?.workspace < countWorkspaceRelations.get(nextIssue.id)?.workspace) {
+                                    temp_saved_componentVersions.set(nextIssue.component.name, extractComponent4NextIssues(nextIssue, extractIssueType4Initial(query, componentVersion.id)));
+                                    if (nextIssue.incomingRelations?.nodes.length > 0) {
+                                        graph.relations.push(...extractRelations(nextIssue));
+                                    }
+                                    // ELSE: no change
                             }
-                        //}
-                        // ELSE: no change
                     } else {
                         temp_saved_componentVersions.set(nextIssue.component.name, extractComponent4NextIssues(nextIssue, extractIssueType4Initial(query, componentVersion.id)));
-                        
                         if (nextIssue.incomingRelations?.nodes.length > 0) {
                                 graph.relations.push(...extractRelations(nextIssue));
                             }
                     }
                 } else {
                     if(!isInWorkspace(temp_saved_componentVersions.get(nextIssue.component.name)?.id, workspace)) {
-                            temp_saved_componentVersions.set(nextIssue.component.name, extractComponent4NextIssues(nextIssue, extractIssueType4Initial(query, componentVersion.id)));
-                            
-                            if (nextIssue.incomingRelations?.nodes.length > 0) {
-                                graph.relations.push(...extractRelations(nextIssue));
+                            if (countWorkspaceRelations.get(temp_saved_componentVersions.get(nextIssue.component.name)?.id)?.workspace  < countWorkspaceRelations.get(nextIssue.id)?.workspace) {
+                                temp_saved_componentVersions.set(nextIssue.component.name, extractComponent4NextIssues(nextIssue, extractIssueType4Initial(query, componentVersion.id)));
+                                if (nextIssue.incomingRelations?.nodes.length > 0) {
+                                    graph.relations.push(...extractRelations(nextIssue));
+                                }
+                                // ELSE: no change
                             }
                         //}
                         // ELSE: no change
@@ -315,11 +400,10 @@ function createGraphData(data: any = null, workspace: any = null): { graph: Grap
                     graph.relations.push(...extractRelations(nextIssue));
                 }
             }
-
         });
-
     }
 
+    let countSelectedComponentRelations = countSelectedRelations(query.aggregatedBy.nodes, Array.from(temp_saved_componentVersions.values()));
     // Incoming issue relations
     query.incomingRelations?.nodes.forEach((issueRelation: any) => {
         let endId = new Map;
@@ -338,12 +422,23 @@ function createGraphData(data: any = null, workspace: any = null): { graph: Grap
                             // componentversion of the new element is in workspace
                             if(isInWorkspace(temp_saved_componentVersions.get(nextComponent.component.name)?.id, workspace)) {
                                 // componentversion of the existing element is in workspace
+                                if(countSelectedComponentRelations.get(temp_saved_componentVersions.get(nextComponent.component.name)?.id)?.count < countSelectedComponentRelations.get(nextComponent.id)?.count) {
                                     let getIssueTypes = temp_saved_componentVersions.get(nextComponent.component.name)?.issueTypes;
                                     temp_saved_componentVersions.set(nextComponent.component.name, extractNextComponent(componentVersion.id, nextComponent, issueRelation, issueRelation.issue, getIssueTypes));
                                     endId.set(nextComponent.component.name, componentVersion.id);
                                     if (nextComponent.incomingRelations?.nodes.length > 0) {
                                         graph.relations.push(...extractRelations(nextComponent));
                                     }
+                                } else if (countSelectedComponentRelations.get(temp_saved_componentVersions.get(nextComponent.component.name)?.id)?.count == countSelectedComponentRelations.get(nextComponent.id)?.count) {
+                                    if (countWorkspaceRelations.get(temp_saved_componentVersions.get(nextComponent.component.name)?.id)?.workspace < countWorkspaceRelations.get(nextComponent.id)?.workspace) {
+                                        let getIssueTypes = temp_saved_componentVersions.get(nextComponent.component.name)?.issueTypes;
+                                        temp_saved_componentVersions.set(nextComponent.component.name, extractNextComponent(componentVersion.id, nextComponent, issueRelation, issueRelation.issue, getIssueTypes));
+                                        endId.set(nextComponent.component.name, componentVersion.id);
+                                        if (nextComponent.incomingRelations?.nodes.length > 0) {
+                                            graph.relations.push(...extractRelations(nextComponent));
+                                        }
+                                    }
+                                }
                                 //}
                                 // ELSE: no change
                             } else {
@@ -356,13 +451,23 @@ function createGraphData(data: any = null, workspace: any = null): { graph: Grap
                             }
                         } else {
                             if(!isInWorkspace(temp_saved_componentVersions.get(nextComponent.component.name)?.id, workspace)) {
+                                if(countSelectedComponentRelations.get(temp_saved_componentVersions.get(nextComponent.component.name)?.id)?.count < countSelectedComponentRelations.get(nextComponent.id)?.count) {
                                     let getIssueTypes = temp_saved_componentVersions.get(nextComponent.component.name)?.issueTypes;
                                     temp_saved_componentVersions.set(nextComponent.component.name, extractNextComponent(componentVersion.id, nextComponent, issueRelation, issueRelation.issue, getIssueTypes));
                                     endId.set(nextComponent.component.name, componentVersion.id);
                                     if (nextComponent.incomingRelations?.nodes.length > 0) {
                                         graph.relations.push(...extractRelations(nextComponent));
                                     }
-                                //}
+                                } else if (countSelectedComponentRelations.get(temp_saved_componentVersions.get(nextComponent.component.name)?.id)?.count == countSelectedComponentRelations.get(nextComponent.id)?.count) {
+                                    if (countWorkspaceRelations.get(temp_saved_componentVersions.get(nextComponent.component.name)?.id)?.workspace < countWorkspaceRelations.get(nextComponent.id)?.workspace) {
+                                        let getIssueTypes = temp_saved_componentVersions.get(nextComponent.component.name)?.issueTypes;
+                                        temp_saved_componentVersions.set(nextComponent.component.name, extractNextComponent(componentVersion.id, nextComponent, issueRelation, issueRelation.issue, getIssueTypes));
+                                        endId.set(nextComponent.component.name, componentVersion.id);
+                                        if (nextComponent.incomingRelations?.nodes.length > 0) {
+                                            graph.relations.push(...extractRelations(nextComponent));
+                                        }
+                                    }
+                                }
                                 // ELSE: no change
                             }
                             // ELSE: no change
@@ -410,13 +515,24 @@ function createGraphData(data: any = null, workspace: any = null): { graph: Grap
                         // componentversion of the new element is in workspace
                         if(isInWorkspace(temp_saved_componentVersions.get(partnerComponent.component.name)?.id, workspace)) {
                             // componentversion of the existing element is in workspace
-                            let getIssueTypes = temp_saved_componentVersions.get(partnerComponent.component.name)?.issueTypes;
-                            temp_saved_componentVersions.set(partnerComponent.component.name, extractNextComponent(componentVersion.id, partnerComponent, issueRelation, issueRelation.relatedIssue, getIssueTypes));
-                            endId.set(partnerComponent.component.name, componentVersion.id);
-                            if (partnerComponent.incomingRelations?.nodes.length > 0) {
-                                graph.relations.push(...extractRelations(partnerComponent));
+                            if(countSelectedComponentRelations.get(temp_saved_componentVersions.get(partnerComponent.component.name)?.id)?.count < countSelectedComponentRelations.get(partnerComponent.id)?.count) {
+                                let getIssueTypes = temp_saved_componentVersions.get(partnerComponent.component.name)?.issueTypes;
+                                temp_saved_componentVersions.set(partnerComponent.component.name, extractNextComponent(componentVersion.id, partnerComponent, issueRelation, issueRelation.relatedIssue, getIssueTypes));
+                                endId.set(partnerComponent.component.name, componentVersion.id);
+                                if (partnerComponent.incomingRelations?.nodes.length > 0) {
+                                    graph.relations.push(...extractRelations(partnerComponent));
+                                }
+                            } else if (countSelectedComponentRelations.get(temp_saved_componentVersions.get(partnerComponent.component.name)?.id)?.count == countSelectedComponentRelations.get(partnerComponent.id)?.count) {
+                                    if (countWorkspaceRelations.get(temp_saved_componentVersions.get(partnerComponent.component.name)?.id)?.workspace < countWorkspaceRelations.get(partnerComponent.id)?.workspace) {
+                                        let getIssueTypes = temp_saved_componentVersions.get(partnerComponent.component.name)?.issueTypes;
+                                        temp_saved_componentVersions.set(partnerComponent.component.name, extractNextComponent(componentVersion.id, partnerComponent, issueRelation, issueRelation.relatedIssue, getIssueTypes));
+                                        endId.set(partnerComponent.component.name, componentVersion.id);
+                                        if (partnerComponent.incomingRelations?.nodes.length > 0) {
+                                            graph.relations.push(...extractRelations(partnerComponent));
+                                        }
+                                    }
+                                    
                             }
-                            //}
                             // ELSE: no change
                         } else {
                             let getIssueTypes = temp_saved_componentVersions.get(partnerComponent.component.name)?.issueTypes;
@@ -428,13 +544,24 @@ function createGraphData(data: any = null, workspace: any = null): { graph: Grap
                         }
                     } else {
                         if(!isInWorkspace(temp_saved_componentVersions.get(partnerComponent.component.name)?.id, workspace)) {
-                                let getIssueTypes = temp_saved_componentVersions.get(partnerComponent.component.name)?.issueTypes;
-                                temp_saved_componentVersions.set(partnerComponent.component.name, extractNextComponent(componentVersion.id, partnerComponent, issueRelation, issueRelation.relatedIssue, getIssueTypes));
-                                endId.set(partnerComponent.component.name, componentVersion.id);
-                                if (partnerComponent.incomingRelations?.nodes.length > 0) {
-                                    graph.relations.push(...extractRelations(partnerComponent));
+                                if(countSelectedComponentRelations.get(temp_saved_componentVersions.get(partnerComponent.component.name)?.id)?.count < countSelectedComponentRelations.get(partnerComponent.id)?.count) {
+                                    let getIssueTypes = temp_saved_componentVersions.get(partnerComponent.component.name)?.issueTypes;
+                                    temp_saved_componentVersions.set(partnerComponent.component.name, extractNextComponent(componentVersion.id, partnerComponent, issueRelation, issueRelation.relatedIssue, getIssueTypes));
+                                    endId.set(partnerComponent.component.name, componentVersion.id);
+                                    if (partnerComponent.incomingRelations?.nodes.length > 0) {
+                                        graph.relations.push(...extractRelations(partnerComponent));
+                                    }
+                                } else if (countSelectedComponentRelations.get(temp_saved_componentVersions.get(partnerComponent.component.name)?.id)?.count == countSelectedComponentRelations.get(partnerComponent.id)?.count) {
+                                    if (countWorkspaceRelations.get(temp_saved_componentVersions.get(partnerComponent.component.name)?.id)?.workspace < countWorkspaceRelations.get(partnerComponent.id)?.workspace) {
+                                        let getIssueTypes = temp_saved_componentVersions.get(partnerComponent.component.name)?.issueTypes;
+                                        temp_saved_componentVersions.set(partnerComponent.component.name, extractNextComponent(componentVersion.id, partnerComponent, issueRelation, issueRelation.relatedIssue, getIssueTypes));
+                                        endId.set(partnerComponent.component.name, componentVersion.id);
+                                        if (partnerComponent.incomingRelations?.nodes.length > 0) {
+                                            graph.relations.push(...extractRelations(partnerComponent));
+                                        }
+                                    }
+                                    
                                 }
-                            //}
                             // ELSE: no change
                         }
                         // ELSE: no change
@@ -466,7 +593,6 @@ function createGraphData(data: any = null, workspace: any = null): { graph: Grap
     });
     // Filter the relations
     graph.relations = filterRelations(graph.relations, temp_saved_componentVersions);
-
     return { graph, layout };
 }
 
@@ -477,32 +603,42 @@ function createGraphData(data: any = null, workspace: any = null): { graph: Grap
  */
 function filterRelations(relations: any, values: any) : any[] {
     const versions = new Set<string>();
+    const saved = new Set<string>();
     const result: any[] = [];
     values.forEach((component: any) => {
         versions.add(component.id);
     });
     relations.forEach((relation: any) => {
-        if(versions.has(relation.start) && versions.has(relation.end)) {
-            result.push(relation);
+        if (versions.has(relation.start) && versions.has(relation.end)) {
+            const key = `${relation.start}->${relation.end}`;
+            if (!saved.has(key)) {
+                saved.add(key);
+                result.push(relation);
+            }
         }
     });
     return result;
 }
 
-function isInWorkspace(component: any, workspace:  [{
-              id: any;
-              componentVersionIds: any;
-              name: any;
-              description:  any;
-              versions: any;
-              expanded: any;
-            }]) {
-    workspace.forEach((element) => {
-        if( element.componentVersionIds == component){
+function isInWorkspace(component: any, workspace:  any[]) {
+    for (const entry of workspace) {
+        if (entry.componentVersionIds?.includes(component)) {
             return true;
-        }        
-    });
-
+        }
+        if (Array.isArray(entry.children)) {
+            if (isInWorkspace(component, entry.children)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+function isInElements(component: any, elements:  any[]) {
+    for (const entry of elements) {
+        if (entry.id?.includes(component)) {
+            return true;
+        }
+    }
     return false;
 }
 
