@@ -2069,6 +2069,8 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
   private editCommentData: { commentId: string, issueId: string } | null = null;
   private newCommentData: { issueId: string, commentId: string | null } | null = null;
   private selectedIssueName: string | null = null;
+  private checkPanel: Map<string, vscode.WebviewPanel> = new Map();
+
 
   public refreshCurrentIssue(): void {
     if (this._view && this.lastIssueId) {
@@ -3164,9 +3166,15 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
     const issueData = await this.fetchIssueGraphData();
     console.log(JSON.stringify(issueData));
     this.selectedIssueName = await issueData.node.title;
-    const panel = vscode.window.createWebviewPanel(
+    const issueTitle = "Issue Graph Editor for " + this.selectedIssueName;
+    
+    if (this.checkPanel.has(issueTitle)) {
+      this.checkPanel.get(issueTitle)!.reveal(vscode.ViewColumn.One);
+      return;
+    }
+    let panel = vscode.window.createWebviewPanel(
       "graphIssueEditor",
-      "Issue Graph Editor for " + await this.selectedIssueName,
+      issueTitle,
       vscode.ViewColumn.One,
       {
         enableScripts: true,
@@ -3175,6 +3183,7 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
         ]
       }
     );
+    this.checkPanel.set(issueTitle, panel);
     const scriptUri = panel.webview.asWebviewUri(
       vscode.Uri.joinPath(this.context.extensionUri, "out", "webview", "GraphIssueEditor.js")
     );
@@ -3207,6 +3216,9 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
     });
 
     panel.reveal(vscode.ViewColumn.One);
+    panel.onDidDispose(() => {
+      this.checkPanel.delete(issueTitle);
+    });
   }
   /**
    * Fetch issue data
