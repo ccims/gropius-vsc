@@ -882,6 +882,7 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
   private _view?: vscode.WebviewView;
   private _extensionUri: vscode.Uri;
   private isAuthenticated: boolean = false;
+  private checkPanel: Map<string, vscode.WebviewPanel> = new Map();
 
   constructor(
     private readonly _context: vscode.ExtensionContext,
@@ -934,6 +935,10 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
    * 
    */
   public async openWorkspaceGraphEditor(): Promise<void> {
+    if (this.checkPanel.has("Workspace Graph")){
+      this.checkPanel.get("Workspace Graph")!.reveal(vscode.ViewColumn.One);
+      return;
+    }
     const panel = vscode.window.createWebviewPanel(
       "graphWorkspaceEditor",
       "Workspace Graph",
@@ -945,6 +950,7 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
         ]
       }
     );
+    this.checkPanel.set("Workspace Graph", panel);
     const scriptUri = panel.webview.asWebviewUri(
       vscode.Uri.joinPath(this._context.extensionUri, "out", "webview", "GraphWorkspaceEditor.js")
     );
@@ -973,6 +979,9 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
     });
 
     panel.reveal(vscode.ViewColumn.One);
+    panel.onDidDispose(() => {
+      this.checkPanel.delete("Workspace Graph");
+    });
   }
   /**
    * Todo: in... all found components or smth different
