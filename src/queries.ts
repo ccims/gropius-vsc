@@ -1344,6 +1344,7 @@ export const FETCH_TEMP_ISSUE_GRAPH = `query MyQuery($id: ID!) {
   node(id: $id) {
     ... on Issue {
       id
+      title
       state {
         isOpen
       }

@@ -935,7 +935,7 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
   public async openWorkspaceGraphEditor(): Promise<void> {
     const panel = vscode.window.createWebviewPanel(
       "graphWorkspaceEditor",
-      "Graph Editor",
+      "Workspace Graph",
       vscode.ViewColumn.One,
       {
         enableScripts: true,
@@ -2068,6 +2068,7 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
   private isAuthenticated: boolean = false;
   private editCommentData: { commentId: string, issueId: string } | null = null;
   private newCommentData: { issueId: string, commentId: string | null } | null = null;
+  private selectedIssueName: string | null = null;
 
   public refreshCurrentIssue(): void {
     if (this._view && this.lastIssueId) {
@@ -3160,9 +3161,12 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
    * 
    */
   public async openIssueGraphEditor(): Promise<void> {
+    const issueData = await this.fetchIssueGraphData();
+    console.log(JSON.stringify(issueData));
+    this.selectedIssueName = await issueData.node.title;
     const panel = vscode.window.createWebviewPanel(
       "graphIssueEditor",
-      "Graph Editor",
+      "Issue Graph Editor for " + await this.selectedIssueName,
       vscode.ViewColumn.One,
       {
         enableScripts: true,
