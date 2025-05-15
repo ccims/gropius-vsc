@@ -868,6 +868,7 @@ mutation ChangeIssueType($input: ChangeIssueTypeInput!) {
       newType {
         id
         name
+        iconPath
       }
     }
   }

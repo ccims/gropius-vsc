@@ -55,6 +55,7 @@ import {
   ADD_AFFECTED_ENTITY_TO_ISSUE
 } from "./queries";
 import path from "path";
+import { ConsoleLogger } from "sprotty";
 
 // Create a single, global API client instance
 const globalApiClient = new APIClient(API_URL, CLIENT_ID, CLIENT_SECRET);
@@ -2220,6 +2221,12 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
           });
           // Refresh issue details to reflect all changes
           this.refreshCurrentIssue();
+
+          vscode.commands.executeCommand('extension.issueUpdated', {
+            issueId: message.issueId,
+            field: 'type',
+            newValue: updatedType
+          });
         } catch (error) {
           vscode.window.showErrorMessage(`Failed to update issue type: ${error instanceof Error ? error.message : String(error)}`);
         }
@@ -3164,7 +3171,6 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
    */
   public async openIssueGraphEditor(): Promise<void> {
     const issueData = await this.fetchIssueGraphData();
-    console.log(JSON.stringify(issueData));
     this.selectedIssueName = await issueData.node.title;
     const issueTitle = "Issue Graph Editor for " + this.selectedIssueName;
     
@@ -4096,17 +4102,15 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
   private async changeIssueType(data: { issueId: string, typeId: string }): Promise<any> {
     try {
       await globalApiClient.authenticate();
-
       const result = await globalApiClient.executeQuery(CHANGE_ISSUE_TYPE_MUTATION, {
         input: {
           issue: data.issueId,
           type: data.typeId
         }
       });
-
       if (result.errors) {
         throw new Error(result.errors[0].message);
-      }
+      }      
 
       // Return the updated type
       return result.data?.changeIssueType?.typeChangedEvent?.newType;
