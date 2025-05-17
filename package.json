@@ -39,6 +39,11 @@
           "when": "editorHasSelection",
           "command": "extension.createStandaloneArtifact",
           "group": "gropius"
+        },
+        {
+          "command": "extension.viewIssueAtCursor",
+          "when": "editorTextFocus",
+          "group": "gropius"
         }
       ]
     },
@@ -46,6 +51,10 @@
       {
         "command": "extension.moveArtifactIconUp",
         "title": "Move Artifact Icon Up"
+      },
+      {
+        "command": "extension.viewIssueAtCursor",
+        "title": "View Associated Issues"
       },
       {
         "command": "extension.moveArtifactIconDown",

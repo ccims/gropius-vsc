@@ -267,6 +267,34 @@ export function activate(context: vscode.ExtensionContext) {
   // Initialize the artifact decorator manager
   artifactDecoratorManager = new ArtifactDecoratorManager(context);
 
+  // Add command that can be called directly (optional)
+  context.subscriptions.push(
+    vscode.commands.registerCommand('extension.openIssueFromArtifact', (artifactId: string) => {
+      artifactDecoratorManager.handleArtifactCommand(artifactId);
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('extension.viewIssueAtCursor', () => {
+      const editor = vscode.window.activeTextEditor;
+      if (!editor) {
+        return;
+      }
+      
+      const cursorLine = editor.selection.active.line;
+      const uriString = editor.document.uri.toString();
+      
+      // Find artifacts at this line
+      const artifactsAtLine = artifactDecoratorManager.getArtifactsAtLine(uriString, cursorLine);
+      
+      if (artifactsAtLine.length > 0) {
+        artifactDecoratorManager.handleArtifactClick(artifactsAtLine);
+      } else {
+        vscode.window.showInformationMessage('No issues associated with this line of code.');
+      }
+    })
+  );
+
   // manually refresh artifact highlights
   context.subscriptions.push(
     vscode.commands.registerCommand('extension.refreshArtifactHighlights', () => {
@@ -935,7 +963,7 @@ export class GropiusComponentVersionsProvider implements vscode.WebviewViewProvi
    * 
    */
   public async openWorkspaceGraphEditor(): Promise<void> {
-    if (this.checkPanel.has("Workspace Graph")){
+    if (this.checkPanel.has("Workspace Graph")) {
       this.checkPanel.get("Workspace Graph")!.reveal(vscode.ViewColumn.One);
       return;
     }
@@ -3182,7 +3210,7 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
     const issueData = await this.fetchIssueGraphData();
     this.selectedIssueName = await issueData.node.title;
     const issueTitle = "Issue Graph Editor for " + this.selectedIssueName;
-    
+
     if (this.checkPanel.has(issueTitle)) {
       this.checkPanel.get(issueTitle)!.reveal(vscode.ViewColumn.One);
       return;
@@ -4119,7 +4147,7 @@ class IssueDetailsProvider implements vscode.WebviewViewProvider {
       });
       if (result.errors) {
         throw new Error(result.errors[0].message);
-      }      
+      }
 
       // Return the updated type
       return result.data?.changeIssueType?.typeChangedEvent?.newType;
@@ -4265,6 +4293,45 @@ class ArtifactDecoratorManager {
     }
   }
 
+  public handleArtifactCommand(artifactId: string): void {
+    const issues = this.artifactIssues.get(artifactId) || [];
+
+    if (issues.length === 0) {
+      vscode.window.showInformationMessage('No issues associated with this artifact.');
+      return;
+    }
+
+    if (issues.length === 1) {
+      // Only one issue, open it directly
+      vscode.commands.executeCommand('extension.showIssueDetails', issues[0].issueId);
+    } else {
+      // Find the artifact data
+      let artifact: { id: string, file: string, from: number, to: number } | undefined;
+
+      for (const [uriString, fileData] of this.artifactRanges.entries()) {
+        for (const rangeData of fileData.ranges) {
+          if (rangeData.artifactId === artifactId) {
+            artifact = {
+              id: artifactId,
+              file: uriString,
+              from: rangeData.range.start.line + 1,
+              to: rangeData.range.end.line + 1
+            };
+            break;
+          }
+        }
+        if (artifact) {break;}
+      }
+
+      if (artifact) {
+        // Multiple issues, show quick pick
+        this.showQuickPickForIssues(issues, artifact);
+      } else {
+        vscode.window.showErrorMessage('Could not find artifact data.');
+      }
+    }
+  }
+
   /**
    * Updates the internal tracking of artifact ranges after a move
    */
@@ -4320,6 +4387,9 @@ class ArtifactDecoratorManager {
     iconPath?: string
   }>> = new Map();
 
+  private lastClickTime: number = 0;
+  private clickCooldown: number = 300; // ms to prevent double-click issues
+
   // Cache for icon SVG data
   private iconCache: Map<string, string> = new Map();
 
@@ -4342,6 +4412,115 @@ class ArtifactDecoratorManager {
     // Apply decorations to the active editor right away
     if (vscode.window.activeTextEditor) {
       this.onActiveEditorChanged(vscode.window.activeTextEditor);
+    }
+
+    context.subscriptions.push(
+      vscode.window.onDidChangeTextEditorSelection(this.onSelectionChanged.bind(this))
+    );
+
+    // Add click handler for gutter icons
+    context.subscriptions.push(
+      vscode.window.onDidChangeVisibleTextEditors(editors => {
+        // When editors change, make sure decorations are applied to all
+        this.applyDecorationsToOpenEditors();
+      })
+    );
+  }
+
+  /**
+   * Handles clicks on artifact gutter icons
+   */
+  public handleArtifactClick(artifacts: Array<{ id: string, file: string, from: number, to: number }>): void {
+    if (artifacts.length === 0) {
+      return;
+    }
+
+    // If there's only one artifact, we need to check if it has multiple issues
+    const artifactId = artifacts[0].id;
+    const issues = this.artifactIssues.get(artifactId) || [];
+
+    if (issues.length === 0) {
+      // No issues found for this artifact
+      vscode.window.showInformationMessage('No issues associated with this code.');
+      return;
+    }
+
+    if (issues.length === 1) {
+      // Only one issue, open it directly
+      vscode.commands.executeCommand('extension.showIssueDetails', issues[0].issueId);
+    } else {
+      // Multiple issues, show quick pick
+      this.showQuickPickForIssues(issues, artifacts[0]);
+    }
+  }
+
+  /**
+   * Shows a quick pick when multiple issues are associated with an artifact
+   */
+  private async showQuickPickForIssues(
+    issues: Array<{ issueId: string, issueType: string, isOpen: boolean, title: string, iconPath?: string }>,
+    artifact: { id: string, file: string, from: number, to: number }
+  ): Promise<void> {
+    const issueItems = issues.map(issue => ({
+      label: issue.title || 'Unknown Issue',
+      description: `${issue.issueType} (${issue.isOpen ? 'Open' : 'Closed'})`,
+      issueId: issue.issueId
+    }));
+
+    // Sort items by open status (open issues first) and then by title
+    issueItems.sort((a, b) => {
+      const issueA = issues.find(i => i.issueId === a.issueId);
+      const issueB = issues.find(i => i.issueId === b.issueId);
+
+      if (issueA?.isOpen && !issueB?.isOpen) { return -1; }
+      if (!issueA?.isOpen && issueB?.isOpen) { return 1; }
+      return a.label.localeCompare(b.label);
+    });
+
+    const selected = await vscode.window.showQuickPick(issueItems, {
+      placeHolder: 'Select an issue to view',
+      title: `Issues for lines ${artifact.from}-${artifact.to}`
+    });
+
+    if (selected) {
+      vscode.commands.executeCommand('extension.showIssueDetails', selected.issueId);
+    }
+  }
+
+  /**
+   * Handle selection changes (clicks) in the editor
+   */
+  private onSelectionChanged(event: vscode.TextEditorSelectionChangeEvent): void {
+    // Only handle selection changes triggered by mouse
+    if (event.kind !== vscode.TextEditorSelectionChangeKind.Mouse) {
+      return;
+    }
+
+    // Implement click cooldown to prevent accidental double-triggering
+    const now = Date.now();
+    if (now - this.lastClickTime < this.clickCooldown) {
+      return;
+    }
+    this.lastClickTime = now;
+
+    const editor = event.textEditor;
+    const selection = editor.selection;
+    const cursorLine = selection.active.line;
+
+    // Check if this line has an artifact decoration
+    const uriString = editor.document.uri.toString();
+    const artifactsAtLine = this.getArtifactsAtLine(uriString, cursorLine);
+
+    if (artifactsAtLine.length > 0) {
+      // Check if click is in the gutter area (where icons are shown)
+      // This is an approximation - VS Code doesn't expose exact gutter info
+      const gutterClick = selection.active.character === 0;
+
+      // Only proceed if this was a click in the gutter area or we're specifically
+      // targeting artifact icons
+      if (gutterClick) {
+        this.handleArtifactClick(artifactsAtLine);
+      }
     }
   }
 
@@ -4808,13 +4987,7 @@ class ArtifactDecoratorManager {
  */
   private getDecorationForArtifact(
     artifactId: string,
-    issues: Array<{
-      issueId: string,
-      issueType: string,
-      isOpen: boolean,
-      title: string,
-      iconPath?: string
-    }>
+    issues: Array<{ issueId: string, issueType: string, isOpen: boolean, title: string, iconPath?: string }>
   ): vscode.TextEditorDecorationType {
     // Initialize icon variables with defaults
     let iconPath: string | undefined;
@@ -4825,26 +4998,18 @@ class ArtifactDecoratorManager {
     const uniqueIssueIds = new Set(issues.map(issue => issue.issueId));
     const issueCount = uniqueIssueIds.size > 1 ? uniqueIssueIds.size : 0;
 
-    // Prioritization logic:
-    // 1. Currently selected issue (highest priority, regardless of open/closed status)
-    // 2. Open issues (if no currently selected issue)
-    // 3. Any other issue (lowest priority)
-
-    // First check if the currently selected issue is associated with this artifact
+    // Prioritization logic remains the same...
     const selectedIssue = issues.find(issue => issue.issueId === this.currentlySelectedIssueId);
     if (selectedIssue) {
-      // Always prioritize the selected issue, whether open or closed
       iconPath = selectedIssue.iconPath;
       iconColor = selectedIssue.isOpen ? 'green' : 'red';
     }
-    // If no selected issue, then check for open issues
     else {
       const openIssues = issues.filter(issue => issue.isOpen);
       if (openIssues.length > 0) {
         iconPath = openIssues[0].iconPath;
         iconColor = 'green'; // Open issues are green
       }
-      // Otherwise use the first issue if any
       else if (issues.length > 0) {
         iconPath = issues[0].iconPath;
         iconColor = issues[0].isOpen ? 'green' : 'red';
@@ -4882,7 +5047,9 @@ class ArtifactDecoratorManager {
         contentText: ` (${issueCount})`,
         color: new vscode.ThemeColor('editorLineNumber.foreground'),
         fontStyle: 'italic'
-      } : undefined
+      } : undefined,
+      // We won't use isWholeLine as it might interfere with editor functionality
+      isWholeLine: false
     });
 
     // Store the decoration type
@@ -4890,6 +5057,7 @@ class ArtifactDecoratorManager {
 
     return decorationType;
   }
+
   /**
    * Creates an inline SVG URI for the icon
    * This allows us to use SVG paths from the backend
