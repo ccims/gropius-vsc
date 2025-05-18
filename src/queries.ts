@@ -365,6 +365,7 @@ query GetIssueDetails($id: ID!) {
           createdBy {
             displayName
             username
+            avatar
           }
           isDeleted
         }
@@ -526,6 +527,7 @@ query GetIssueDetails($id: ID!) {
           user {
             username
             displayName
+            avatar
           }
           type {
             name

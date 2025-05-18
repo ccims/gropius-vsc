@@ -309,10 +309,10 @@
             </div>
           </div>
           <div class="section-content description-content" v-if="expandedSections.description">
-            <div v-if="showFullDescription" class="markdown-content"
-              :key="'full-' + showFullDescription"
-              v-html="markdownToHtml(issue.body.body)" ></div>
-            <div v-else class="markdown-content" :key="'trunc-' + showFullDescription" v-html="markdownToHtml(truncatedDescription)"></div>
+            <div v-if="showFullDescription" class="markdown-content" :key="'full-' + showFullDescription"
+              v-html="markdownToHtml(issue.body.body)"></div>
+            <div v-else class="markdown-content" :key="'trunc-' + showFullDescription"
+              v-html="markdownToHtml(truncatedDescription)"></div>
             <div v-if="isDescriptionTruncated" class="show-more-container">
               <button class="show-more-button" @click="toggleFullDescription">
                 {{ showFullDescription ? 'Show less' : 'Show more' }}
@@ -345,7 +345,11 @@
               <div v-for="comment in allComments" :key="comment.id" class="comment-item">
                 <div class="comment-header">
                   <div class="comment-author">
-                    <div class="user-avatar">{{ getUserInitials(comment.createdBy) }}</div>
+                    <div class="user-avatar">
+                      <img v-if="comment.createdBy?.avatar" :src="comment.createdBy.avatar" class="avatar-image"
+                        alt="User avatar" />
+                      <span v-else>{{ getUserInitials(comment.createdBy) }}</span>
+                    </div>
                     <span class="user-name">{{ comment.createdBy.displayName || 'Unknown User' }}</span>
                   </div>
                   <div class="comment-actions">
@@ -598,7 +602,11 @@
               <div v-for="assignment in issue.assignments.nodes" :key="assignment.id" class="assignment-item">
                 <div class="assignment-content">
                   <div class="assignment-user">
-                    <div class="user-avatar">{{ getUserInitials(assignment.user) }}</div>
+                    <div class="user-avatar">
+                      <img v-if="assignment.user?.avatar" :src="assignment.user.avatar" class="avatar-image"
+                        alt="User avatar" />
+                      <span v-else>{{ getUserInitials(assignment.user) }}</span>
+                    </div>
                     <span class="user-name">{{ assignment.user.displayName || assignment.user.username }}</span>
                     <div class="assignment-actions">
                       <div class="select-container" v-if="issue.template">
@@ -1054,7 +1062,7 @@ export default {
     isDescriptionTruncated() {
       console.log("Start isDescTrun: " + this.descriptionLineCount);
       console.log("Max lines: " + this.maxLines);
-      console.log("Bool: "+  (this.descriptionLineCount > this.maxLines));
+      console.log("Bool: " + (this.descriptionLineCount > this.maxLines));
       let result = this.issue &&
         this.issue.body &&
         this.issue.body.body &&
@@ -1068,7 +1076,7 @@ export default {
       }
       let text = this.issue.body.body;
 
-      if (!(this.issue.body.body.length > this.descriptionMaxLength)&&!this.showFullDescription) {
+      if (!(this.issue.body.body.length > this.descriptionMaxLength) && !this.showFullDescription) {
         return text.split('\n').slice(0, this.maxLines).join('\n') + '\n...';
       }
       // Find a good breaking point (end of sentence or paragraph)
@@ -1668,7 +1676,7 @@ export default {
       this.currentlyEditingRelation = null;
     },
 
-    commentLineCount(text){
+    commentLineCount(text) {
       if (!text || !text.body) return 0;
       result = text.body.split('\n');
       return text.length;
@@ -5141,6 +5149,7 @@ body {
 .dropdown-item:hover {
   background-color: var(--vscode-menu-selectionBackground);
 }
+
 .description-text {
   display: -webkit-box;
   -webkit-box-orient: vertical;
@@ -5155,4 +5164,10 @@ body {
   display: block;
 }
 
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
 </style>
