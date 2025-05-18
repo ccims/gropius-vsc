@@ -1236,9 +1236,32 @@ export default {
       });
     },
     toggleNewAffectionDropdown() {
-      this.newAffectionDropdownVisible = !this.newAffectionDropdownVisible;
       if (this.newAffectionDropdownVisible) {
+        // If already visible, close it
+        this.newAffectionDropdownVisible = false;
+        // Remove any existing event listener
+        document.removeEventListener('click', this.handleClickOutsideAffectionDropdown);
+      } else {
+        // Open the dropdown
+        this.newAffectionDropdownVisible = true;
         vscode.postMessage({ command: 'getAffectedEntities' });
+
+        // Add click-outside handler after a short delay to prevent immediate closing
+        this.$nextTick(() => {
+          document.addEventListener('click', this.handleClickOutsideAffectionDropdown);
+        });
+      }
+    }, handleClickOutsideAffectionDropdown(event) {
+      // Find the dropdown and the button that opens it
+      const dropdown = this.$el.querySelector('.new-affection-dropdown');
+      const button = this.$el.querySelector('[title="Add Affection"]');
+
+      // Close the dropdown if click is outside both elements
+      if (dropdown && button &&
+        !dropdown.contains(event.target) &&
+        !button.contains(event.target)) {
+        this.newAffectionDropdownVisible = false;
+        document.removeEventListener('click', this.handleClickOutsideAffectionDropdown);
       }
     },
     handleAffectedEntitiesLoaded(data) {
@@ -3249,6 +3272,7 @@ export default {
     document.removeEventListener('click', this.handleClickOutsideAddForm);
     document.removeEventListener('click', this.handleClickOutsideLabelDropdown);
     document.removeEventListener('click', this.handleClickOutsideRelationDropdown);
+    document.removeEventListener('click', this.handleClickOutsideAffectionDropdown);
     if (this.resizeObserver) {
       this.resizeObserver.disconnect();
       this.resizeObserver = null;
